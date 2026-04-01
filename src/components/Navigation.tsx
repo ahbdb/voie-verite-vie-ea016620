@@ -136,7 +136,7 @@ const Navigation = () => {
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="flex items-center space-x-3">
             <AnimatedLogo size="sm" />
-            <span className="text-xl font-cinzel font-semibold text-foreground hidden sm:inline">
+            <span className="font-cinzel font-semibold text-foreground hidden sm:inline whitespace-nowrap" style={{ fontSize: 'clamp(0.75rem, 1.5vw, 1.25rem)' }}>
               {t('brand.fullName')}
             </span>
           </Link>
