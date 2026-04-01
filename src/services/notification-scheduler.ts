@@ -14,7 +14,7 @@ interface NotificationHistory {
 
 class NotificationScheduler {
   private notificationHistory: NotificationHistory[] = [];
-  private schedulerInterval: NodeJS.Timeout | null = null;
+  private schedulerInterval: ReturnType<typeof setInterval> | null = null;
   private isRunning = false;
   private debugMode = false;
   private maxHistorySize = 500; // ← Limite pour éviter trop de mémoire

@@ -12,7 +12,7 @@ export const useWebSpeech = (options: UseWebSpeechOptions = {}) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const recognitionRef = useRef<any>(null);
   const optionsRef = useRef(options);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const speechCancelledRef = useRef(false);
   const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 

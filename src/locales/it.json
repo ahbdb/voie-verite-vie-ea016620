@@ -61,11 +61,11 @@
     "tools": "Strumenti"
   },
   "brand": {
-    "word1": "Via,",
-    "word2": "Verità,",
-    "word3": "Vita",
-    "fullName": "Via, Verità, Vita",
-    "logoAlt": "Logo 3V - Via, Verità, Vita"
+    "word1": "VIA,",
+    "word2": "VERITÀ,",
+    "word3": "VITA",
+    "fullName": "VIA, VERITÀ, VITA",
+    "logoAlt": "Logo 3V - VIA, VERITÀ, VITA"
   },
   "hero": {
     "subtitle": "Un santuario spirituale per la gioventù cattolica",
@@ -119,7 +119,7 @@
     "createAccount": "Crea un account"
   },
   "auth": {
-    "title": "3V - Via, Verità, Vita",
+    "title": "3V - VIA, VERITÀ, VITA",
     "subtitle": "Accedi per accedere al tuo percorso biblico",
     "signIn": "Accedi",
     "signUp": "Registrati",
@@ -343,7 +343,7 @@
   },
   "settings": {
     "title": "Impostazioni",
-    "subtitle": "Personalizza la tua esperienza Via, Verità, Vita",
+    "subtitle": "Personalizza la tua esperienza VIA, VERITÀ, VITA",
     "theme": "Tema",
     "themeDesc": "Scegli come preferisci vedere l'interfaccia",
     "light": "Chiaro",

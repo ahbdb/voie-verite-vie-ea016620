@@ -47,7 +47,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               {t('errorBoundary.description')}
             </p>
             
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <div className="bg-muted p-3 rounded mb-4 text-xs font-mono text-muted-foreground overflow-auto max-h-40">
                 {this.state.error.message}
               </div>
