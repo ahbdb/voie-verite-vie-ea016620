@@ -5,6 +5,7 @@ import {
   initNotificationClickHandler,
   registerNotificationServiceWorker,
 } from '@/lib/notification-service';
+import { registerFCMToken } from '@/lib/fcm-registration';
 
 export const NotificationInitializer = () => {
   const { user } = useAuth();
@@ -14,6 +15,15 @@ export const NotificationInitializer = () => {
   useEffect(() => {
     void initNotificationPermissions();
     initNotificationClickHandler();
+  }, [user?.id]);
+
+  // Register FCM token when user is logged in
+  useEffect(() => {
+    if (user?.id) {
+      registerFCMToken().catch((err) =>
+        console.log('FCM registration skipped:', err)
+      );
+    }
   }, [user?.id]);
 
   return null;
