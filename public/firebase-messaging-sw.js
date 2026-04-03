@@ -1,20 +1,21 @@
-// Firebase Messaging Service Worker for push notifications
-// This handles background push notifications from FCM
+// Firebase Cloud Messaging Service Worker
+// Handles background push notifications (app closed, screen off, other app open)
 
 self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
-self.addEventListener('activate', () => {
-  self.clients.claim();
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
 });
 
+// Handle incoming push messages (works even when app is closed)
 self.addEventListener('push', (event) => {
   let data = {
-    title: 'Voie, Vérité, Vie',
+    title: '🔔 Voie Vérité Vie',
     body: 'Vous avez une nouvelle notification',
-    icon: '/logo-3v.png',
-    badge: '/logo-3v.png',
+    icon: '/icon-192x192.png',
+    badge: '/badge-72x72.png',
     tag: 'default',
     data: {},
   };
@@ -22,8 +23,13 @@ self.addEventListener('push', (event) => {
   if (event.data) {
     try {
       const json = event.data.json();
+      // FCM format: { notification: {...}, data: {...} }
       if (json.notification) {
-        data = { ...data, ...json.notification };
+        data.title = json.notification.title || data.title;
+        data.body = json.notification.body || data.body;
+        data.icon = json.notification.icon || data.icon;
+        data.badge = json.notification.badge || data.badge;
+        data.tag = json.notification.tag || data.tag;
       }
       if (json.data) {
         data.data = json.data;
@@ -35,14 +41,18 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: data.icon || '/logo-3v.png',
-    badge: data.badge || '/logo-3v.png',
+    icon: data.icon,
+    badge: data.badge,
     tag: data.tag || `push-${Date.now()}`,
     requireInteraction: true,
     silent: false,
     vibrate: [200, 100, 200, 100, 200],
     renotify: true,
     data: data.data || {},
+    actions: [
+      { action: 'open', title: 'Ouvrir' },
+      { action: 'dismiss', title: 'Fermer' },
+    ],
   };
 
   event.waitUntil(
@@ -50,8 +60,11 @@ self.addEventListener('push', (event) => {
   );
 });
 
+// Handle notification click — navigate to the right page
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  if (event.action === 'dismiss') return;
 
   const payload = event.notification.data || {};
   let urlToOpen = payload.url || '/';
@@ -86,6 +99,7 @@ self.addEventListener('notificationclick', (event) => {
         includeUncontrolled: true,
       });
 
+      // Try to focus an existing window
       for (const client of allClients) {
         if ('focus' in client) {
           await client.navigate(urlToOpen);
@@ -93,6 +107,7 @@ self.addEventListener('notificationclick', (event) => {
         }
       }
 
+      // Otherwise open a new window
       if (self.clients.openWindow) {
         return self.clients.openWindow(urlToOpen);
       }

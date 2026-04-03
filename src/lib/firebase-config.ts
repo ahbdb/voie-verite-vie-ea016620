@@ -1,12 +1,8 @@
-// Firebase configuration for push notifications
-// Uses VAPID key for web push via FCM
+// VAPID configuration for Web Push notifications
+// These keys are used for push subscription and server-side sending
+
+export const VAPID_KEY = "BFqOJNkwbF-xB98adrB-YyuLJ6RwOigIeS4utLQtEowrsxHZqE9GG_-5fxYOhdB117YU_dPSuO9Izx9m8iJAu0w";
 
 export const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDummy", // Not needed for messaging-only
   projectId: "voie-verite-vie-92cd3",
-  messagingSenderId: "107727028583850164789",
-  appId: "voie-verite-vie-92cd3",
 };
-
-// VAPID key for web push
-export const VAPID_KEY = "BKX-BX8zr6Dp2h3t7Dw9RMUqCwlnn_SfYskt84tzQqKdmJ3c5pe0Iv7nHSLQVa-qEsK1EmlgOvmdeKtt4yTl8Bc";

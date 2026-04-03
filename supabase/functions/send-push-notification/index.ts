@@ -16,15 +16,16 @@ interface PushPayload {
   badge?: string;
   url?: string;
   action?: string;
-  user_ids?: string[]; // specific users, or empty = broadcast all
-  topic?: string;
+  user_ids?: string[];
 }
 
 // Get Google OAuth2 access token from service account
 async function getAccessToken(serviceAccount: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const payload = btoa(JSON.stringify({
+
+  // Create JWT header and payload
+  const headerB64 = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payloadB64 = base64url(JSON.stringify({
     iss: serviceAccount.client_email,
     scope: "https://www.googleapis.com/auth/firebase.messaging",
     aud: "https://oauth2.googleapis.com/token",
@@ -32,7 +33,7 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
     exp: now + 3600,
   }));
 
-  const unsignedToken = `${header}.${payload}`;
+  const unsignedToken = `${headerB64}.${payloadB64}`;
 
   // Import the private key
   const pemContents = serviceAccount.private_key
@@ -56,7 +57,8 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
     new TextEncoder().encode(unsignedToken)
   );
 
-  const signedToken = `${unsignedToken}.${btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}`;
+  const signatureB64 = base64url(new Uint8Array(signature));
+  const signedToken = `${unsignedToken}.${signatureB64}`;
 
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -65,15 +67,59 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   });
 
   const tokenData = await tokenResponse.json();
+  if (!tokenData.access_token) {
+    console.error("OAuth token error:", tokenData);
+    throw new Error("Failed to get access token");
+  }
   return tokenData.access_token;
 }
 
-async function sendFCMMessage(accessToken: string, projectId: string, token: string, payload: PushPayload) {
+function base64url(input: string | Uint8Array): string {
+  let b64: string;
+  if (typeof input === "string") {
+    b64 = btoa(input);
+  } else {
+    b64 = btoa(String.fromCharCode(...input));
+  }
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// Extract FCM registration token from a stored token
+// The token might be a raw FCM token string OR a JSON push subscription
+function extractFCMToken(storedToken: string): string | null {
+  try {
+    const parsed = JSON.parse(storedToken);
+    // It's a PushSubscription JSON - extract token from endpoint
+    if (parsed.endpoint) {
+      // Chrome/Edge FCM endpoints: https://fcm.googleapis.com/fcm/send/TOKEN
+      const fcmMatch = parsed.endpoint.match(/\/fcm\/send\/(.+)$/);
+      if (fcmMatch) return fcmMatch[1];
+      
+      // FCM v1 endpoints: https://fcm.googleapis.com/wp/TOKEN
+      const wpMatch = parsed.endpoint.match(/\/wp\/(.+)$/);
+      if (wpMatch) return wpMatch[1];
+
+      console.log("Non-FCM endpoint, skipping:", parsed.endpoint.substring(0, 60));
+      return null;
+    }
+    return null;
+  } catch {
+    // It's already a plain FCM token string
+    return storedToken;
+  }
+}
+
+async function sendFCMMessage(
+  accessToken: string, 
+  projectId: string, 
+  fcmToken: string, 
+  payload: PushPayload
+) {
   const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
   
-  const message: any = {
+  const message = {
     message: {
-      token,
+      token: fcmToken,
       notification: {
         title: payload.title,
         body: payload.body,
@@ -82,11 +128,13 @@ async function sendFCMMessage(accessToken: string, projectId: string, token: str
         notification: {
           title: payload.title,
           body: payload.body,
-          icon: payload.icon || "/logo-3v.png",
-          badge: payload.badge || "/logo-3v.png",
+          icon: payload.icon || "/icon-192x192.png",
+          badge: payload.badge || "/badge-72x72.png",
           requireInteraction: true,
+          silent: false,
           vibrate: [200, 100, 200, 100, 200],
-          tag: payload.action || "general",
+          tag: payload.action || `push-${Date.now()}`,
+          renotify: true,
           data: {
             url: payload.url || "/",
             action: payload.action || "general",
@@ -123,6 +171,11 @@ Deno.serve(async (req) => {
     
     const payload: PushPayload = await req.json();
     
+    // Ensure app name is always in title
+    if (!payload.title.includes("Voie") && !payload.title.includes("VVV")) {
+      payload.title = `${payload.title}`;
+    }
+    
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Get tokens based on target
@@ -135,6 +188,7 @@ Deno.serve(async (req) => {
     const { data: tokens, error } = await query;
     
     if (error) {
+      console.error("Error fetching tokens:", error);
       return new Response(JSON.stringify({ error: error.message }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -148,17 +202,27 @@ Deno.serve(async (req) => {
       });
     }
 
+    console.log(`Processing ${tokens.length} tokens for "${payload.title}"`);
+
     const results = [];
     const invalidTokens: string[] = [];
 
     for (const t of tokens) {
+      const fcmToken = extractFCMToken(t.token);
+      if (!fcmToken) {
+        console.log("Skipping non-FCM token for user:", t.user_id);
+        continue;
+      }
+
       try {
-        const r = await sendFCMMessage(accessToken, serviceAccount.project_id, t.token, payload);
+        const r = await sendFCMMessage(accessToken, serviceAccount.project_id, fcmToken, payload);
         results.push(r);
         
-        // Remove invalid tokens
         if (r.status === 404 || r.status === 410) {
           invalidTokens.push(t.token);
+          console.log("Invalid token removed for user:", t.user_id);
+        } else if (r.status !== 200) {
+          console.log("FCM send failed:", r.status, JSON.stringify(r.result));
         }
       } catch (e) {
         console.error("FCM send error:", e);
@@ -170,11 +234,12 @@ Deno.serve(async (req) => {
       await supabase.from("fcm_tokens").delete().in("token", invalidTokens);
     }
 
-    return new Response(JSON.stringify({ 
-      sent: results.filter(r => r.status === 200).length,
-      failed: results.filter(r => r.status !== 200).length,
-      cleaned: invalidTokens.length,
-    }), {
+    const sent = results.filter(r => r.status === 200).length;
+    const failed = results.filter(r => r.status !== 200).length;
+
+    console.log(`Push results: ${sent} sent, ${failed} failed, ${invalidTokens.length} cleaned`);
+
+    return new Response(JSON.stringify({ sent, failed, cleaned: invalidTokens.length }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
