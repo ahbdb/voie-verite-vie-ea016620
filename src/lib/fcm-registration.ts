@@ -5,7 +5,9 @@ import i18n from "@/i18n";
 const FCM_SW_PATH = "/firebase-messaging-sw.js";
 
 /**
- * Register or update the FCM token for push notifications
+ * Register for push notifications using Web Push API with VAPID key.
+ * The subscription is stored in the database and used by the backend
+ * to send notifications via FCM.
  */
 export async function registerFCMToken(): Promise<string | null> {
   try {
@@ -14,11 +16,17 @@ export async function registerFCMToken(): Promise<string | null> {
       return null;
     }
 
-    // Register our custom service worker for FCM
-    const registration = await navigator.serviceWorker.register(FCM_SW_PATH, { scope: "/" });
-    await navigator.serviceWorker.ready;
+    // Register the FCM service worker
+    let registration: ServiceWorkerRegistration;
+    try {
+      registration = await navigator.serviceWorker.register(FCM_SW_PATH, { scope: "/" });
+      await navigator.serviceWorker.ready;
+    } catch (err) {
+      console.log("SW registration failed:", err);
+      return null;
+    }
 
-    // Request notification permission
+    // Request notification permission if not yet decided
     if (Notification.permission === "default") {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
@@ -28,21 +36,27 @@ export async function registerFCMToken(): Promise<string | null> {
     }
 
     if (Notification.permission !== "granted") {
+      console.log("Notifications not permitted");
       return null;
     }
 
-    // Subscribe to push with VAPID key
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_KEY) as BufferSource,
-    });
+    // Check for existing subscription
+    let subscription = await registration.pushManager.getSubscription();
+    
+    if (!subscription) {
+      // Subscribe to push with VAPID key
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_KEY),
+      });
+    }
 
     const token = JSON.stringify(subscription);
 
     // Save token to database
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      console.log("User not logged in, skipping FCM token save");
+      console.log("User not logged in, skipping token save");
       return token;
     }
 
@@ -66,12 +80,12 @@ export async function registerFCMToken(): Promise<string | null> {
     if (error) {
       console.error("Error saving FCM token:", error);
     } else {
-      console.log("✓ FCM token registered successfully");
+      console.log("✓ Push notification token registered");
     }
 
     return token;
   } catch (err) {
-    console.error("FCM registration error:", err);
+    console.error("Push registration error:", err);
     return null;
   }
 }
