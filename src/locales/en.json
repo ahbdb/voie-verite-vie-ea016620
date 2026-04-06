@@ -973,5 +973,15 @@
       "removeAdminConfirm": "Remove admin rights?",
       "removeAdminDesc": "This user will lose their admin rights."
     }
+  },
+  "reports": {
+    "pageTitle": "Activity Reports",
+    "pageDescription": "Discover the detailed accounts of our spiritual, community and charitable activities.",
+    "noReports": "No reports available at the moment.",
+    "readReport": "Read report",
+    "downloadPdf": "Download PDF",
+    "downloadFullReport": "Download the full report in PDF format",
+    "relatedContent": "Related Content",
+    "activityReports": "Activity Reports"
   }
 }

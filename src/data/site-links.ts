@@ -39,6 +39,7 @@ export const siteLinks: SiteCategory[] = [
     items: [
       { nameKey: 'common.activities', href: '/activities', icon: 'Calendar' },
       { nameKey: 'common.gallery', href: '/gallery', icon: 'Camera' },
+      { nameKey: 'reports.activityReports', href: '/reports', icon: 'FileText' },
     ],
   },
   {

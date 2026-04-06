@@ -973,5 +973,15 @@
       "removeAdminConfirm": "Retirer les droits admin ?",
       "removeAdminDesc": "Cet utilisateur perdra ses droits d'administration."
     }
+  },
+  "reports": {
+    "pageTitle": "Rapports d'Activités",
+    "pageDescription": "Découvrez les comptes rendus détaillés de nos activités spirituelles, communautaires et caritatives.",
+    "noReports": "Aucun rapport disponible pour le moment.",
+    "readReport": "Lire le rapport",
+    "downloadPdf": "Télécharger le PDF",
+    "downloadFullReport": "Téléchargez le rapport complet au format PDF",
+    "relatedContent": "Contenus liés",
+    "activityReports": "Rapports d'Activités"
   }
 }

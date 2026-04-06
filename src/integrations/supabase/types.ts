@@ -101,6 +101,69 @@ export type Database = {
         }
         Relationships: []
       }
+      activity_reports: {
+        Row: {
+          content: Json | null
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_published: boolean | null
+          linked_activities: string[] | null
+          linked_galleries: string[] | null
+          linked_spiritual_practices: string[] | null
+          pdf_url: string | null
+          period_end: string | null
+          period_start: string | null
+          report_date: string
+          sort_order: number | null
+          summary: string | null
+          title: string
+          translations: Json | null
+          updated_at: string
+        }
+        Insert: {
+          content?: Json | null
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean | null
+          linked_activities?: string[] | null
+          linked_galleries?: string[] | null
+          linked_spiritual_practices?: string[] | null
+          pdf_url?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          report_date?: string
+          sort_order?: number | null
+          summary?: string | null
+          title: string
+          translations?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          content?: Json | null
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean | null
+          linked_activities?: string[] | null
+          linked_galleries?: string[] | null
+          linked_spiritual_practices?: string[] | null
+          pdf_url?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          report_date?: string
+          sort_order?: number | null
+          summary?: string | null
+          title?: string
+          translations?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_conversations: {
         Row: {
           created_at: string | null
