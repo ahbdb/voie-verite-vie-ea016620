@@ -6,7 +6,7 @@ import Navigation from '@/components/Navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Check, Flame, Heart, BookOpen, Users, Calendar, Share2, Printer } from 'lucide-react';
+import { Check, Flame, Heart, BookOpen, Users, Calendar, Share2, Printer, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/use-toast';
@@ -200,6 +200,7 @@ const Careme2026 = memo(() => {
             ✝️ {t('careme.stationsOfCross')}
           </button>
           <div className="flex gap-1.5 ml-auto">
+            <button onClick={() => navigate('/reports')} className="h-8 px-2 text-xs text-primary hover:underline flex items-center gap-1"><FileText className="w-3.5 h-3.5" />{t('reports.activityReports')}</button>
             <Button size="sm" onClick={printPage} variant="ghost" className="h-8 w-8 p-0"><Printer className="w-3.5 h-3.5" /></Button>
             <Button size="sm" onClick={shareProgram} variant="ghost" className="h-8 w-8 p-0"><Share2 className="w-3.5 h-3.5" /></Button>
           </div>
