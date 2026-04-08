@@ -984,5 +984,90 @@
     "downloadFullReport": "Téléchargez le rapport complet au format PDF",
     "relatedContent": "Contenus liés",
     "activityReports": "Rapports d'Activités"
+  },
+  "calls": {
+    "pageTitle": "Appels & Lives",
+    "pageDescription": "Rejoignez nos sessions en direct, participez aux appels communautaires et revivez les moments forts.",
+    "loginRequired": "Connectez-vous pour activer les rappels",
+    "linkCopied": "Lien copié !",
+    "sessionNotStarted": "Cette session n'a pas encore commencé",
+    "tabs": {
+      "live": "En direct",
+      "scheduled": "Programmés",
+      "scheduledShort": "Programmés",
+      "recordings": "Enregistrements",
+      "recordingsShort": "Replay",
+      "admin": "Administration"
+    },
+    "noLive": "Aucune session en direct",
+    "noLiveDesc": "Revenez bientôt ou consultez les sessions programmées.",
+    "liveNow": "EN DIRECT — APPUYEZ POUR REJOINDRE",
+    "joinNow": "Rejoindre maintenant",
+    "adminControls": "Contrôles administrateur",
+    "endSession": "Terminer la session",
+    "muteAll": "Couper tous les micros",
+    "noScheduled": "Aucune session programmée",
+    "noScheduledDesc": "Aucun appel ou live n'est prévu pour le moment.",
+    "scheduleNew": "Planifier une session",
+    "startingNow": "Commence maintenant",
+    "remindMe": "Me rappeler",
+    "reminded": "Rappel activé",
+    "reminderSet": "Rappel activé ! Vous serez notifié avant la session.",
+    "reminderRemoved": "Rappel désactivé.",
+    "share": "Partager",
+    "addToCalendar": "Ajouter au calendrier",
+    "noRecordings": "Aucun enregistrement",
+    "noRecordingsDesc": "Les sessions terminées apparaîtront ici.",
+    "play": "Lire",
+    "download": "Télécharger",
+    "noRecordingFile": "Enregistrement non disponible",
+    "recordingDeleted": "Enregistrement supprimé",
+    "sessionCancelled": "Session annulée",
+    "sessionDeleted": "Session supprimée",
+    "sessionCreated": "Session créée avec succès !",
+    "createSession": "Créer la session",
+    "type": {
+      "audio": "Audio",
+      "video": "Vidéo",
+      "live": "Live"
+    },
+    "access": {
+      "open": "Ouvert à tous",
+      "members": "Membres uniquement"
+    },
+    "recurrence": {
+      "once": "Une fois",
+      "daily": "Quotidien",
+      "weekly": "Hebdomadaire",
+      "monthly": "Mensuel"
+    },
+    "status": {
+      "scheduled": "Programmé",
+      "live": "En direct",
+      "ended": "Terminé",
+      "cancelled": "Annulé"
+    },
+    "form": {
+      "title": "Titre de la session",
+      "titlePlaceholder": "Ex: Réunion de prière du dimanche",
+      "description": "Description",
+      "type": "Type",
+      "access": "Accès",
+      "date": "Date",
+      "selectDate": "Choisir une date",
+      "time": "Heure",
+      "duration": "Durée",
+      "recurrence": "Récurrence",
+      "tags": "Tags (séparés par des virgules)",
+      "tagsPlaceholder": "prière, communauté, annonce"
+    },
+    "admin": {
+      "analytics": "Statistiques",
+      "totalSessions": "Sessions totales",
+      "activeLive": "En direct",
+      "totalViewers": "Vues totales",
+      "manageSessions": "Gestion des sessions",
+      "noSessions": "Aucune session à gérer."
+    }
   }
 }

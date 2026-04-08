@@ -984,5 +984,90 @@
     "downloadFullReport": "Download the full report in PDF format",
     "relatedContent": "Related Content",
     "activityReports": "Activity Reports"
+  },
+  "calls": {
+    "pageTitle": "Calls & Lives",
+    "pageDescription": "Join our live sessions, participate in community calls and relive the best moments.",
+    "loginRequired": "Log in to enable reminders",
+    "linkCopied": "Link copied!",
+    "sessionNotStarted": "This session hasn't started yet",
+    "tabs": {
+      "live": "Live Now",
+      "scheduled": "Scheduled",
+      "scheduledShort": "Scheduled",
+      "recordings": "Recordings",
+      "recordingsShort": "Replay",
+      "admin": "Admin Panel"
+    },
+    "noLive": "No live session",
+    "noLiveDesc": "Come back soon or check scheduled sessions.",
+    "liveNow": "LIVE NOW — TAP TO JOIN",
+    "joinNow": "Join now",
+    "adminControls": "Admin controls",
+    "endSession": "End session",
+    "muteAll": "Mute all",
+    "noScheduled": "No scheduled sessions",
+    "noScheduledDesc": "No calls or lives are planned at the moment.",
+    "scheduleNew": "Schedule a session",
+    "startingNow": "Starting now",
+    "remindMe": "Remind me",
+    "reminded": "Reminder set",
+    "reminderSet": "Reminder set! You'll be notified before the session.",
+    "reminderRemoved": "Reminder removed.",
+    "share": "Share",
+    "addToCalendar": "Add to calendar",
+    "noRecordings": "No recordings",
+    "noRecordingsDesc": "Completed sessions will appear here.",
+    "play": "Play",
+    "download": "Download",
+    "noRecordingFile": "Recording not available",
+    "recordingDeleted": "Recording deleted",
+    "sessionCancelled": "Session cancelled",
+    "sessionDeleted": "Session deleted",
+    "sessionCreated": "Session created successfully!",
+    "createSession": "Create session",
+    "type": {
+      "audio": "Audio",
+      "video": "Video",
+      "live": "Live"
+    },
+    "access": {
+      "open": "Open to all",
+      "members": "Members only"
+    },
+    "recurrence": {
+      "once": "One-time",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly"
+    },
+    "status": {
+      "scheduled": "Scheduled",
+      "live": "Live",
+      "ended": "Ended",
+      "cancelled": "Cancelled"
+    },
+    "form": {
+      "title": "Session title",
+      "titlePlaceholder": "E.g.: Sunday Prayer Meeting",
+      "description": "Description",
+      "type": "Type",
+      "access": "Access",
+      "date": "Date",
+      "selectDate": "Select a date",
+      "time": "Time",
+      "duration": "Duration",
+      "recurrence": "Recurrence",
+      "tags": "Tags (comma separated)",
+      "tagsPlaceholder": "prayer, community, announcement"
+    },
+    "admin": {
+      "analytics": "Analytics",
+      "totalSessions": "Total sessions",
+      "activeLive": "Active live",
+      "totalViewers": "Total views",
+      "manageSessions": "Session management",
+      "noSessions": "No sessions to manage."
+    }
   }
 }
