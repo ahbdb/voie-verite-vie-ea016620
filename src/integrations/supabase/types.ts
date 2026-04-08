@@ -689,6 +689,118 @@ export type Database = {
           },
         ]
       }
+      scheduled_sessions: {
+        Row: {
+          access_password: string | null
+          access_type: string
+          agenda: Json | null
+          created_at: string
+          created_by: string
+          description: string | null
+          estimated_duration: number | null
+          id: string
+          platforms: Json | null
+          recording_url: string | null
+          recurrence: string | null
+          scheduled_date: string
+          scheduled_time: string
+          session_type: string
+          share_link: string | null
+          status: string
+          tags: string[] | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          video_room_id: string | null
+          viewer_count: number | null
+        }
+        Insert: {
+          access_password?: string | null
+          access_type?: string
+          agenda?: Json | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          estimated_duration?: number | null
+          id?: string
+          platforms?: Json | null
+          recording_url?: string | null
+          recurrence?: string | null
+          scheduled_date: string
+          scheduled_time: string
+          session_type?: string
+          share_link?: string | null
+          status?: string
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+          video_room_id?: string | null
+          viewer_count?: number | null
+        }
+        Update: {
+          access_password?: string | null
+          access_type?: string
+          agenda?: Json | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          estimated_duration?: number | null
+          id?: string
+          platforms?: Json | null
+          recording_url?: string | null
+          recurrence?: string | null
+          scheduled_date?: string
+          scheduled_time?: string
+          session_type?: string
+          share_link?: string | null
+          status?: string
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          video_room_id?: string | null
+          viewer_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_sessions_video_room_id_fkey"
+            columns: ["video_room_id"]
+            isOneToOne: false
+            referencedRelation: "video_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_reminders: {
+        Row: {
+          created_at: string
+          id: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_reminders_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "scheduled_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_quiz_responses: {
         Row: {
           answer: string
