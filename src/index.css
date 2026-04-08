@@ -813,3 +813,8 @@ html {
 h1, h2, h3, h4, h5, h6, p, span, a, li, td, th, label, button {
   max-width: 100%;
 }
+
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-200px) scale(1.5); }
+}
