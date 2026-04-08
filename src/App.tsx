@@ -27,6 +27,7 @@ import Careme2026 from "./pages/Careme2026";
 import CheminDeCroix from "./pages/CheminDeCroix";
 import ShareDebug from "./pages/ShareDebug";
 import ActivityReports from "./pages/ActivityReports";
+import CallsAndLives from "./pages/CallsAndLives";
 import Neuvaines from "./pages/Neuvaines";
 import NeuvaineDayView from "./pages/NeuvaineDayView";
 import Admin from "./pages/Admin";
@@ -123,6 +124,7 @@ const App = () => {
                     <Route path="/chemin-de-croix" element={<CheminDeCroix />} />
                     <Route path="/share-debug" element={<ShareDebug />} />
                     <Route path="/reports" element={<ActivityReports />} />
+                    <Route path="/calls-lives" element={<CallsAndLives />} />
                     <Route path="/neuvaines" element={<Neuvaines />} />
                     <Route path="/neuvaines/:id" element={<NeuvaineDayView />} />
                     <Route path="/settings" element={<Settings />} />
