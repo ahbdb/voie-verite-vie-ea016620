@@ -51,7 +51,8 @@
     "lightMode": "Mode clair",
     "darkMode": "Mode sombre",
     "reduceText": "Réduire le texte",
-    "enlargeText": "Agrandir le texte"
+    "enlargeText": "Agrandir le texte",
+    "callsAndLives": "Appels & Lives"
   },
   "nav": {
     "main": "Principal",
