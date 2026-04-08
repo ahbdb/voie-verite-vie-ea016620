@@ -51,7 +51,8 @@
     "lightMode": "Light mode",
     "darkMode": "Dark mode",
     "reduceText": "Reduce text",
-    "enlargeText": "Enlarge text"
+    "enlargeText": "Enlarge text",
+    "callsAndLives": "Calls & Lives"
   },
   "nav": {
     "main": "Main",
