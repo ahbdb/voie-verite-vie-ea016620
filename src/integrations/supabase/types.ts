@@ -801,6 +801,39 @@ export type Database = {
           },
         ]
       }
+      streaming_settings: {
+        Row: {
+          created_at: string
+          facebook_stream_key: string | null
+          id: string
+          tiktok_rtmp_url: string | null
+          tiktok_stream_key: string | null
+          updated_at: string
+          whatsapp_broadcast_link: string | null
+          youtube_stream_key: string | null
+        }
+        Insert: {
+          created_at?: string
+          facebook_stream_key?: string | null
+          id?: string
+          tiktok_rtmp_url?: string | null
+          tiktok_stream_key?: string | null
+          updated_at?: string
+          whatsapp_broadcast_link?: string | null
+          youtube_stream_key?: string | null
+        }
+        Update: {
+          created_at?: string
+          facebook_stream_key?: string | null
+          id?: string
+          tiktok_rtmp_url?: string | null
+          tiktok_stream_key?: string | null
+          updated_at?: string
+          whatsapp_broadcast_link?: string | null
+          youtube_stream_key?: string | null
+        }
+        Relationships: []
+      }
       user_quiz_responses: {
         Row: {
           answer: string
