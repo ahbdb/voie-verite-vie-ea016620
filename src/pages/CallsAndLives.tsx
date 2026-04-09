@@ -204,6 +204,7 @@ const CallsAndLives = () => {
               sessions={liveSessions}
               isAdmin={isAdmin}
               onJoin={joinSession}
+              onRefresh={fetchSessions}
               t={t}
               dateLocale={dateLocale}
             />
