@@ -282,7 +282,11 @@
     "full": "Complet",
     "register": "S'inscrire",
     "pastEvent": "Événement passé",
-    "loginToSee": "Pour voir les autres activités, veuillez vous inscrire ou vous connecter (si vous avez changé d'appareil)."
+    "loginToSee": "Pour voir les autres activités, veuillez vous inscrire ou vous connecter (si vous avez changé d'appareil).",
+    "planningTitle": "📄 Programme Annuel Officiel 2026-2027",
+    "planningDesc": "Avril 2026 – Samedi Saint 27 Mars 2027",
+    "downloadPlanning": "Télécharger le PDF",
+    "allCategories": "Toutes"
   },
   "gallery": {
     "title": "Notre Galerie",
