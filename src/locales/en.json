@@ -282,7 +282,11 @@
     "full": "Full",
     "register": "Register",
     "pastEvent": "Past event",
-    "loginToSee": "To see other activities, please sign up or log in (if you changed devices)."
+    "loginToSee": "To see other activities, please sign up or log in (if you changed devices).",
+    "planningTitle": "📄 Official Annual Program 2026-2027",
+    "planningDesc": "April 2026 – Holy Saturday, March 27, 2027",
+    "downloadPlanning": "Download PDF",
+    "allCategories": "All"
   },
   "gallery": {
     "title": "Our Gallery",
