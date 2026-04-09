@@ -204,6 +204,7 @@ const CallsAndLives = () => {
               sessions={liveSessions}
               isAdmin={isAdmin}
               onJoin={joinSession}
+              onRefresh={fetchSessions}
               t={t}
               dateLocale={dateLocale}
             />
@@ -261,9 +262,11 @@ const CallsAndLives = () => {
 };
 
 /* ─── LIVE NOW TAB ─── */
-const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale }: any) => {
+const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any) => {
+  const { user } = useAuth();
   const [prayerCount, setPrayerCount] = useState(0);
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number }[]>([]);
+  const [starting, setStarting] = useState(false);
 
   const sendReaction = (emoji: string) => {
     const id = Date.now();
@@ -273,18 +276,115 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale }: any) => {
     setTimeout(() => setFloatingEmojis(prev => prev.filter(e => e.id !== id)), 2000);
   };
 
-  if (sessions.length === 0) {
-    return (
-      <div className="text-center py-16">
-        <Radio className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-foreground mb-2">{t('calls.noLive')}</h3>
-        <p className="text-muted-foreground text-sm">{t('calls.noLiveDesc')}</p>
-      </div>
-    );
-  }
+  const startSession = async (type: 'audio' | 'video' | 'live') => {
+    if (!user) return;
+    setStarting(true);
+    try {
+      // Create a video room first
+      const { data: room, error: roomError } = await supabase
+        .from('video_rooms')
+        .insert({
+          title: type === 'audio' ? t('calls.quickAudioCall') : type === 'video' ? t('calls.quickVideoCall') : t('calls.quickLiveStream'),
+          room_type: type === 'live' ? 'broadcast' : type,
+          status: 'active',
+          created_by: user.id,
+          started_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single();
+
+      if (roomError) throw roomError;
+
+      // Create a scheduled_session linked to this room
+      const { error: sessionError } = await supabase
+        .from('scheduled_sessions' as any)
+        .insert({
+          title: type === 'audio' ? t('calls.quickAudioCall') : type === 'video' ? t('calls.quickVideoCall') : t('calls.quickLiveStream'),
+          session_type: type,
+          scheduled_date: format(new Date(), 'yyyy-MM-dd'),
+          scheduled_time: format(new Date(), 'HH:mm:ss'),
+          estimated_duration: 60,
+          access_type: 'open',
+          recurrence: 'once',
+          status: 'live',
+          created_by: user.id,
+          video_room_id: room.id,
+        } as any);
+
+      if (sessionError) throw sessionError;
+
+      toast.success(t('calls.sessionStarted'));
+      onRefresh();
+    } catch (err: any) {
+      console.error('Failed to start session:', err);
+      toast.error(t('common.error'));
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const endSession = async (session: ScheduledSession) => {
+    try {
+      await supabase.from('scheduled_sessions' as any)
+        .update({ status: 'ended' } as any)
+        .eq('id', session.id);
+      if (session.video_room_id) {
+        await supabase.from('video_rooms')
+          .update({ status: 'ended', ended_at: new Date().toISOString() })
+          .eq('id', session.video_room_id);
+      }
+      toast.success(t('calls.sessionEnded'));
+      onRefresh();
+    } catch {
+      toast.error(t('common.error'));
+    }
+  };
 
   return (
     <div className="space-y-6">
+      {/* Admin: Start buttons when no live session */}
+      {isAdmin && sessions.length === 0 && (
+        <div className="rounded-xl border border-dashed border-primary/30 p-6 text-center space-y-4">
+          <h3 className="text-lg font-semibold text-foreground">{t('calls.startNewSession')}</h3>
+          <p className="text-sm text-muted-foreground">{t('calls.startNewSessionDesc')}</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button
+              onClick={() => startSession('audio')}
+              disabled={starting}
+              className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
+            >
+              {starting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
+              🎙️ {t('calls.startAudio')}
+            </Button>
+            <Button
+              onClick={() => startSession('video')}
+              disabled={starting}
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {starting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Video className="h-4 w-4 mr-2" />}
+              📹 {t('calls.startVideo')}
+            </Button>
+            <Button
+              onClick={() => startSession('live')}
+              disabled={starting}
+              className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white"
+            >
+              {starting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Radio className="h-4 w-4 mr-2" />}
+              🔴 {t('calls.startLive')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* No live session message for non-admins */}
+      {!isAdmin && sessions.length === 0 && (
+        <div className="text-center py-16">
+          <Radio className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t('calls.noLive')}</h3>
+          <p className="text-muted-foreground text-sm">{t('calls.noLiveDesc')}</p>
+        </div>
+      )}
+
       {sessions.map((session: ScheduledSession) => (
         <div key={session.id} className="relative overflow-hidden rounded-xl border border-red-500/30 bg-gradient-to-br from-red-500/5 to-background">
           {/* Floating emojis */}
@@ -292,7 +392,7 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale }: any) => {
             {floatingEmojis.map(e => (
               <span
                 key={e.id}
-                className="absolute text-2xl animate-bounce"
+                className="absolute text-2xl"
                 style={{
                   left: `${e.x}%`,
                   bottom: 0,
@@ -373,7 +473,7 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale }: any) => {
                   {t('calls.adminControls')}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="destructive" size="sm">
+                  <Button variant="destructive" size="sm" onClick={() => endSession(session)}>
                     🛑 {t('calls.endSession')}
                   </Button>
                   <Button variant="outline" size="sm">
