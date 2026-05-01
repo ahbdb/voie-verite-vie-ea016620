@@ -21,7 +21,9 @@ self.addEventListener('push', (event) => {
   if (event.data) {
     try {
       const json = event.data.json();
-      data = { ...data, ...json };
+      // Server may wrap payload in { notification: {...} }
+      const payload = json.notification || json;
+      data = { ...data, ...payload };
     } catch (_error) {
       data.body = event.data.text();
     }
@@ -32,10 +34,16 @@ self.addEventListener('push', (event) => {
       body: data.body,
       badge: data.badge,
       icon: data.icon,
+      // Large hero image (WhatsApp-style rich preview, supported on Android)
+      image: data.image,
       tag: data.tag,
+      renotify: data.renotify ?? true,
       requireInteraction: data.requireInteraction,
       silent: data.silent ?? false,
-      vibrate: data.vibrate || [200, 100, 200],
+      vibrate: data.vibrate || [300, 100, 300, 100, 500],
+      timestamp: data.timestamp || Date.now(),
+      // Action buttons (Android shows up to 2)
+      actions: Array.isArray(data.actions) ? data.actions.slice(0, 2) : undefined,
       data: data.data || data,
     })
   );
@@ -46,6 +54,15 @@ self.addEventListener('notificationclick', (event) => {
 
   const payload = event.notification.data || {};
   let urlToOpen = payload.url || '/';
+
+  // Action button clicked
+  if (event.action === 'join') {
+    urlToOpen = payload.joinUrl || payload.url || '/calls-lives';
+  } else if (event.action === 'remind') {
+    urlToOpen = payload.url || '/calls-lives';
+  } else if (event.action === 'dismiss') {
+    return; // just close
+  }
 
   if (!payload.url && payload.action) {
     switch (payload.action) {
@@ -63,6 +80,10 @@ self.addEventListener('notificationclick', (event) => {
         break;
       case 'gallery':
         urlToOpen = '/gallery';
+        break;
+      case 'live':
+      case 'session':
+        urlToOpen = '/calls-lives';
         break;
       case 'call':
       case 'welcome':
