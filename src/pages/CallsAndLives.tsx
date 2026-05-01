@@ -24,7 +24,7 @@ import {
   Radio, Video, Mic, Calendar as CalendarIcon, Clock, Users, Play,
   Bell, Share2, Download, Settings, Trash2, Edit2, Plus, Eye,
   PhoneCall, VideoIcon, Loader2, QrCode, Link2, Copy, ExternalLink,
-  Heart, ThumbsUp, Flame, Laugh, Bird, HandMetal
+  Heart, ThumbsUp, Flame, Laugh, Bird, HandMetal, Sparkles, Crown, X
 } from 'lucide-react';
 
 const EMOJI_REACTIONS = ['👏', '🙏', '❤️', '🔥', '😂', '🕊️'];
@@ -155,43 +155,69 @@ const CallsAndLives = () => {
       </Helmet>
       <Navigation />
 
-      <main className="container mx-auto px-4 pt-24 pb-12 max-w-5xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            📺 {t('calls.pageTitle')}
+      {/* Hero header — cathedral aesthetic */}
+      <header className="relative overflow-hidden border-b border-cathedral-gold/20 bg-gradient-cathedral">
+        <div className="absolute inset-0 bg-gradient-stained opacity-60 pointer-events-none" />
+        <div className="absolute inset-0 stained-shimmer opacity-40 pointer-events-none" />
+        <div className="relative container mx-auto px-4 pt-28 pb-12 max-w-5xl text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cathedral-gold/40 bg-background/10 backdrop-blur-sm mb-5">
+            <Sparkles className="h-3.5 w-3.5 text-cathedral-gold" />
+            <span className="text-xs uppercase tracking-[0.2em] text-cathedral-gold font-medium">
+              {t('calls.heroBadge', 'Communauté en direct')}
+            </span>
+          </div>
+          <h1 className="font-cinzel text-4xl sm:text-5xl md:text-6xl font-bold text-white tracking-tight">
+            {t('calls.pageTitle')}
           </h1>
-          <p className="text-muted-foreground mt-2">{t('calls.pageDescription')}</p>
-        </div>
+          <div className="cathedral-line w-32 h-px mx-auto my-5" />
+          <p className="text-white/70 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
+            {t('calls.pageDescription')}
+          </p>
 
+          {liveSessions.length > 0 && (
+            <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/90 text-accent-foreground shadow-[0_0_30px_hsl(var(--accent)/0.5)]">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+              </span>
+              <span className="text-xs font-bold uppercase tracking-widest">
+                {liveSessions.length} {t('calls.liveNow')}
+              </span>
+            </div>
+          )}
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-10 max-w-5xl">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className={cn(
-            "w-full grid gap-1",
+            "w-full h-auto grid gap-1.5 bg-muted/40 p-1.5 rounded-xl border border-border/60",
             isAdmin ? "grid-cols-4" : "grid-cols-3"
           )}>
-            <TabsTrigger value="live" className="flex items-center gap-2 text-xs sm:text-sm">
+            <TabsTrigger value="live" className="flex items-center gap-2 text-xs sm:text-sm py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary">
               <Radio className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">{t('calls.tabs.live')}</span>
               <span className="sm:hidden">Live</span>
               {liveSessions.length > 0 && (
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                <span className="relative flex h-2 w-2 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="scheduled" className="flex items-center gap-2 text-xs sm:text-sm">
+            <TabsTrigger value="scheduled" className="flex items-center gap-2 text-xs sm:text-sm py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary">
               <CalendarIcon className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">{t('calls.tabs.scheduled')}</span>
               <span className="sm:hidden">{t('calls.tabs.scheduledShort')}</span>
             </TabsTrigger>
-            <TabsTrigger value="recordings" className="flex items-center gap-2 text-xs sm:text-sm">
+            <TabsTrigger value="recordings" className="flex items-center gap-2 text-xs sm:text-sm py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary">
               <Play className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">{t('calls.tabs.recordings')}</span>
               <span className="sm:hidden">{t('calls.tabs.recordingsShort')}</span>
             </TabsTrigger>
             {isAdmin && (
-              <TabsTrigger value="admin" className="flex items-center gap-2 text-xs sm:text-sm">
-                <Settings className="h-3.5 w-3.5" />
+              <TabsTrigger value="admin" className="flex items-center gap-2 text-xs sm:text-sm py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary">
+                <Crown className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">{t('calls.tabs.admin')}</span>
                 <span className="sm:hidden">Admin</span>
               </TabsTrigger>
@@ -344,55 +370,82 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
     <div className="space-y-6">
       {/* Admin: Start buttons when no live session */}
       {isAdmin && sessions.length === 0 && (
-        <div className="rounded-xl border border-dashed border-primary/30 p-6 text-center space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">{t('calls.startNewSession')}</h3>
-          <p className="text-sm text-muted-foreground">{t('calls.startNewSessionDesc')}</p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button
-              onClick={() => startSession('audio')}
-              disabled={starting}
-              className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
-            >
-              {starting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
-              🎙️ {t('calls.startAudio')}
-            </Button>
-            <Button
-              onClick={() => startSession('video')}
-              disabled={starting}
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {starting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Video className="h-4 w-4 mr-2" />}
-              📹 {t('calls.startVideo')}
-            </Button>
-            <Button
-              onClick={() => startSession('live')}
-              disabled={starting}
-              className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white"
-            >
-              {starting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Radio className="h-4 w-4 mr-2" />}
-              🔴 {t('calls.startLive')}
-            </Button>
+        <div className="relative overflow-hidden rounded-2xl border border-cathedral-gold/30 bg-gradient-to-br from-card via-card to-primary/5 p-8 text-center">
+          <div className="absolute -top-16 -right-16 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
+          <div className="absolute -bottom-16 -left-16 h-40 w-40 rounded-full bg-accent/10 blur-3xl" />
+          <div className="relative">
+            <div className="mx-auto h-14 w-14 rounded-full bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center shadow-[0_0_30px_hsl(var(--primary)/0.4)] mb-4">
+              <Radio className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <h3 className="font-cinzel text-2xl font-bold text-foreground mb-2">{t('calls.startNewSession')}</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">{t('calls.startNewSessionDesc')}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
+              <button
+                onClick={() => startSession('audio')}
+                disabled={starting}
+                className="group relative overflow-hidden rounded-xl border border-border bg-background hover:border-primary/50 transition-all p-5 text-left disabled:opacity-50 hover:shadow-[0_8px_30px_hsl(var(--primary)/0.15)]"
+              >
+                <Mic className="h-6 w-6 text-primary mb-3 group-hover:scale-110 transition-transform" />
+                <p className="font-semibold text-foreground text-sm">{t('calls.startAudio')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('calls.type.audio')}</p>
+              </button>
+              <button
+                onClick={() => startSession('video')}
+                disabled={starting}
+                className="group relative overflow-hidden rounded-xl border border-border bg-background hover:border-primary/50 transition-all p-5 text-left disabled:opacity-50 hover:shadow-[0_8px_30px_hsl(var(--primary)/0.15)]"
+              >
+                <Video className="h-6 w-6 text-primary mb-3 group-hover:scale-110 transition-transform" />
+                <p className="font-semibold text-foreground text-sm">{t('calls.startVideo')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('calls.type.video')}</p>
+              </button>
+              <button
+                onClick={() => startSession('live')}
+                disabled={starting}
+                className="group relative overflow-hidden rounded-xl border border-accent/40 bg-gradient-to-br from-accent/10 to-background hover:border-accent transition-all p-5 text-left disabled:opacity-50 hover:shadow-[0_8px_30px_hsl(var(--accent)/0.25)]"
+              >
+                <div className="flex items-center gap-1.5 mb-3">
+                  <Radio className="h-6 w-6 text-accent group-hover:scale-110 transition-transform" />
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
+                  </span>
+                </div>
+                <p className="font-semibold text-foreground text-sm">{t('calls.startLive')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('calls.type.live')}</p>
+              </button>
+            </div>
+            {starting && (
+              <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> {t('common.loading', 'Loading...')}
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* No live session message for non-admins */}
       {!isAdmin && sessions.length === 0 && (
-        <div className="text-center py-16">
-          <Radio className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">{t('calls.noLive')}</h3>
-          <p className="text-muted-foreground text-sm">{t('calls.noLiveDesc')}</p>
+        <div className="text-center py-20 px-4">
+          <div className="relative inline-flex mb-6">
+            <div className="absolute inset-0 rounded-full bg-primary/10 blur-2xl" />
+            <div className="relative h-20 w-20 rounded-full border border-cathedral-gold/30 bg-gradient-to-br from-card to-muted flex items-center justify-center">
+              <Radio className="h-9 w-9 text-cathedral-gold/60" />
+            </div>
+          </div>
+          <h3 className="font-cinzel text-2xl font-semibold text-foreground mb-2">{t('calls.noLive')}</h3>
+          <p className="text-muted-foreground text-sm max-w-sm mx-auto">{t('calls.noLiveDesc')}</p>
+          <div className="cathedral-line w-24 h-px mx-auto mt-6 opacity-50" />
         </div>
       )}
 
       {sessions.map((session: ScheduledSession) => (
-        <div key={session.id} className="relative overflow-hidden rounded-xl border border-red-500/30 bg-gradient-to-br from-red-500/5 to-background">
+        <div key={session.id} className="relative overflow-hidden rounded-2xl border border-accent/40 bg-gradient-to-br from-accent/5 via-card to-background shadow-[0_10px_40px_-15px_hsl(var(--accent)/0.4)]">
           {/* Floating emojis */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
             {floatingEmojis.map(e => (
               <span
                 key={e.id}
-                className="absolute text-2xl"
+                className="absolute text-3xl"
                 style={{
                   left: `${e.x}%`,
                   bottom: 0,
@@ -405,31 +458,31 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
           </div>
 
           {/* Live banner */}
-          <div className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white">
+          <div className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-accent to-accent/80 text-accent-foreground">
             <span className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
               <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
             </span>
-            <span className="font-bold text-sm uppercase tracking-wider">
+            <span className="font-bold text-xs uppercase tracking-[0.2em]">
               🔴 {t('calls.liveNow')}
             </span>
-            <span className="ml-auto flex items-center gap-1 text-sm">
+            <span className="ml-auto flex items-center gap-1.5 text-sm font-medium">
               <Eye className="h-4 w-4" /> {session.viewer_count}
             </span>
           </div>
 
-          <div className="p-6">
-            <h2 className="text-xl font-bold text-foreground mb-2">{session.title}</h2>
+          <div className="p-6 sm:p-8">
+            <h2 className="font-cinzel text-2xl sm:text-3xl font-bold text-foreground mb-2">{session.title}</h2>
             {session.description && (
-              <p className="text-muted-foreground text-sm mb-4">{session.description}</p>
+              <p className="text-muted-foreground text-sm mb-5 leading-relaxed">{session.description}</p>
             )}
 
-            <div className="flex items-center gap-4 mb-6 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
+            <div className="flex items-center gap-4 mb-6 text-sm text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/60">
                 {session.session_type === 'audio' ? <Mic className="h-4 w-4" /> : <Video className="h-4 w-4" />}
                 {t(`calls.type.${session.session_type}`)}
               </span>
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/60">
                 <Clock className="h-4 w-4" /> {session.estimated_duration} min
               </span>
             </div>
@@ -437,29 +490,31 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
             {/* Join button */}
             <Button
               size="lg"
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold text-lg py-6 mb-4"
+              className="w-full bg-gradient-to-r from-primary to-primary-glow hover:opacity-90 text-primary-foreground font-bold text-base py-6 mb-5 shadow-[0_8px_30px_hsl(var(--primary)/0.35)] hover:shadow-[0_12px_40px_hsl(var(--primary)/0.5)] transition-all"
               onClick={() => onJoin(session)}
             >
               ➡️ {t('calls.joinNow')}
             </Button>
 
             {/* Prayer counter */}
-            <div className="flex items-center justify-center gap-2 mb-4 text-lg">
+            <div className="flex items-center justify-center gap-2 mb-5 text-lg">
               <button
                 onClick={() => sendReaction('🙏')}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-all hover:scale-105"
               >
-                🙏 <span className="font-bold">{prayerCount}</span>
+                <span className="text-2xl">🙏</span>
+                <span className="font-bold text-foreground">{prayerCount}</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">{t('calls.prayers', 'prières')}</span>
               </button>
             </div>
 
             {/* Emoji reactions */}
-            <div className="flex items-center justify-center gap-2 flex-wrap">
+            <div className="flex items-center justify-center gap-1.5 flex-wrap">
               {EMOJI_REACTIONS.map(emoji => (
                 <button
                   key={emoji}
                   onClick={() => sendReaction(emoji)}
-                  className="text-2xl p-2 rounded-full hover:bg-muted/50 transition-transform hover:scale-125 active:scale-90"
+                  className="text-2xl p-2.5 rounded-full hover:bg-muted/50 transition-transform hover:scale-125 active:scale-90"
                 >
                   {emoji}
                 </button>
@@ -468,15 +523,15 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
 
             {/* Admin controls */}
             {isAdmin && (
-              <div className="mt-6 pt-4 border-t border-border">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 font-semibold">
-                  {t('calls.adminControls')}
+              <div className="mt-6 pt-5 border-t border-border/60">
+                <p className="text-xs text-cathedral-gold uppercase tracking-[0.2em] mb-3 font-semibold flex items-center gap-1.5">
+                  <Crown className="h-3 w-3" /> {t('calls.adminControls')}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="destructive" size="sm" onClick={() => endSession(session)}>
-                    🛑 {t('calls.endSession')}
+                  <Button variant="destructive" size="sm" onClick={() => endSession(session)} className="gap-1.5">
+                    <X className="h-3.5 w-3.5" /> {t('calls.endSession')}
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="gap-1.5">
                     🔇 {t('calls.muteAll')}
                   </Button>
                 </div>
@@ -494,16 +549,28 @@ const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopy
   return (
     <div className="space-y-4">
       {isAdmin && (
-        <Button onClick={onScheduleNew} className="w-full sm:w-auto mb-4">
-          <Plus className="h-4 w-4 mr-2" /> {t('calls.scheduleNew')}
-        </Button>
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <div>
+            <h2 className="font-cinzel text-xl font-semibold text-foreground">{t('calls.tabs.scheduled')}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{sessions.length} {t('calls.upcomingSessions', 'sessions à venir')}</p>
+          </div>
+          <Button onClick={onScheduleNew} className="bg-gradient-to-r from-primary to-primary-glow text-primary-foreground shadow-[0_4px_20px_hsl(var(--primary)/0.3)] hover:shadow-[0_6px_25px_hsl(var(--primary)/0.45)]">
+            <Plus className="h-4 w-4 mr-1.5" /> {t('calls.scheduleNew')}
+          </Button>
+        </div>
       )}
 
       {sessions.length === 0 ? (
-        <div className="text-center py-16">
-          <CalendarIcon className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">{t('calls.noScheduled')}</h3>
-          <p className="text-muted-foreground text-sm">{t('calls.noScheduledDesc')}</p>
+        <div className="text-center py-20 px-4">
+          <div className="relative inline-flex mb-6">
+            <div className="absolute inset-0 rounded-full bg-primary/10 blur-2xl" />
+            <div className="relative h-20 w-20 rounded-full border border-cathedral-gold/30 bg-gradient-to-br from-card to-muted flex items-center justify-center">
+              <CalendarIcon className="h-9 w-9 text-cathedral-gold/60" />
+            </div>
+          </div>
+          <h3 className="font-cinzel text-2xl font-semibold text-foreground mb-2">{t('calls.noScheduled')}</h3>
+          <p className="text-muted-foreground text-sm max-w-sm mx-auto">{t('calls.noScheduledDesc')}</p>
+          <div className="cathedral-line w-24 h-px mx-auto mt-6 opacity-50" />
         </div>
       ) : (
         sessions.map((session: ScheduledSession) => {
@@ -517,47 +584,47 @@ const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopy
             <div
               key={session.id}
               className={cn(
-                "rounded-xl border p-5 transition-all",
-                isStartingNow ? "border-red-500/50 bg-red-500/5" :
-                isStartingSoon ? "border-orange-500/30 bg-orange-500/5" :
-                "border-border bg-card"
+                "group rounded-2xl border p-5 sm:p-6 transition-all hover:shadow-[0_8px_30px_-10px_hsl(var(--primary)/0.2)]",
+                isStartingNow ? "border-accent/50 bg-gradient-to-br from-accent/5 to-card shadow-[0_0_25px_-5px_hsl(var(--accent)/0.4)]" :
+                isStartingSoon ? "border-cathedral-gold/40 bg-gradient-to-br from-primary/5 to-card" :
+                "border-border/70 bg-card hover:border-cathedral-gold/30"
               )}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     {isStartingNow && (
-                      <Badge className="bg-red-500 text-white text-xs">
+                      <Badge className="bg-accent text-accent-foreground text-xs animate-pulse">
                         🔴 {t('calls.startingNow')}
                       </Badge>
                     )}
                     {isStartingSoon && !isStartingNow && (
-                      <Badge variant="outline" className="border-orange-500 text-orange-500 text-xs">
+                      <Badge variant="outline" className="border-cathedral-gold text-cathedral-gold text-xs">
                         ⏰ {minutesUntil} min
                       </Badge>
                     )}
-                    <Badge variant="outline" className="text-xs flex items-center gap-1">
+                    <Badge variant="outline" className="text-xs flex items-center gap-1 border-border">
                       {getSessionTypeIconStatic(session.session_type)}
                       {t(`calls.type.${session.session_type}`)}
                     </Badge>
                   </div>
 
-                  <h3 className="font-bold text-foreground text-lg">{session.title}</h3>
+                  <h3 className="font-cinzel font-bold text-foreground text-lg sm:text-xl mt-1">{session.title}</h3>
 
                   {session.description && (
-                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{session.description}</p>
+                    <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">{session.description}</p>
                   )}
 
                   <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground flex-wrap">
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1.5">
                       <CalendarIcon className="h-3.5 w-3.5" />
                       {format(new Date(session.scheduled_date), 'PPP', { locale: dateLocale })}
                     </span>
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5" />
                       {session.scheduled_time?.slice(0, 5)}
                     </span>
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1.5">
                       ⏱️ {session.estimated_duration} min
                     </span>
                     {session.recurrence !== 'once' && (
@@ -579,11 +646,11 @@ const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopy
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-2 mt-4 flex-wrap">
+              <div className="flex items-center gap-2 mt-5 pt-4 border-t border-border/40 flex-wrap">
                 {isStartingNow ? (
                   <Button
                     size="sm"
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="bg-gradient-to-r from-primary to-primary-glow text-primary-foreground shadow-[0_4px_15px_hsl(var(--primary)/0.3)]"
                     onClick={() => onJoin(session)}
                   >
                     ➡️ {t('calls.joinNow')}
@@ -594,12 +661,12 @@ const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopy
                     variant={myReminders.has(session.id) ? "secondary" : "outline"}
                     onClick={() => onToggleReminder(session.id)}
                   >
-                    <Bell className={cn("h-4 w-4 mr-1", myReminders.has(session.id) && "fill-current")} />
+                    <Bell className={cn("h-4 w-4 mr-1.5", myReminders.has(session.id) && "fill-current")} />
                     {myReminders.has(session.id) ? t('calls.reminded') : t('calls.remindMe')}
                   </Button>
                 )}
                 <Button size="sm" variant="outline" onClick={() => onCopyLink(session)}>
-                  <Share2 className="h-4 w-4 mr-1" /> {t('calls.share')}
+                  <Share2 className="h-4 w-4 mr-1.5" /> {t('calls.share')}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => {
                   const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(session.title)}&dates=${session.scheduled_date.replace(/-/g, '')}T${session.scheduled_time.replace(/:/g, '')}00/${session.scheduled_date.replace(/-/g, '')}T${session.scheduled_time.replace(/:/g, '')}00&details=${encodeURIComponent(session.description || '')}`;
@@ -635,40 +702,48 @@ const RecordingsTab = ({ sessions, isAdmin, t, dateLocale, onRefresh }: any) => 
 
   if (sessions.length === 0) {
     return (
-      <div className="text-center py-16">
-        <Play className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-foreground mb-2">{t('calls.noRecordings')}</h3>
-        <p className="text-muted-foreground text-sm">{t('calls.noRecordingsDesc')}</p>
+      <div className="text-center py-20 px-4">
+        <div className="relative inline-flex mb-6">
+          <div className="absolute inset-0 rounded-full bg-primary/10 blur-2xl" />
+          <div className="relative h-20 w-20 rounded-full border border-cathedral-gold/30 bg-gradient-to-br from-card to-muted flex items-center justify-center">
+            <Play className="h-9 w-9 text-cathedral-gold/60" />
+          </div>
+        </div>
+        <h3 className="font-cinzel text-2xl font-semibold text-foreground mb-2">{t('calls.noRecordings')}</h3>
+        <p className="text-muted-foreground text-sm max-w-sm mx-auto">{t('calls.noRecordingsDesc')}</p>
+        <div className="cathedral-line w-24 h-px mx-auto mt-6 opacity-50" />
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
       {sessions.map((session: ScheduledSession) => (
-        <div key={session.id} className="rounded-xl border border-border bg-card overflow-hidden group">
+        <div key={session.id} className="rounded-2xl border border-border/70 bg-card overflow-hidden group hover:border-cathedral-gold/40 hover:shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.25)] transition-all">
           {/* Thumbnail */}
-          <div className="aspect-video bg-muted flex items-center justify-center relative">
+          <div className="aspect-video bg-gradient-to-br from-cathedral-navy to-muted flex items-center justify-center relative overflow-hidden">
             {session.thumbnail_url ? (
-              <img src={session.thumbnail_url} alt={session.title} className="w-full h-full object-cover" />
+              <img src={session.thumbnail_url} alt={session.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
             ) : (
-              <div className="flex flex-col items-center text-muted-foreground/40">
-                {session.session_type === 'audio' ? <Mic className="h-12 w-12" /> : <Video className="h-12 w-12" />}
+              <div className="flex flex-col items-center text-cathedral-gold/40">
+                {session.session_type === 'audio' ? <Mic className="h-14 w-14" /> : <Video className="h-14 w-14" />}
               </div>
             )}
-            <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-0.5 rounded">
+            <div className="absolute bottom-2 right-2 bg-background/90 text-foreground text-xs px-2 py-0.5 rounded backdrop-blur-sm font-medium">
               {session.estimated_duration} min
             </div>
             {session.recording_url && (
-              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <Play className="h-12 w-12 text-white" />
+              <div className="absolute inset-0 bg-cathedral-navy/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                <div className="h-14 w-14 rounded-full bg-primary/90 flex items-center justify-center shadow-[0_0_30px_hsl(var(--primary)/0.5)]">
+                  <Play className="h-6 w-6 text-primary-foreground ml-0.5" fill="currentColor" />
+                </div>
               </div>
             )}
           </div>
 
-          <div className="p-4">
-            <h3 className="font-bold text-foreground line-clamp-1">{session.title}</h3>
-            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+          <div className="p-5">
+            <h3 className="font-cinzel font-bold text-foreground line-clamp-1 text-base">{session.title}</h3>
+            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
               <span>{format(new Date(session.scheduled_date), 'PP', { locale: dateLocale })}</span>
               <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {session.viewer_count}</span>
               <Badge variant="outline" className="text-xs">
@@ -676,17 +751,17 @@ const RecordingsTab = ({ sessions, isAdmin, t, dateLocale, onRefresh }: any) => 
               </Badge>
             </div>
 
-            <div className="flex items-center gap-2 mt-3">
+            <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border/40">
               {session.recording_url ? (
                 <>
                   <Button size="sm" variant="outline" asChild>
                     <a href={session.recording_url} target="_blank" rel="noopener noreferrer">
-                      <Play className="h-3.5 w-3.5 mr-1" /> {t('calls.play')}
+                      <Play className="h-3.5 w-3.5 mr-1.5" /> {t('calls.play')}
                     </a>
                   </Button>
                   <Button size="sm" variant="ghost" asChild>
                     <a href={session.recording_url} download>
-                      <Download className="h-3.5 w-3.5 mr-1" /> {t('calls.download')}
+                      <Download className="h-3.5 w-3.5 mr-1.5" /> {t('calls.download')}
                     </a>
                   </Button>
                 </>
@@ -728,54 +803,57 @@ const AdminControlTab = ({ sessions, onRefresh, t }: any) => {
     <div className="space-y-8">
       {/* Stats */}
       <div>
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-          📊 {t('calls.admin.analytics')}
+        <h3 className="text-xs font-semibold text-cathedral-gold uppercase tracking-[0.2em] mb-4 flex items-center gap-1.5">
+          <Sparkles className="h-3.5 w-3.5" /> {t('calls.admin.analytics')}
         </h3>
         <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-xl border border-border p-4 text-center">
-            <p className="text-3xl font-bold text-foreground">{totalSessions}</p>
-            <p className="text-xs text-muted-foreground mt-1">{t('calls.admin.totalSessions')}</p>
+          <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-card to-primary/5 p-5 text-center hover:border-cathedral-gold/40 transition-all">
+            <div className="absolute -top-8 -right-8 h-20 w-20 rounded-full bg-primary/10 blur-2xl" />
+            <p className="font-cinzel text-3xl sm:text-4xl font-bold text-foreground relative">{totalSessions}</p>
+            <p className="text-xs text-muted-foreground mt-2 uppercase tracking-wider relative">{t('calls.admin.totalSessions')}</p>
           </div>
-          <div className="rounded-xl border border-border p-4 text-center">
-            <p className="text-3xl font-bold text-red-500">{liveSessions}</p>
-            <p className="text-xs text-muted-foreground mt-1">{t('calls.admin.activeLive')}</p>
+          <div className="relative overflow-hidden rounded-2xl border border-accent/30 bg-gradient-to-br from-card to-accent/5 p-5 text-center">
+            <div className="absolute -top-8 -right-8 h-20 w-20 rounded-full bg-accent/15 blur-2xl" />
+            <p className="font-cinzel text-3xl sm:text-4xl font-bold text-accent relative">{liveSessions}</p>
+            <p className="text-xs text-muted-foreground mt-2 uppercase tracking-wider relative">{t('calls.admin.activeLive')}</p>
           </div>
-          <div className="rounded-xl border border-border p-4 text-center">
-            <p className="text-3xl font-bold text-foreground">{totalViewers}</p>
-            <p className="text-xs text-muted-foreground mt-1">{t('calls.admin.totalViewers')}</p>
+          <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-card to-cathedral-gold/5 p-5 text-center hover:border-cathedral-gold/40 transition-all">
+            <div className="absolute -top-8 -right-8 h-20 w-20 rounded-full bg-cathedral-gold/10 blur-2xl" />
+            <p className="font-cinzel text-3xl sm:text-4xl font-bold text-cathedral-gold relative">{totalViewers}</p>
+            <p className="text-xs text-muted-foreground mt-2 uppercase tracking-wider relative">{t('calls.admin.totalViewers')}</p>
           </div>
         </div>
       </div>
 
-      <Separator />
+      <div className="cathedral-line h-px w-full opacity-40" />
 
       {/* Session management */}
       <div>
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-          🎛️ {t('calls.admin.manageSessions')}
+        <h3 className="text-xs font-semibold text-cathedral-gold uppercase tracking-[0.2em] mb-4 flex items-center gap-1.5">
+          <Crown className="h-3.5 w-3.5" /> {t('calls.admin.manageSessions')}
         </h3>
         {sessions.length === 0 ? (
-          <p className="text-muted-foreground text-sm">{t('calls.admin.noSessions')}</p>
+          <p className="text-muted-foreground text-sm italic">{t('calls.admin.noSessions')}</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {sessions.map((session: ScheduledSession) => (
-              <div key={session.id} className="flex items-center gap-3 p-3 rounded-lg border border-border">
+              <div key={session.id} className="flex items-center gap-3 p-4 rounded-xl border border-border/70 bg-card hover:border-cathedral-gold/30 hover:bg-muted/30 transition-all">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground text-sm truncate">{session.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {format(new Date(session.scheduled_date), 'PP')} • {session.scheduled_time?.slice(0, 5)}
                   </p>
                 </div>
-                <Badge className={cn("text-xs", 
-                  session.status === 'live' ? 'bg-red-500' : 
-                  session.status === 'scheduled' ? 'bg-blue-500' : 'bg-muted text-muted-foreground'
+                <Badge className={cn("text-xs",
+                  session.status === 'live' ? 'bg-accent text-accent-foreground' :
+                  session.status === 'scheduled' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                 )}>
                   {t(`calls.status.${session.status}`)}
                 </Badge>
                 <div className="flex gap-1">
                   {session.status === 'scheduled' && (
                     <Button size="sm" variant="ghost" onClick={() => cancelSession(session.id)}>
-                      ❌
+                      <X className="h-3.5 w-3.5" />
                     </Button>
                   )}
                   <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteSession(session.id)}>
