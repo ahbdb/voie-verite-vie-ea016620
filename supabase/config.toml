@@ -17,3 +17,6 @@ verify_jwt = true
 
 [functions.session-share]
 verify_jwt = false
+
+[functions.notify-session]
+verify_jwt = true
