@@ -699,7 +699,12 @@ const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopy
                   <Share2 className="h-4 w-4 mr-1.5" /> {t('calls.share')}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => {
-                  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(session.title)}&dates=${session.scheduled_date.replace(/-/g, '')}T${session.scheduled_time.replace(/:/g, '')}00/${session.scheduled_date.replace(/-/g, '')}T${session.scheduled_time.replace(/:/g, '')}00&details=${encodeURIComponent(session.description || '')}`;
+                  // Times are stored as GMT/UTC → use Z suffix so calendar handles tz correctly
+                  const start = `${session.scheduled_date.replace(/-/g, '')}T${session.scheduled_time.replace(/:/g, '').slice(0, 6)}Z`;
+                  const endDate = new Date(`${session.scheduled_date}T${session.scheduled_time}Z`);
+                  endDate.setMinutes(endDate.getMinutes() + (session.estimated_duration || 60));
+                  const endStr = endDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(session.title)}&dates=${start}/${endStr}&details=${encodeURIComponent((session.description || '') + '\n\n' + buildShareUrl(session.id))}`;
                   window.open(url, '_blank');
                 }}>
                   📅 {t('calls.addToCalendar')}
