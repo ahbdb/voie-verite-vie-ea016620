@@ -1,0 +1,87 @@
+The Netlify deploy errored, with the following guidance provided:
+
+Diagnosis
+
+- Relevant log lines: the build runs "npm install --legacy-peer-deps && npm run build" ([line 67](#L67)) and fails during install with an npm internal error "Cannot read properties of null (reading 'isDescendantOf')" ([line 69](#L69)). The build command exits non‑zero ([line 76](#L76)).
+- Error type and cause: this is an npm install failure (internal npm/Arborist error). Common root causes are an incompatible Node / npm runtime on the build machine vs. what generated the lockfile, or a corrupted/unsupported lockfile. Netlify is using its default Node/npm version which can mismatch your project's expected version and cause npm internals to crash during install.
+
+Solution
+
+1) Verify repository has package.json and your lockfile
+- Confirm package.json exists and was committed: https://github.com/ahbdb/voie-verite-vie-ea016620/blob/main/package.json
+- If package-lock.json (or yarn.lock / pnpm-lock.yaml) is present, note which npm/pnpm version created it. If you don't have a lockfile committed, one will be generated — but the safest path is to match Node/npm versions between local dev and Netlify.
+
+2) Pin a stable Node version for Netlify (recommended)
+- Create a file named .nvmrc in the repo root containing a stable Node LTS version (example: 18). Example content:
+```text
+18
+```
+- Alternatively, add an engines field to package.json:
+```json
+"engines": {
+  "node": "18.x"
+}
+```
+- Commit and push those changes. Netlify will use that Node version for builds.
+
+3) Regenerate the lockfile locally (recommended)
+- On your machine (with Node 18), remove node_modules and package-lock.json, then run:
+```bash
+npm install
+```
+- Commit the updated package-lock.json and push. This ensures the lockfile is compatible with the Node/npm that Netlify will use.
+
+4) Re-run the Netlify build. If the error persists:
+- Try switching Node minor (e.g., 18.16 vs 18.18) or use Node 16 if your project expects it.
+- For instructions on changing Node versions on Netlify, see: https://docs.netlify.com/configure-builds/manage-dependencies/#node-js-and-javascript
+
+Optional cleanup if still failing
+- If the project uses unusual package managers, ensure the correct lockfile is committed (package-lock.json for npm, yarn.lock for Yarn, pnpm-lock.yaml for pnpm).
+- If you must keep using the build command with --legacy-peer-deps, ensure lockfile was generated with a matching npm version locally before committing.
+
+Why this should fix it
+- The stacktrace shows an npm internal operation failing during install; aligning Node/npm versions and regenerating the lockfile removes incompatibilities that commonly trigger Arborist/npm crashes during install.
+
+The relevant error logs are:
+
+Line 58: ❯ Config file
+Line 59:   No config file was defined: using default values.
+Line 60: ​
+Line 61: ❯ Context
+Line 62:   production
+Line 63: ​
+Line 64: Build command from Netlify app                                
+Line 65: ────────────────────────────────────────────────────────────────
+Line 66: ​
+Line 67: $ npm install --legacy-peer-deps && npm run build
+Line 68: Failed during stage 'building site': Build script returned non-zero exit code: 2
+Line 69: npm error Cannot read properties of null (reading 'isDescendantOf')
+Line 70: npm error A complete log of this run can be found in: /opt/buildhome/.npm/_logs/2026-05-01T12_40_46_298Z-debug-0.log
+Line 71: ​
+Line 72: "build.command" failed                                        
+Line 73: ────────────────────────────────────────────────────────────────
+Line 74: ​
+Line 75:   Error message
+Line 76:   Command failed with exit code 1: npm install --legacy-peer-deps && npm run build
+Line 77: ​
+Line 78:   Error location
+Line 79:   In Build command from Netlify app:
+Line 80:   npm install --legacy-peer-deps && npm run build
+Line 81: ​
+Line 82:   Resolved config
+Line 83:   build:
+Line 84:     command: npm install --legacy-peer-deps && npm run build
+Line 85:     commandOrigin: ui
+Line 86:     publish: /opt/build/repo/dist
+Line 87:     publishOrigin: ui
+Line 88:   functionsDirectory: /opt/build/repo/netlify/functions
+Line 89:   redirects:
+Line 90:     - from: /neuvaines/*.pdf
+      status: 200
+      to: /neuvaines/:splat
+    - from: /reports/*.pdf
+      status: 200
+      to
+Line 91: Build failed due to a user error: Build script returned non-zero exit code: 2
+Line 92: Failing build: Failed to build site
+Line 93: Finished processing build request in 41.846s
