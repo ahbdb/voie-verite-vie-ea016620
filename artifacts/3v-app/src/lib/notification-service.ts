@@ -250,6 +250,38 @@ export const sendUpdateNotification = async (title: string, description: string,
   });
 };
 
+/** Send a call/live notification with a "Rejoindre" button.
+ *  roomId — the video_rooms.id so we navigate to /meeting/{roomId}
+ *  sessionTitle — title shown in the notification
+ */
+export const sendCallJoinNotification = async (
+  sessionTitle: string,
+  roomId?: string,
+  hostName?: string
+) => {
+  const meetingUrl = roomId ? `/meeting/${roomId}` : '/calls-lives';
+  await sendVisibleNotification({
+    title: `📞 ${sessionTitle}`,
+    body: hostName
+      ? `${hostName} a démarré un appel — Appuyez pour rejoindre`
+      : 'Un appel est en cours — Appuyez pour rejoindre',
+    tag: `call-${roomId || Date.now()}`,
+    icon: '/icon-192x192.png',
+    badge: '/badge-72x72.png',
+    action: 'call',
+    silent: false,
+    requireInteraction: true,
+    vibrate: [300, 150, 300, 150, 500, 150, 500],
+    renotify: true,
+    data: {
+      action: 'call',
+      roomId,
+      meetingUrl,
+      url: meetingUrl,
+    },
+  });
+};
+
 export const initNotificationClickHandler = () => {
   if (!('serviceWorker' in navigator)) {
     return;
@@ -263,15 +295,26 @@ export const initNotificationClickHandler = () => {
 
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'NOTIFICATION_CLICK') {
-      const { action, data } = event.data.payload;
-      const explicitUrl = data?.url;
+      const { url, action, data } = event.data.payload || {};
 
-      if (explicitUrl) {
-        window.location.href = explicitUrl;
+      // Use explicit URL first (handles meeting URLs properly)
+      if (url && url !== '/') {
+        window.location.href = url;
+        return;
+      }
+
+      const fallbackUrl = data?.url || data?.meetingUrl;
+      if (fallbackUrl && fallbackUrl !== '/') {
+        window.location.href = fallbackUrl;
         return;
       }
 
       switch (action) {
+        case 'call':
+        case 'live':
+        case 'session':
+          window.location.href = data?.roomId ? `/meeting/${data.roomId}` : '/calls-lives';
+          break;
         case 'careme':
           window.location.href = '/careme-2026';
           break;
@@ -286,9 +329,6 @@ export const initNotificationClickHandler = () => {
           break;
         case 'gallery':
           window.location.href = '/gallery';
-          break;
-        case 'call':
-          window.location.href = '/';
           break;
         default:
           window.location.href = '/';

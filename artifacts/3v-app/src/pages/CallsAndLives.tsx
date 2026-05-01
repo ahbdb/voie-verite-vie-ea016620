@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { format, isToday, isBefore, addMinutes, differenceInMinutes, differenceInSeconds } from 'date-fns';
 import { fr, enUS, it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { sendCallJoinNotification } from '@/lib/notification-service';
 
 /** Build the public share URL pointing to the production app. */
 const buildShareUrl = (session: ScheduledSession) => {
@@ -392,6 +393,16 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
           }).catch((e) => console.warn('notify-session failed', e));
         }
       } catch (e) { console.warn(e); }
+
+      // Also fire a local notification for users currently using the app
+      const sessionTitle = type === 'audio'
+        ? t('calls.quickAudioCall')
+        : type === 'video' ? t('calls.quickVideoCall') : t('calls.quickLiveStream');
+      sendCallJoinNotification(
+        sessionTitle,
+        room.id,
+        user.user_metadata?.full_name || user.email
+      ).catch(() => {});
 
       toast.success(t('calls.sessionStarted'));
       onRefresh();

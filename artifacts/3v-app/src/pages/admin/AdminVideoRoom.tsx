@@ -145,11 +145,33 @@ const formatTime = (v: string) =>
 
 // ── Connection status badge ──────────────────────────────────────────────────
 
-const ConnectionBadge = ({ isConnected, isJoining }: { isConnected: boolean; isJoining: boolean }) => {
+const ConnectionBadge = ({
+  isConnected,
+  isJoining,
+  quality,
+}: {
+  isConnected: boolean;
+  isJoining: boolean;
+  quality: 'good' | 'poor' | 'reconnecting';
+}) => {
   if (isJoining) {
     return (
       <span className="flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-amber-500">
         <Loader2 className="h-3 w-3 animate-spin" /> Connexion…
+      </span>
+    );
+  }
+  if (isConnected && quality === 'reconnecting') {
+    return (
+      <span className="flex items-center gap-1.5 rounded-full bg-orange-500/15 px-2.5 py-1 text-xs font-medium text-orange-400">
+        <Loader2 className="h-3 w-3 animate-spin" /> Reconnexion…
+      </span>
+    );
+  }
+  if (isConnected && quality === 'poor') {
+    return (
+      <span className="flex items-center gap-1.5 rounded-full bg-yellow-500/15 px-2.5 py-1 text-xs font-medium text-yellow-400">
+        <Wifi className="h-3 w-3" /> Connexion faible
       </span>
     );
   }
@@ -186,7 +208,7 @@ const AdminVideoRoom = () => {
     room, roomType, participants, remoteStreams, messages, reactions,
     localStream, loading, mediaError, micEnabled, cameraEnabled,
     isScreenSharing, isJoining, isConnected, canShareScreen,
-    mutedParticipants, activeSpeakers,
+    mutedParticipants, activeSpeakers, connectionQuality,
     requestJoin, toggleMicrophone, toggleCamera, flipCamera,
     startScreenShare, stopScreenShare,
     sendMessage, editMessage, deleteMessage, toggleReaction,
@@ -321,7 +343,7 @@ const AdminVideoRoom = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <ConnectionBadge isConnected={isConnected} isJoining={isJoining} />
+            <ConnectionBadge isConnected={isConnected} isJoining={isJoining} quality={connectionQuality} />
             <Button
               variant="ghost"
               size="icon"
