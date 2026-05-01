@@ -1,9 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { debugService } from '@/services/debug-service';
 
-export const useAuth = () => {
+interface AuthContextType {
+  user: User | null;
+  session: Session | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string,
+    phoneCountryCode?: string,
+    phoneNumber?: string
+  ) => Promise<{ error: any }>;
+  signOut: () => Promise<{ error: any }>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -11,7 +28,7 @@ export const useAuth = () => {
   useEffect(() => {
     try {
       debugService.log('useAuth: initializing auth listener', 'info', 'useAuth');
-      
+
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         try {
           debugService.log(`useAuth: auth state changed to ${event}`, 'info', 'useAuth');
@@ -52,10 +69,7 @@ export const useAuth = () => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) debugService.logError(error, 'useAuth-signIn');
       return { error };
     } catch (error) {
@@ -82,8 +96,8 @@ export const useAuth = () => {
             full_name: fullName,
             phone_country_code: phoneCountryCode || null,
             phone_number: phoneNumber || null,
-          }
-        }
+          },
+        },
       });
 
       if (error) {
@@ -91,7 +105,6 @@ export const useAuth = () => {
         return { error };
       }
 
-      // Ensure user is logged in immediately after signup when email confirmation is disabled
       if (!error && !data.session) {
         const signInResult = await supabase.auth.signInWithPassword({ email, password });
         if (signInResult.error) {
@@ -116,12 +129,17 @@ export const useAuth = () => {
     }
   };
 
-  return {
-    user,
-    session,
-    loading,
-    signIn,
-    signUp,
-    signOut,
-  };
+  return (
+    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };
