@@ -938,7 +938,7 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
     if (!title || !date || !user) return;
     setSaving(true);
 
-    const { error } = await supabase.from('scheduled_sessions' as any).insert({
+    const { data: inserted, error } = await (supabase as any).from('scheduled_sessions' as any).insert({
       title,
       description: description || null,
       session_type: sessionType,
@@ -950,12 +950,17 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
       tags: tags ? tags.split(',').map(t => t.trim()) : [],
       created_by: user.id,
       status: 'scheduled',
-    } as any);
+    } as any).select('id').maybeSingle();
 
     setSaving(false);
     if (error) {
       toast.error(t('common.error'));
     } else {
+      if (inserted?.id) {
+        supabase.functions.invoke('notify-session', {
+          body: { session_id: inserted.id, kind: 'scheduled', target: 'all' },
+        }).catch((e) => console.warn('notify-session failed', e));
+      }
       toast.success(t('calls.sessionCreated'));
       setTitle(''); setDescription(''); setDate(undefined);
       onCreated();
