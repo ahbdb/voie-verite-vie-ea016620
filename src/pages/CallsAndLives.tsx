@@ -871,7 +871,7 @@ const AdminControlTab = ({ sessions, onRefresh, t }: any) => {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground text-sm truncate">{session.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {format(new Date(session.scheduled_date), 'PP')} • {session.scheduled_time?.slice(0, 5)}
+                    {format(new Date(session.scheduled_date), 'PP')} • {formatGmtTime(session.scheduled_time)}
                   </p>
                 </div>
                 <Badge className={cn("text-xs",
