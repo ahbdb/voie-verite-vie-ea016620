@@ -20,6 +20,19 @@ import { toast } from 'sonner';
 import { format, isToday, isBefore, addMinutes, differenceInMinutes, differenceInSeconds } from 'date-fns';
 import { fr, enUS, it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+
+/** Build the public share URL (renders Open Graph preview for WhatsApp / FB / etc.). */
+const buildShareUrl = (sessionId: string) => {
+  const supaUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+  return `${supaUrl}/functions/v1/session-share/${sessionId}`;
+};
+
+/** Format a scheduled date/time as "HH:mm GMT" (treated as UTC). */
+const formatGmtTime = (timeStr: string) => {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':');
+  return `${h}:${m} GMT`;
+};
 import {
   Radio, Video, Mic, Calendar as CalendarIcon, Clock, Users, Play,
   Bell, Share2, Download, Settings, Trash2, Edit2, Plus, Eye,
@@ -114,10 +127,27 @@ const CallsAndLives = () => {
     }
   };
 
-  const copyShareLink = (session: ScheduledSession) => {
-    const link = `${window.location.origin}/calls-lives?join=${session.id}`;
-    navigator.clipboard.writeText(link);
-    toast.success(t('calls.linkCopied'));
+  const copyShareLink = async (session: ScheduledSession) => {
+    const link = buildShareUrl(session.id);
+    const text = `${session.status === 'live' ? '🔴 EN DIRECT' : '📅'} ${session.title}\n${formatScheduledFull(session)}\n\n${link}`;
+    // Try native share first (mobile / WhatsApp / etc.)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: session.title, text, url: link });
+        return;
+      } catch { /* fall through to clipboard */ }
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success(t('calls.linkCopied'));
+    } catch {
+      toast.error(t('common.error'));
+    }
+  };
+
+  const formatScheduledFull = (session: ScheduledSession) => {
+    const d = new Date(`${session.scheduled_date}T${session.scheduled_time}`);
+    return `${format(d, 'PPP', { locale: dateLocale })} • ${formatGmtTime(session.scheduled_time)}`;
   };
 
   const joinSession = (session: ScheduledSession) => {
@@ -338,6 +368,22 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
         } as any);
 
       if (sessionError) throw sessionError;
+
+      // Fire rich push notification to all subscribers (WhatsApp-style)
+      try {
+        const { data: created } = await (supabase as any)
+          .from('scheduled_sessions' as any)
+          .select('id')
+          .eq('video_room_id', room.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (created && (created as any).id) {
+          supabase.functions.invoke('notify-session', {
+            body: { session_id: (created as any).id, kind: 'live', target: 'all' },
+          }).catch((e) => console.warn('notify-session failed', e));
+        }
+      } catch (e) { console.warn(e); }
 
       toast.success(t('calls.sessionStarted'));
       onRefresh();
@@ -622,7 +668,7 @@ const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopy
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5" />
-                      {session.scheduled_time?.slice(0, 5)}
+                      {formatGmtTime(session.scheduled_time)}
                     </span>
                     <span className="flex items-center gap-1.5">
                       ⏱️ {session.estimated_duration} min
@@ -669,7 +715,12 @@ const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopy
                   <Share2 className="h-4 w-4 mr-1.5" /> {t('calls.share')}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => {
-                  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(session.title)}&dates=${session.scheduled_date.replace(/-/g, '')}T${session.scheduled_time.replace(/:/g, '')}00/${session.scheduled_date.replace(/-/g, '')}T${session.scheduled_time.replace(/:/g, '')}00&details=${encodeURIComponent(session.description || '')}`;
+                  // Times are stored as GMT/UTC → use Z suffix so calendar handles tz correctly
+                  const start = `${session.scheduled_date.replace(/-/g, '')}T${session.scheduled_time.replace(/:/g, '').slice(0, 6)}Z`;
+                  const endDate = new Date(`${session.scheduled_date}T${session.scheduled_time}Z`);
+                  endDate.setMinutes(endDate.getMinutes() + (session.estimated_duration || 60));
+                  const endStr = endDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(session.title)}&dates=${start}/${endStr}&details=${encodeURIComponent((session.description || '') + '\n\n' + buildShareUrl(session.id))}`;
                   window.open(url, '_blank');
                 }}>
                   📅 {t('calls.addToCalendar')}
@@ -841,7 +892,7 @@ const AdminControlTab = ({ sessions, onRefresh, t }: any) => {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground text-sm truncate">{session.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {format(new Date(session.scheduled_date), 'PP')} • {session.scheduled_time?.slice(0, 5)}
+                    {format(new Date(session.scheduled_date), 'PP')} • {formatGmtTime(session.scheduled_time)}
                   </p>
                 </div>
                 <Badge className={cn("text-xs",
@@ -887,7 +938,7 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
     if (!title || !date || !user) return;
     setSaving(true);
 
-    const { error } = await supabase.from('scheduled_sessions' as any).insert({
+    const { data: inserted, error } = await (supabase as any).from('scheduled_sessions' as any).insert({
       title,
       description: description || null,
       session_type: sessionType,
@@ -899,12 +950,17 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
       tags: tags ? tags.split(',').map(t => t.trim()) : [],
       created_by: user.id,
       status: 'scheduled',
-    } as any);
+    } as any).select('id').maybeSingle();
 
     setSaving(false);
     if (error) {
       toast.error(t('common.error'));
     } else {
+      if (inserted?.id) {
+        supabase.functions.invoke('notify-session', {
+          body: { session_id: inserted.id, kind: 'scheduled', target: 'all' },
+        }).catch((e) => console.warn('notify-session failed', e));
+      }
       toast.success(t('calls.sessionCreated'));
       setTitle(''); setDescription(''); setDate(undefined);
       onCreated();
