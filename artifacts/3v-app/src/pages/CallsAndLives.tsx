@@ -56,17 +56,17 @@ interface ScheduledSession {
   session_type: string;
   scheduled_date: string;
   scheduled_time: string;
-  estimated_duration: number;
+  estimated_duration: number | null;
   access_type: string;
   recurrence: string;
   share_link: string | null;
   status: string;
-  tags: string[];
-  agenda: any[];
+  tags: string[] | null;
+  agenda: any[] | null;
   video_room_id: string | null;
   recording_url: string | null;
   thumbnail_url: string | null;
-  viewer_count: number;
+  viewer_count: number | null;
   platforms: any;
   created_by: string;
   created_at: string;
@@ -521,7 +521,7 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
               🔴 {t('calls.liveNow')}
             </span>
             <span className="ml-auto flex items-center gap-1.5 text-sm font-medium">
-              <Eye className="h-4 w-4" /> {session.viewer_count}
+              <Eye className="h-4 w-4" /> {session.viewer_count || 0}
             </span>
           </div>
 
@@ -804,7 +804,7 @@ const RecordingsTab = ({ sessions, isAdmin, t, dateLocale, onRefresh }: any) => 
             <h3 className="font-cinzel font-bold text-foreground line-clamp-1 text-base">{session.title}</h3>
             <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
               <span>{format(new Date(session.scheduled_date), 'PP', { locale: dateLocale })}</span>
-              <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {session.viewer_count}</span>
+              <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {session.viewer_count || 0}</span>
               <Badge variant="outline" className="text-xs">
                 {session.session_type === 'audio' ? '🎙️' : '📹'} {t(`calls.type.${session.session_type}`)}
               </Badge>
