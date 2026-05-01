@@ -19,6 +19,12 @@ interface PushPayload {
   url?: string;
   action?: string;
   user_ids?: string[];
+  image?: string;
+  actions?: Array<{ action: string; title: string; icon?: string }>;
+  joinUrl?: string;
+  vibrate?: number[];
+  requireInteraction?: boolean;
+  tag?: string;
 }
 
 // ============ Web Push Protocol Implementation ============
@@ -345,10 +351,16 @@ async function sendWebPush(
       body: payload.body,
       icon: payload.icon || "/icon-192x192.png",
       badge: payload.badge || "/badge-72x72.png",
-      tag: payload.action || `push-${Date.now()}`,
+      tag: payload.tag || payload.action || `push-${Date.now()}`,
+      image: payload.image,
+      actions: payload.actions,
+      requireInteraction: payload.requireInteraction ?? true,
+      vibrate: payload.vibrate,
       data: {
         url: payload.url || "/",
         action: payload.action || "general",
+        joinUrl: payload.joinUrl,
+        image: payload.image,
       },
     },
   });
