@@ -20,6 +20,19 @@ import { toast } from 'sonner';
 import { format, isToday, isBefore, addMinutes, differenceInMinutes, differenceInSeconds } from 'date-fns';
 import { fr, enUS, it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+
+/** Build the public share URL (renders Open Graph preview for WhatsApp / FB / etc.). */
+const buildShareUrl = (sessionId: string) => {
+  const supaUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+  return `${supaUrl}/functions/v1/session-share/${sessionId}`;
+};
+
+/** Format a scheduled date/time as "HH:mm GMT" (treated as UTC). */
+const formatGmtTime = (timeStr: string) => {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':');
+  return `${h}:${m} GMT`;
+};
 import {
   Radio, Video, Mic, Calendar as CalendarIcon, Clock, Users, Play,
   Bell, Share2, Download, Settings, Trash2, Edit2, Plus, Eye,
@@ -114,10 +127,27 @@ const CallsAndLives = () => {
     }
   };
 
-  const copyShareLink = (session: ScheduledSession) => {
-    const link = `${window.location.origin}/calls-lives?join=${session.id}`;
-    navigator.clipboard.writeText(link);
-    toast.success(t('calls.linkCopied'));
+  const copyShareLink = async (session: ScheduledSession) => {
+    const link = buildShareUrl(session.id);
+    const text = `${session.status === 'live' ? '🔴 EN DIRECT' : '📅'} ${session.title}\n${formatScheduledFull(session)}\n\n${link}`;
+    // Try native share first (mobile / WhatsApp / etc.)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: session.title, text, url: link });
+        return;
+      } catch { /* fall through to clipboard */ }
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success(t('calls.linkCopied'));
+    } catch {
+      toast.error(t('common.error'));
+    }
+  };
+
+  const formatScheduledFull = (session: ScheduledSession) => {
+    const d = new Date(`${session.scheduled_date}T${session.scheduled_time}`);
+    return `${format(d, 'PPP', { locale: dateLocale })} • ${formatGmtTime(session.scheduled_time)}`;
   };
 
   const joinSession = (session: ScheduledSession) => {
