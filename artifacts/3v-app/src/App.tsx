@@ -1,5 +1,4 @@
 import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from '@/hooks/useAuth';
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,6 +7,7 @@ import { useState, useEffect } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { toast } from "sonner";
 import { SettingsProvider } from "@/hooks/useSettings";
+import { AuthProvider } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LoadingScreen from "@/components/LoadingScreen";
 import ScrollToTop from "@/components/ScrollToTop";
@@ -98,71 +98,73 @@ const App = () => {
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <SettingsProvider>
-            {isLoading && <LoadingScreen />}
-            <Toaster />
-            <Sonner />
-            <PWAUpdatePrompt />
-            <ErrorBoundary>
-              <BrowserRouter>
-                <AppNotificationInitializer>
-                  <ScrollToTop />
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/about" element={<About />} />
-                    <Route path="/faq" element={<FAQ />} />
-                    <Route path="/activities" element={<Activities />} />
-                    <Route path="/biblical-reading" element={<BiblicalReading />} />
-                    <Route path="/bible-book/:bookId" element={<BibleBookDetail />} />
-                    <Route path="/contact" element={<Contact />} />
-                    <Route path="/contacts" element={<Contact />} />
-                    <Route path="/gallery" element={<Gallery />} />
-                    <Route path="/install" element={<Install />} />
-                    <Route path="/auth" element={<Auth />} />
-                    <Route path="/ai-chat" element={<AIChat />} />
-                    <Route path="/prayer-forum" element={<PrayerForum />} />
-                    <Route path="/careme-2026" element={<Careme2026 />} />
-                    <Route path="/chemin-de-croix" element={<CheminDeCroix />} />
-                    <Route path="/share-debug" element={<ShareDebug />} />
-                    <Route path="/reports" element={<ActivityReports />} />
-                    <Route path="/calls-lives" element={<CallsAndLives />} />
-                    <Route path="/neuvaines" element={<Neuvaines />} />
-                    <Route path="/neuvaines/:id" element={<NeuvaineDayView />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/createur" element={<Creator />} />
-                    <Route path="/admin-repair" element={<AdminRepair />} />
-                    <Route path="/admin" element={<Admin />} />
-                    <Route path="/admin/home" element={<AdminHome />} />
-                    <Route path="/admin/about" element={<AdminAbout />} />
-                    <Route path="/admin/author" element={<AdminAuthor />} />
-                    <Route path="/admin/design" element={<AdminDesign />} />
-                    <Route path="/admin/careme2026" element={<AdminCareme2026 />} />
-                    <Route path="/admin/debug-careme" element={<AdminDebugCareme />} />
-                    <Route path="/admin/test-save" element={<AdminTestSave />} />
-                    <Route path="/admin/chemin-de-croix" element={<AdminCheminDeCroix />} />
-                    <Route path="/admin/neuvaines" element={<AdminNeuvaines />} />
-                    <Route path="/admin/activities" element={<AdminActivities />} />
-                    <Route path="/admin/readings" element={<AdminReadings />} />
-                    <Route path="/admin/prayers" element={<AdminPrayers />} />
-                    <Route path="/admin/gallery" element={<AdminGallery />} />
-                    <Route path="/admin/faq" element={<AdminFAQ />} />
-                    <Route path="/admin/contact" element={<AdminContact />} />
-                    <Route path="/admin/ai" element={<AdminAI />} />
-                    <Route path="/admin/notifications" element={<AdminNotifications />} />
-                    <Route path="/admin/notification-scheduler" element={<AdminNotificationScheduler />} />
-                    <Route path="/admin/video" element={<AdminVideo />} />
-                    <Route path="/admin/video/:roomId" element={<AdminVideoRoom />} />
-                    <Route path="/meeting/:roomId" element={<AdminVideoRoom />} />
-                    <Route path="/admin/users" element={<AdminUsers />} />
-                    <Route path="/admin/admins" element={<AdminManagement />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </AppNotificationInitializer>
-                <AdminDiagnostics />
-              </BrowserRouter>
-            </ErrorBoundary>
-          </SettingsProvider>
+          <AuthProvider>
+            <SettingsProvider>
+              {isLoading && <LoadingScreen />}
+              <Toaster />
+              <Sonner />
+              <PWAUpdatePrompt />
+              <ErrorBoundary>
+                <BrowserRouter>
+                  <AppNotificationInitializer>
+                    <ScrollToTop />
+                    <Routes>
+                      <Route path="/" element={<Index />} />
+                      <Route path="/about" element={<About />} />
+                      <Route path="/faq" element={<FAQ />} />
+                      <Route path="/activities" element={<Activities />} />
+                      <Route path="/biblical-reading" element={<BiblicalReading />} />
+                      <Route path="/bible-book/:bookId" element={<BibleBookDetail />} />
+                      <Route path="/contact" element={<Contact />} />
+                      <Route path="/contacts" element={<Contact />} />
+                      <Route path="/gallery" element={<Gallery />} />
+                      <Route path="/install" element={<Install />} />
+                      <Route path="/auth" element={<Auth />} />
+                      <Route path="/ai-chat" element={<AIChat />} />
+                      <Route path="/prayer-forum" element={<PrayerForum />} />
+                      <Route path="/careme-2026" element={<Careme2026 />} />
+                      <Route path="/chemin-de-croix" element={<CheminDeCroix />} />
+                      <Route path="/share-debug" element={<ShareDebug />} />
+                      <Route path="/reports" element={<ActivityReports />} />
+                      <Route path="/calls-lives" element={<CallsAndLives />} />
+                      <Route path="/neuvaines" element={<Neuvaines />} />
+                      <Route path="/neuvaines/:id" element={<NeuvaineDayView />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/createur" element={<Creator />} />
+                      <Route path="/admin-repair" element={<AdminRepair />} />
+                      <Route path="/admin" element={<Admin />} />
+                      <Route path="/admin/home" element={<AdminHome />} />
+                      <Route path="/admin/about" element={<AdminAbout />} />
+                      <Route path="/admin/author" element={<AdminAuthor />} />
+                      <Route path="/admin/design" element={<AdminDesign />} />
+                      <Route path="/admin/careme2026" element={<AdminCareme2026 />} />
+                      <Route path="/admin/debug-careme" element={<AdminDebugCareme />} />
+                      <Route path="/admin/test-save" element={<AdminTestSave />} />
+                      <Route path="/admin/chemin-de-croix" element={<AdminCheminDeCroix />} />
+                      <Route path="/admin/neuvaines" element={<AdminNeuvaines />} />
+                      <Route path="/admin/activities" element={<AdminActivities />} />
+                      <Route path="/admin/readings" element={<AdminReadings />} />
+                      <Route path="/admin/prayers" element={<AdminPrayers />} />
+                      <Route path="/admin/gallery" element={<AdminGallery />} />
+                      <Route path="/admin/faq" element={<AdminFAQ />} />
+                      <Route path="/admin/contact" element={<AdminContact />} />
+                      <Route path="/admin/ai" element={<AdminAI />} />
+                      <Route path="/admin/notifications" element={<AdminNotifications />} />
+                      <Route path="/admin/notification-scheduler" element={<AdminNotificationScheduler />} />
+                      <Route path="/admin/video" element={<AdminVideo />} />
+                      <Route path="/admin/video/:roomId" element={<AdminVideoRoom />} />
+                      <Route path="/meeting/:roomId" element={<AdminVideoRoom />} />
+                      <Route path="/admin/users" element={<AdminUsers />} />
+                      <Route path="/admin/admins" element={<AdminManagement />} />
+                      <Route path="/profile" element={<Profile />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </AppNotificationInitializer>
+                  <AdminDiagnostics />
+                </BrowserRouter>
+              </ErrorBoundary>
+            </SettingsProvider>
+          </AuthProvider>
         </TooltipProvider>
       </QueryClientProvider>
     </HelmetProvider>
@@ -170,4 +172,3 @@ const App = () => {
 };
 
 export default App;
-
