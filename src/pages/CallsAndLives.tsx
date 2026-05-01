@@ -369,6 +369,22 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
 
       if (sessionError) throw sessionError;
 
+      // Fire rich push notification to all subscribers (WhatsApp-style)
+      try {
+        const { data: created } = await supabase
+          .from('scheduled_sessions' as any)
+          .select('id')
+          .eq('video_room_id', room.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (created?.id) {
+          supabase.functions.invoke('notify-session', {
+            body: { session_id: created.id, kind: 'live', target: 'all' },
+          }).catch((e) => console.warn('notify-session failed', e));
+        }
+      } catch (e) { console.warn(e); }
+
       toast.success(t('calls.sessionStarted'));
       onRefresh();
     } catch (err: any) {
