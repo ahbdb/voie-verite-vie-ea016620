@@ -325,7 +325,14 @@
     "prayForThis": "I pray",
     "respond": "Respond",
     "responses": "responses",
-    "writeEncouragement": "Write a word of encouragement..."
+    "writeEncouragement": "Write a word of encouragement...",
+    "community": "Community",
+    "translate": "Translate",
+    "original": "Original",
+    "translated": "Translated",
+    "autoTranslateHint": "Click «Translate» to read this intention in your language.",
+    "messages": "Messages",
+    "beFirstEncourage": "Be the first to encourage."
   },
   "profile": {
     "title": "My Profile",

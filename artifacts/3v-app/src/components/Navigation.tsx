@@ -23,6 +23,8 @@ import {
   Moon,
   ZoomIn,
   ZoomOut,
+  Radio,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -45,6 +47,8 @@ const ICONS: Record<string, any> = {
   Download,
   Bot,
   Settings,
+  Radio,
+  FileText,
 };
 
 interface BeforeInstallPromptEvent extends Event {

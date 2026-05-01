@@ -21,10 +21,17 @@ import { format, isToday, isBefore, addMinutes, differenceInMinutes, differenceI
 import { fr, enUS, it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-/** Build the public share URL (renders Open Graph preview for WhatsApp / FB / etc.). */
-const buildShareUrl = (sessionId: string) => {
-  const supaUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-  return `${supaUrl}/functions/v1/session-share/${sessionId}`;
+/** Build the public share URL pointing to the production app. */
+const buildShareUrl = (session: ScheduledSession) => {
+  const base = 'https://voie-verite-vie.netlify.app/calls-lives';
+  const params = new URLSearchParams({
+    session: session.id,
+    title: session.title,
+    date: session.scheduled_date,
+    time: session.scheduled_time,
+    type: session.session_type,
+  });
+  return `${base}?${params.toString()}`;
 };
 
 /** Format a scheduled date/time as "HH:mm GMT" (treated as UTC). */
@@ -128,8 +135,9 @@ const CallsAndLives = () => {
   };
 
   const copyShareLink = async (session: ScheduledSession) => {
-    const link = buildShareUrl(session.id);
-    const text = `${session.status === 'live' ? '🔴 EN DIRECT' : '📅'} ${session.title}\n${formatScheduledFull(session)}\n\n${link}`;
+    const link = buildShareUrl(session);
+    const statusEmoji = session.status === 'live' ? '🔴 EN DIRECT' : '📅';
+    const text = `${statusEmoji} ${session.title}\n${formatScheduledFull(session)}\n\n${link}`;
     // Try native share first (mobile / WhatsApp / etc.)
     if (navigator.share) {
       try {
@@ -720,7 +728,7 @@ const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopy
                   const endDate = new Date(`${session.scheduled_date}T${session.scheduled_time}Z`);
                   endDate.setMinutes(endDate.getMinutes() + (session.estimated_duration || 60));
                   const endStr = endDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-                  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(session.title)}&dates=${start}/${endStr}&details=${encodeURIComponent((session.description || '') + '\n\n' + buildShareUrl(session.id))}`;
+                  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(session.title)}&dates=${start}/${endStr}&details=${encodeURIComponent((session.description || '') + '\n\n' + buildShareUrl(session))}`;
                   window.open(url, '_blank');
                 }}>
                   📅 {t('calls.addToCalendar')}
