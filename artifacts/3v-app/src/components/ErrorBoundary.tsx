@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import i18n from '@/i18n';
+import { debugService } from '@/services/debug-service';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -19,15 +20,19 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    debugService.logError(error, 'ErrorBoundary');
     console.error('🔴 ErrorBoundary caught error:', error);
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    debugService.logError(error, 'ErrorBoundary-componentDidCatch');
     console.error('ErrorBoundary caught:', error, errorInfo);
+    console.log('Component stack:', errorInfo.componentStack);
   }
 
   resetError = () => {
+    debugService.log('User reset error', 'info', 'ErrorBoundary');
     this.setState({ hasError: false, error: null });
   };
 
@@ -50,6 +55,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             {import.meta.env.DEV && this.state.error && (
               <div className="bg-muted p-3 rounded mb-4 text-xs font-mono text-muted-foreground overflow-auto max-h-40">
                 {this.state.error.message}
+                <br />
+                <br />
+                {this.state.error.stack}
               </div>
             )}
             
