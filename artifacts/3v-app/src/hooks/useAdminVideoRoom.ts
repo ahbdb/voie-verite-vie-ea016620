@@ -5,12 +5,18 @@ const db = supabase as any;
 
 const RTC_CONFIGURATION: RTCConfiguration = {
   iceServers: [
-    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
     { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
     { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
   ],
   iceCandidatePoolSize: 10,
+  iceTransportPolicy: 'all',
+  bundlePolicy: 'max-bundle',
 };
+
+const SPEAKING_THRESHOLD = 10;
+const SPEAKING_POLL_MS = 120;
 
 export interface VideoRoomRecord {
   id: string;
@@ -100,6 +106,8 @@ export const useAdminVideoRoom = ({
   const [isConnected, setIsConnected] = useState(false);
   const [startRequested, setStartRequested] = useState(false);
   const [mutedParticipants, setMutedParticipants] = useState<Set<string>>(new Set());
+  const [activeSpeakers, setActiveSpeakers] = useState<Set<string>>(new Set());
+  const [peerStates, setPeerStates] = useState<Map<string, RTCPeerConnectionState>>(new Map());
 
   const channelRef = useRef<any>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -115,6 +123,65 @@ export const useAdminVideoRoom = ({
   const canManageRoomRef = useRef(canManageRoom);
   const roomRef = useRef<VideoRoomRecord | null>(null);
   const facingModeRef = useRef<'user' | 'environment'>('user');
+
+  // ── Audio level detection ───────────────────────────────
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserNodesRef = useRef<Map<string, AnalyserNode>>(new Map());
+  const sourceNodesRef = useRef<Map<string, MediaStreamAudioSourceNode>>(new Map());
+
+  const attachAudioAnalyser = useCallback((uid: string, stream: MediaStream) => {
+    if (!stream.getAudioTracks().some(t => t.readyState === 'live')) return;
+    try {
+      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+        audioContextRef.current = new AudioContext();
+      }
+      const ctx = audioContextRef.current;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+
+      if (sourceNodesRef.current.has(uid)) return;
+
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.4;
+      source.connect(analyser);
+      sourceNodesRef.current.set(uid, source);
+      analyserNodesRef.current.set(uid, analyser);
+    } catch (e) {
+      console.warn('[audio-level] attach failed', e);
+    }
+  }, []);
+
+  const detachAudioAnalyser = useCallback((uid: string) => {
+    try {
+      sourceNodesRef.current.get(uid)?.disconnect();
+    } catch {}
+    sourceNodesRef.current.delete(uid);
+    analyserNodesRef.current.delete(uid);
+  }, []);
+
+  const pollSpeakers = useCallback(() => {
+    if (analyserNodesRef.current.size === 0) return;
+    const newSpeakers = new Set<string>();
+    analyserNodesRef.current.forEach((analyser, uid) => {
+      try {
+        const buf = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(buf);
+        const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
+        if (avg > SPEAKING_THRESHOLD) newSpeakers.add(uid);
+      } catch {}
+    });
+    setActiveSpeakers(prev => {
+      const same = prev.size === newSpeakers.size && [...prev].every(id => newSpeakers.has(id));
+      return same ? prev : newSpeakers;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    const id = setInterval(pollSpeakers, SPEAKING_POLL_MS);
+    return () => clearInterval(id);
+  }, [isConnected, pollSpeakers]);
 
   const roomType = room?.room_type ?? 'unknown';
   const canShareScreen =
@@ -200,6 +267,7 @@ export const useAdminVideoRoom = ({
 
   const upsertRemoteStream = useCallback(
     (pid: string, stream: MediaStream) => {
+      attachAudioAnalyser(pid, stream);
       setRemoteStreams((cur) => {
         const label = getParticipantLabel(pid);
         const existing = cur.find((e) => e.userId === pid);
@@ -209,7 +277,7 @@ export const useAdminVideoRoom = ({
         return [...cur, { userId: pid, displayName: label, stream }];
       });
     },
-    [getParticipantLabel]
+    [attachAudioAnalyser, getParticipantLabel]
   );
 
   const removePeer = useCallback((pid: string) => {
@@ -228,8 +296,10 @@ export const useAdminVideoRoom = ({
     }
     pendingIceCandidatesRef.current.delete(pid);
     initiatedPeersRef.current.delete(pid);
+    detachAudioAnalyser(pid);
     setRemoteStreams((cur) => cur.filter((e) => e.userId !== pid));
-  }, []);
+    setPeerStates((prev) => { const next = new Map(prev); next.delete(pid); return next; });
+  }, [detachAudioAnalyser]);
 
   const flushPendingIceCandidates = useCallback(async (pid: string, pc: RTCPeerConnection) => {
     const pending = pendingIceCandidatesRef.current.get(pid) || [];
@@ -250,11 +320,9 @@ export const useAdminVideoRoom = ({
       const audioTracks = stream?.getAudioTracks() || [];
       const videoTracks = stream?.getVideoTracks() || [];
 
-      // Add local tracks
       audioTracks.forEach((t) => pc.addTrack(t, stream as MediaStream));
       videoTracks.forEach((t) => pc.addTrack(t, stream as MediaStream));
 
-      // Recv-only transceivers if no local tracks
       if (audioTracks.length === 0) pc.addTransceiver('audio', { direction: 'recvonly' });
       if (roomType !== 'audio' && videoTracks.length === 0) pc.addTransceiver('video', { direction: 'recvonly' });
 
@@ -269,6 +337,7 @@ export const useAdminVideoRoom = ({
 
       pc.onconnectionstatechange = () => {
         const state = pc.connectionState;
+        setPeerStates((prev) => new Map(prev).set(pid, state));
         const existingTimer = disconnectTimersRef.current.get(pid);
 
         if (state === 'connected') {
@@ -362,13 +431,9 @@ export const useAdminVideoRoom = ({
       });
       const [newTrack] = newStream.getVideoTracks();
       if (!newTrack) return;
-
-      // Stop old video track
       originalVideoTrackRef.current?.stop();
       originalVideoTrackRef.current = newTrack;
       facingModeRef.current = nextMode;
-
-      // Replace in all peers
       await replaceOutgoingVideoTrack(newTrack);
       rebuildLocalStream(newTrack);
       setCameraEnabled(true);
@@ -534,17 +599,20 @@ export const useAdminVideoRoom = ({
       originalVideoTrackRef.current = media.getVideoTracks()[0] || null;
       localStreamRef.current = media;
       setLocalStream(media);
+
+      if (userId) attachAudioAnalyser(userId, media);
+
       setMicEnabled(media.getAudioTracks().some((t) => t.enabled));
       setCameraEnabled(currentRoom.room_type !== 'audio' && Boolean(originalVideoTrackRef.current?.enabled));
       setStartRequested(true);
     } catch (err) {
       console.error('[video-room] requestJoin failed', err);
-      setMediaError('Impossible d\'activer le micro ou la caméra.');
+      setMediaError('Impossible d\'activer le micro ou la caméra. Vérifiez les autorisations du navigateur.');
     } finally {
       setIsJoining(false);
       setLoading(false);
     }
-  }, [enabled, isJoining, loadRoom, room, roomId, startRequested, userId]);
+  }, [attachAudioAnalyser, enabled, isJoining, loadRoom, room, roomId, startRequested, userId]);
 
   // ── Toggle controls ─────────────────────────────────────
   const toggleMicrophone = useCallback(() => {
@@ -687,7 +755,7 @@ export const useAdminVideoRoom = ({
         if (active) setIsConnected(true);
       } catch (err) {
         console.error('[video-room] startRoom failed', err);
-        if (active) setMediaError('Impossible de démarrer la salle.');
+        if (active) setMediaError('Impossible de démarrer la salle. Vérifiez votre connexion.');
       } finally {
         if (active) setLoading(false);
       }
@@ -716,6 +784,13 @@ export const useAdminVideoRoom = ({
       setIsScreenSharing(false);
       setIsConnected(false);
       setStartRequested(false);
+      setActiveSpeakers(new Set());
+      setPeerStates(new Map());
+      // cleanup audio context
+      analyserNodesRef.current.clear();
+      sourceNodesRef.current.clear();
+      try { audioContextRef.current?.close(); } catch {}
+      audioContextRef.current = null;
     };
   }, [activateRoom, enabled, handleIncomingSignal, joinRoom, leaveRoom, loadMessages, loadParticipants, loadReactions, loadRoom, roomId, startRequested, userId]);
 
@@ -742,6 +817,8 @@ export const useAdminVideoRoom = ({
     isConnected,
     canShareScreen,
     mutedParticipants,
+    activeSpeakers,
+    peerStates,
     requestJoin,
     toggleMicrophone,
     toggleCamera,
