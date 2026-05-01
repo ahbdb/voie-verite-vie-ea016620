@@ -2,7 +2,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { VAPID_KEY } from "./firebase-config";
 import i18n from "@/i18n";
 
-const FCM_SW_PATH = "/firebase-messaging-sw.js";
+// Use the unified notification service worker to avoid having two SWs
+// competing for the same scope '/', which causes a controllerchange event
+// and triggers page reloads on mobile browsers.
+const NOTIFICATION_SW_PATH = "/notification-sw.js";
 
 /**
  * Register for push notifications using Web Push API with VAPID key.
@@ -16,14 +19,20 @@ export async function registerFCMToken(): Promise<string | null> {
       return null;
     }
 
-    // Register the FCM service worker
+    // Use the unified notification service worker (not firebase-messaging-sw.js)
+    // so we never have two service workers with scope '/' competing.
     let registration: ServiceWorkerRegistration;
     try {
-      registration = await navigator.serviceWorker.register(FCM_SW_PATH, { scope: "/" });
+      registration = await navigator.serviceWorker.register(NOTIFICATION_SW_PATH, { scope: "/" });
       await navigator.serviceWorker.ready;
     } catch (err) {
-      console.log("SW registration failed:", err);
-      return null;
+      // Already registered — grab the existing one
+      try {
+        registration = await navigator.serviceWorker.ready;
+      } catch {
+        console.log("SW registration failed:", err);
+        return null;
+      }
     }
 
     // Request notification permission if not yet decided
