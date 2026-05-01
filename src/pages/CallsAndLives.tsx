@@ -652,7 +652,7 @@ const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopy
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5" />
-                      {session.scheduled_time?.slice(0, 5)}
+                      {formatGmtTime(session.scheduled_time)}
                     </span>
                     <span className="flex items-center gap-1.5">
                       ⏱️ {session.estimated_duration} min
