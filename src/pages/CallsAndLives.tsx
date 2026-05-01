@@ -371,16 +371,16 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
 
       // Fire rich push notification to all subscribers (WhatsApp-style)
       try {
-        const { data: created } = await supabase
+        const { data: created } = await (supabase as any)
           .from('scheduled_sessions' as any)
           .select('id')
           .eq('video_room_id', room.id)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (created?.id) {
+        if (created && (created as any).id) {
           supabase.functions.invoke('notify-session', {
-            body: { session_id: created.id, kind: 'live', target: 'all' },
+            body: { session_id: (created as any).id, kind: 'live', target: 'all' },
           }).catch((e) => console.warn('notify-session failed', e));
         }
       } catch (e) { console.warn(e); }
