@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bell, X, Check, BookOpen, Calendar, MessageCircle, Info, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -46,6 +46,8 @@ export const NotificationBell = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const lang = i18n.language?.split('-')[0] || 'fr';
+  const channelRef = useRef<any>(null);
+  const componentId = useId();
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
@@ -54,61 +56,66 @@ export const NotificationBell = () => {
 
     loadNotifications(user.id);
 
-    const channel = supabase
-      .channel(`notifications:${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const newNotification = payload.new as UserNotification;
-          setNotifications((prev) => [newNotification, ...prev]);
+    if (!channelRef.current) {
+      channelRef.current = supabase
+        .channel(`notifications:${user.id}:${componentId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const newNotification = payload.new as UserNotification;
+            setNotifications((prev) => [newNotification, ...prev]);
 
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(newNotification.title, {
-              body: newNotification.message,
-              icon: '/logo-3v.png',
-            });
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(newNotification.title, {
+                body: newNotification.message,
+                icon: '/logo-3v.png',
+              });
+            }
           }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const updatedNotification = payload.new as UserNotification;
-          setNotifications((prev) =>
-            prev.map((n) => (n.id === updatedNotification.id ? updatedNotification : n))
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const deletedId = (payload.old as { id?: string })?.id;
-          if (!deletedId) return;
-          setNotifications((prev) => prev.filter((n) => n.id !== deletedId));
-        }
-      )
-      .subscribe();
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const updatedNotification = payload.new as UserNotification;
+            setNotifications((prev) =>
+              prev.map((n) => (n.id === updatedNotification.id ? updatedNotification : n))
+            );
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const deletedId = (payload.old as { id?: string })?.id;
+            if (!deletedId) return;
+            setNotifications((prev) => prev.filter((n) => n.id !== deletedId));
+          }
+        )
+        .subscribe();
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [user?.id]);
 

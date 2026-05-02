@@ -379,28 +379,28 @@ const AIChat = () => {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      <header className="border-b border-border/50 px-4 py-3 flex items-center justify-between bg-background">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-5 h-5" />
+      <header className="border-b border-border/50 px-3 md:px-4 py-2 md:py-3 flex items-center justify-between bg-background">
+        <div className="flex items-center gap-2 md:gap-3">
+          <button onClick={() => navigate('/')} className="text-muted-foreground hover:text-foreground transition-colors p-1">
+            <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
           </button>
-          <button onClick={() => setShowSidebar((v) => !v)} className="text-muted-foreground hover:text-foreground transition-colors">
-            <PanelLeft className="w-5 h-5" />
+          <button onClick={() => setShowSidebar((v) => !v)} className="text-muted-foreground hover:text-foreground transition-colors p-1 md:hidden">
+            <PanelLeft className="w-4 h-4 md:w-5 md:h-5" />
           </button>
-          <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center p-1">
+          <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-muted flex items-center justify-center p-0.5 md:p-1">
             <img src={logo3v} alt="3V" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-sm md:text-base font-cinzel font-bold text-foreground">{t('aiChat.title')}</h1>
         </div>
 
-        <Button variant="outline" size="sm" onClick={newChat} className="gap-1 text-xs">
-          <Plus className="w-3 h-3" />
-          {t('aiChat.new')}
+        <Button variant="outline" size="sm" onClick={newChat} className="gap-1 text-xs px-2 md:px-3">
+          <Plus className="w-3 h-3 md:w-4 md:h-4" />
+          <span className="hidden xs:inline">{t('aiChat.new')}</span>
         </Button>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <aside className={`${showSidebar ? 'block' : 'hidden'} md:block w-72 border-r border-border/50 bg-card overflow-y-auto`}>
+        <aside className={`${showSidebar ? 'block' : 'hidden'} md:block w-full sm:w-72 border-r border-border/50 bg-card overflow-y-auto`}>
           <div className="p-3 space-y-1">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">{t('aiChat.conversations')}</p>
 
@@ -429,30 +429,30 @@ const AIChat = () => {
         </aside>
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          <ScrollArea className="flex-1 p-4" ref={messageListRef}>
-            <div className="max-w-3xl mx-auto space-y-4 pb-6">
+          <ScrollArea className="flex-1 p-2 md:p-4" ref={messageListRef}>
+            <div className="max-w-4xl mx-auto space-y-2 md:space-y-4 pb-4 md:pb-6">
               {messages.length === 0 && (
-                <div className="text-center py-16 space-y-4">
-                  <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4 p-2">
+                <div className="text-center py-12 md:py-16 space-y-3 md:space-y-4">
+                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-3 md:mb-4 p-1.5 md:p-2">
                     <img src={logo3v} alt="3V" className="w-full h-full object-contain" />
                   </div>
-                  <h2 className="font-cinzel font-bold text-foreground">{t('aiChat.welcome')}</h2>
-                  <p className="text-sm text-muted-foreground max-w-md mx-auto">{t('aiChat.welcomeDesc')}</p>
+                  <h2 className="font-cinzel font-bold text-foreground text-lg md:text-xl">{t('aiChat.welcome')}</h2>
+                  <p className="text-sm md:text-base text-muted-foreground max-w-md mx-auto px-4">{t('aiChat.welcomeDesc')}</p>
 
-                  <div className="grid sm:grid-cols-2 gap-2 max-w-2xl mx-auto pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3 max-w-2xl mx-auto pt-2 md:pt-4">
                     {QUICK_PROMPTS.map((prompt) => (
                       <button
                         key={prompt}
-                        className="text-left text-xs rounded-lg border border-border bg-card p-3 hover:bg-muted/40 transition-colors"
+                        className="text-left text-xs md:text-sm rounded-lg border border-border bg-card p-3 md:p-4 hover:bg-muted/40 transition-colors"
                         onClick={() => {
                           setInput(prompt);
                           void handleSend(prompt);
                         }}
                       >
-                        <span className="inline-flex items-center gap-1 text-primary mb-1">
-                          <Sparkles className="w-3 h-3" /> Suggestion
+                        <span className="inline-flex items-center gap-1 text-primary mb-1 md:mb-2">
+                          <Sparkles className="w-3 h-3 md:w-4 md:h-4" /> Suggestion
                         </span>
-                        <p className="text-foreground">{prompt}</p>
+                        <p className="text-foreground leading-relaxed">{prompt}</p>
                       </button>
                     ))}
                   </div>
@@ -460,15 +460,15 @@ const AIChat = () => {
               )}
 
               {messages.map((m, i) => (
-                <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div key={i} className={`flex gap-2 md:gap-3 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {m.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 p-1">
+                    <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0 p-0.5 md:p-1">
                       <img src={logo3v} alt="" className="w-full h-full object-contain" />
                     </div>
                   )}
 
                   <div
-                    className={`rounded-2xl px-4 py-3 max-w-[88%] text-sm ${
+                    className={`rounded-2xl px-3 py-2 md:px-4 md:py-3 max-w-[92%] sm:max-w-[85%] md:max-w-[80%] text-sm md:text-base ${
                       m.role === 'user' ? 'bg-primary/10 text-foreground' : 'bg-card border border-border'
                     }`}
                   >
@@ -511,30 +511,30 @@ const AIChat = () => {
                   </div>
 
                   {m.role === 'user' && (
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                      <User className="w-4 h-4 text-muted-foreground" />
+                    <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                      <User className="w-3 h-3 md:w-4 md:h-4 text-muted-foreground" />
                     </div>
                   )}
                 </div>
               ))}
 
               {isLoading && (
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center p-1">
+                <div className="flex gap-2 md:gap-3">
+                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-muted flex items-center justify-center p-0.5 md:p-1">
                     <img src={logo3v} alt="" className="w-full h-full object-contain" />
                   </div>
-                  <div className="bg-card border border-border rounded-2xl px-4 py-3 flex gap-1">
-                    <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" />
-                    <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                    <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                  <div className="bg-card border border-border rounded-2xl px-3 py-2 md:px-4 md:py-3 flex gap-1">
+                    <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-primary/60 rounded-full animate-bounce" />
+                    <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                    <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
                   </div>
                 </div>
               )}
             </div>
           </ScrollArea>
 
-          <div className="border-t border-border/50 p-3 bg-background">
-            <div className="max-w-3xl mx-auto space-y-2">
+          <div className="border-t border-border/50 p-2 md:p-3 bg-background">
+            <div className="max-w-4xl mx-auto space-y-2">
               {uploadedFile && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 border border-border rounded text-xs">
                   <Paperclip className="w-3 h-3 text-primary" />
@@ -545,7 +545,7 @@ const AIChat = () => {
                 </div>
               )}
 
-              <div className="flex gap-2 items-end">
+              <div className="flex gap-1 md:gap-2 items-end">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -554,17 +554,17 @@ const AIChat = () => {
                   onChange={handleFileSelect}
                 />
 
-                <Button type="button" variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()}>
+                <Button type="button" variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} className="h-10 w-10 md:h-11 md:w-11">
                   <Paperclip className="w-4 h-4" />
                 </Button>
 
                 {isSupported() && (
                   isListening ? (
-                    <Button type="button" variant="ghost" size="icon" onClick={stopListening}>
+                    <Button type="button" variant="ghost" size="icon" onClick={stopListening} className="h-10 w-10 md:h-11 md:w-11">
                       <MicOff className="w-4 h-4 text-destructive" />
                     </Button>
                   ) : (
-                    <Button type="button" variant="ghost" size="icon" onClick={startListening}>
+                    <Button type="button" variant="ghost" size="icon" onClick={startListening} className="h-10 w-10 md:h-11 md:w-11">
                       <Mic className="w-4 h-4" />
                     </Button>
                   )
@@ -582,17 +582,17 @@ const AIChat = () => {
                     }}
                     placeholder={t('aiChat.askQuestion')}
                     disabled={isLoading || isListening}
-                    className="min-h-[52px] max-h-36"
+                    className="min-h-[44px] md:min-h-[52px] max-h-32 md:max-h-36 text-sm md:text-base"
                   />
                 </div>
 
                 {isLoading ? (
-                  <Button onClick={handleStopGeneration} variant="outline" size="sm" className="h-[52px] px-4 gap-2">
+                  <Button onClick={handleStopGeneration} variant="outline" size="sm" className="h-[44px] md:h-[52px] px-3 md:px-4 gap-2">
                     <X className="w-4 h-4" />
                     Stop
                   </Button>
                 ) : (
-                  <Button onClick={() => void handleSend()} disabled={!input.trim()} size="sm" className="h-[52px] px-4">
+                  <Button onClick={() => void handleSend()} disabled={!input.trim()} size="sm" className="h-[44px] md:h-[52px] px-3 md:px-4">
                     <Send className="w-4 h-4" />
                   </Button>
                 )}

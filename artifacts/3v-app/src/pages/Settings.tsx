@@ -5,8 +5,8 @@ import { motion } from 'framer-motion';
 import Navigation from '@/components/Navigation';
 import LanguageSelector from '@/components/LanguageSelector';
 import { Button } from '@/components/ui/button';
-import { useSettings, type Theme, type TextSize } from '@/hooks/useSettings';
-import { Sun, Moon, Monitor, Type, Bell, Globe, Lock, Download, Trash2, AlertTriangle, Volume2 } from 'lucide-react';
+import { useSettings, type Theme, type TextSize, type ColorPalette } from '@/hooks/useSettings';
+import { Sun, Moon, Monitor, Type, Bell, Globe, Lock, Download, Trash2, AlertTriangle, Volume2, Palette } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -25,7 +25,7 @@ const fadeUp = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
 
 const Settings = memo(() => {
   const { t } = useTranslation();
-  const { settings, setTheme, setTextSize, setSelectedVoice, availableVoices } = useSettings();
+  const { settings, setTheme, setTextSize, setColorPalette, setSelectedVoice, availableVoices } = useSettings();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -42,6 +42,15 @@ const Settings = memo(() => {
     { value: 'normal', label: t('settings.normal'), scale: t('settings.default') },
     { value: 'large', label: t('settings.large'), scale: '+15%' },
     { value: 'extra-large', label: t('settings.extraLarge'), scale: '+30%' },
+  ];
+
+  const paletteOptions: { value: ColorPalette; label: string; accent: string }[] = [
+    { value: 'liturgical', label: t('settings.paletteLiturgical'), accent: 'bg-violet-200/25 text-violet-700' },
+    { value: 'blue', label: t('settings.paletteBlue'), accent: 'bg-blue-200/25 text-blue-700' },
+    { value: 'green', label: t('settings.paletteGreen'), accent: 'bg-emerald-200/25 text-emerald-700' },
+    { value: 'purple', label: t('settings.palettePurple'), accent: 'bg-purple-200/25 text-purple-700' },
+    { value: 'gold', label: t('settings.paletteGold'), accent: 'bg-amber-200/25 text-amber-700' },
+    { value: 'rose', label: t('settings.paletteRose'), accent: 'bg-rose-200/25 text-rose-700' },
   ];
 
   const clearCache = () => {
@@ -133,6 +142,31 @@ const Settings = memo(() => {
                     }`}>
                     <span className="text-sm font-inter">{option.label}</span>
                     <span className="text-xs text-muted-foreground/60">{option.scale}</span>
+                  </button>
+                ))}
+              </div>
+            </Section>
+
+            {/* Color Palette */}
+            <Section icon={Palette} title={t('settings.colorPalette')} desc={t('settings.colorPaletteDesc')}>
+              <div className="grid grid-cols-2 gap-3">
+                {paletteOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setColorPalette(option.value)}
+                    className={`p-4 rounded-2xl border text-left transition-all flex flex-col gap-3 ${
+                      settings.colorPalette === option.value
+                        ? 'border-cathedral-gold bg-cathedral-gold/5'
+                        : 'border-border/40 hover:border-border'
+                    }`}
+                  >
+                    <div className={`rounded-full w-8 h-8 ${option.accent} flex items-center justify-center`}> 
+                      <Palette className="w-4 h-4" />
+                    </div>
+                    <span className="text-sm font-inter font-semibold">{option.label}</span>
+                    {option.value === 'liturgical' && (
+                      <span className="text-xs text-muted-foreground/70">{t('settings.paletteLiturgicalInfo')}</span>
+                    )}
                   </button>
                 ))}
               </div>

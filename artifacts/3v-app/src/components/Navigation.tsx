@@ -25,6 +25,7 @@ import {
   ZoomOut,
   Radio,
   FileText,
+  Palette,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -329,6 +330,18 @@ const Navigation = () => {
                   </div>
 
                   <div className="border-t border-border/50 pt-4 space-y-2">
+                    <Button
+                      onClick={() => {
+                        navigate('/settings');
+                        setIsMenuOpen(false);
+                      }}
+                      variant="ghost"
+                      className="w-full justify-start"
+                    >
+                      <Palette className="w-4 h-4 mr-2" />
+                      {t('settings.colorPalette')}
+                    </Button>
+
                     <Button
                       onClick={() => {
                         handleInstall();
