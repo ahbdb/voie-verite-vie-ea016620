@@ -85,7 +85,7 @@ const VideoPanel = ({
             ref={videoRef}
             autoPlay
             playsInline
-            muted={muted || isMutedByAdmin}
+            muted={isLocal || isMutedByAdmin}
             className="h-full w-full object-cover"
           />
         ) : (

@@ -43,12 +43,14 @@ const VideoPanel = ({
   subtitle,
   muted = false,
   isMutedByAdmin = false,
+  isLocal = false,
 }: {
   stream: MediaStream | null;
   title: string;
   subtitle: string;
   muted?: boolean;
   isMutedByAdmin?: boolean;
+  isLocal?: boolean;
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hasVideo = Boolean(stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled));
@@ -68,7 +70,7 @@ const VideoPanel = ({
             ref={videoRef}
             autoPlay
             playsInline
-            muted={muted || isMutedByAdmin}
+            muted={isLocal || isMutedByAdmin}
             className="h-full w-full object-cover"
           />
         ) : (
@@ -290,7 +292,7 @@ const AdminVideoRoom = () => {
           {/* Video grid */}
           <section>
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-              <VideoPanel stream={localStream} title="Vous" subtitle="" muted />
+              <VideoPanel stream={localStream} title="Vous" subtitle="" isLocal muted={false} />
               {remoteStreams.map((rs) => (
                 <VideoPanel
                   key={rs.userId}
