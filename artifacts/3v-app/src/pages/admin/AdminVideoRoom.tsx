@@ -8,6 +8,8 @@ import {
   type VideoMessageReactionRecord,
 } from '@/hooks/useAdminVideoRoom';
 import PreCallTest from '@/components/PreCallTest';
+import ActiveCallBanner from '@/components/ActiveCallBanner';
+import { useCallRing } from '@/hooks/useCallRing';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -265,6 +267,12 @@ const AdminVideoRoom = () => {
     navigate(hasManagement ? '/admin/video' : '/');
   };
 
+  const isOnCallPage = location.pathname.startsWith('/meeting/') || location.pathname.startsWith('/admin/video/');
+
+  // Ring when someone is joining but we are not yet connected (waiting in lobby)
+  const isWaitingForPeers = isConnected && participants.length > 0 && remoteStreams.length === 0;
+  useCallRing(isWaitingForPeers);
+
   const handleEndRoom = async () => {
     await endRoom();
     toast.success('Réunion terminée');
@@ -337,6 +345,15 @@ const AdminVideoRoom = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950">
+      {/* WhatsApp-style "tap to return to call" banner — only when NOT on the call page */}
+      {!isOnCallPage && (
+        <ActiveCallBanner
+          isConnected={isConnected}
+          roomId={roomId}
+          roomTitle={room?.title ?? undefined}
+          onLeave={handleLeave}
+        />
+      )}
       <Navigation />
 
       <main className="flex-1 flex flex-col pt-16 pb-24">

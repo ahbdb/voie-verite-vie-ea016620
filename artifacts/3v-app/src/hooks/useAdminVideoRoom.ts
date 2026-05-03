@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useCallWakeLock } from './useCallWakeLock';
+import { useCallKeepAlive } from './useCallKeepAlive';
 
 const db = supabase as any;
 
@@ -254,6 +256,26 @@ export const useAdminVideoRoom = ({
     };
   }, [isConnected]);
 
+  // ── Wake Lock: keep screen on during call ────────────────────────────────
+  useCallWakeLock(isConnected);
+
+  // ── Keep-alive: heartbeat + beforeunload + SW notification ───────────────
+  const heartbeat = useCallback(async () => {
+    if (!roomId || !userId) return;
+    await db.from('video_room_participants')
+      .update({ joined_at: new Date().toISOString() })
+      .eq('room_id', roomId)
+      .eq('user_id', userId)
+      .eq('is_active', true);
+  }, [roomId, userId]);
+
+  useCallKeepAlive({
+    isConnected,
+    roomId,
+    roomTitle: room?.title ?? undefined,
+    onHeartbeat: heartbeat,
+  });
+
   // ── Page Visibility — pause disconnect timers when app is hidden ────────────
 
   useEffect(() => {
@@ -445,12 +467,22 @@ export const useAdminVideoRoom = ({
 
         if (state === 'disconnected') {
           setConnectionQuality('poor');
-          // Give extra time if page is hidden (user switched app)
-          const timeout = isPageHiddenRef.current ? DISCONNECT_TIMEOUT_MS * 2 : DISCONNECT_TIMEOUT_MS;
+          // Give extra time if page is hidden (user switched app — like WhatsApp)
+          const timeout = isPageHiddenRef.current ? DISCONNECT_TIMEOUT_MS * 3 : DISCONNECT_TIMEOUT_MS;
           if (!existingTimer) {
             const tid = window.setTimeout(() => {
               if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-                removePeer(pid);
+                // Try ICE restart once before removing the peer
+                const state2 = pc.connectionState as string;
+                const shouldOffer = uid && uid.localeCompare(pid) < 0;
+                if (shouldOffer && state2 !== 'closed') {
+                  pc.createOffer({ iceRestart: true })
+                    .then(offer => pc.setLocalDescription(offer))
+                    .then(() => { if (pc.localDescription) void sendSignal('offer', pc.localDescription, pid); })
+                    .catch(() => removePeer(pid));
+                } else {
+                  removePeer(pid);
+                }
               }
               disconnectTimersRef.current.delete(pid);
             }, timeout);
@@ -462,19 +494,30 @@ export const useAdminVideoRoom = ({
         if (state === 'failed') {
           setConnectionQuality('reconnecting');
           if (existingTimer) { window.clearTimeout(existingTimer); disconnectTimersRef.current.delete(pid); }
-          // Try ICE restart before giving up
+          // Aggressive ICE restart with retry backoff
           const shouldOffer = uid && uid.localeCompare(pid) < 0;
           if (shouldOffer) {
-            pc.createOffer({ iceRestart: true })
-              .then(offer => pc.setLocalDescription(offer))
-              .then(() => { if (pc.localDescription) void sendSignal('offer', pc.localDescription, pid); })
-              .catch(() => removePeer(pid));
+            const attemptRestart = (attempt: number) => {
+              if (pc.connectionState === 'connected') return;
+              if (attempt > 3) { removePeer(pid); return; }
+              pc.createOffer({ iceRestart: true })
+                .then(offer => pc.setLocalDescription(offer))
+                .then(() => { if (pc.localDescription) void sendSignal('offer', pc.localDescription, pid); })
+                .then(() => {
+                  // Schedule a retry if not connected after 5s
+                  window.setTimeout(() => {
+                    if (pc.connectionState !== 'connected') attemptRestart(attempt + 1);
+                  }, 5_000 * attempt);
+                })
+                .catch(() => removePeer(pid));
+            };
+            attemptRestart(1);
           } else {
-            // The other side will restart ICE — give it 10 s
+            // The other side will restart ICE — give it 15 s (increased from 10s)
             const tid = window.setTimeout(() => {
               if (pc.connectionState === 'failed') removePeer(pid);
               disconnectTimersRef.current.delete(pid);
-            }, 10_000);
+            }, 15_000);
             disconnectTimersRef.current.set(pid, tid);
           }
           return;
@@ -1015,6 +1058,19 @@ export const useAdminVideoRoom = ({
     joinRoom, leaveRoom, loadMessages, loadParticipants, loadReactions,
     loadRoom, roomId, startRequested, userId,
   ]);
+
+  // ── Aggressive reconnect: periodic re-sync when page returns to foreground ─
+
+  useEffect(() => {
+    if (!isConnected) return;
+
+    // Every 30s, re-sync peers in case we missed a participant joining
+    const id = window.setInterval(() => {
+      if (!isPageHiddenRef.current) void syncPeers();
+    }, 30_000);
+
+    return () => window.clearInterval(id);
+  }, [isConnected, syncPeers]);
 
   // ── Sync peers on participant changes ─────────────────────────────────────
 
