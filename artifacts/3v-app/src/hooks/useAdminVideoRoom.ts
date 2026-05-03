@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useCallWakeLock } from './useCallWakeLock';
 import { useCallKeepAlive } from './useCallKeepAlive';
+import { useAudioKeepalive } from './useAudioKeepalive';
 
 const db = supabase as any;
 
@@ -258,6 +259,12 @@ export const useAdminVideoRoom = ({
 
   // ── Wake Lock: keep screen on during call ────────────────────────────────
   useCallWakeLock(isConnected);
+
+  // ── Silent audio keepalive — prevents browser from suspending audio ───────
+  // This is the same trick used by WhatsApp Web, Google Meet, Zoom.
+  // Playing a near-silent looping audio buffer tells the OS the page is
+  // actively producing audio, so it does NOT throttle or mute remote streams.
+  useAudioKeepalive(isConnected);
 
   // ── Keep-alive: heartbeat + beforeunload + SW notification ───────────────
   const heartbeat = useCallback(async () => {

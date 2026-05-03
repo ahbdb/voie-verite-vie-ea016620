@@ -9,15 +9,21 @@ function classifyPayload(payload) {
   const isCall = action === 'call';
   const isLive = action === 'live' || action === 'session';
   const isFeast = action === 'feast';
-  const isUrgent = isCall || isLive;
-  return { isCall, isLive, isFeast, isUrgent };
+  const isActiveCall = (payload.tag || '').startsWith('active-call-');
+  const isUrgent = isCall || isLive || isActiveCall;
+  return { isCall, isLive, isFeast, isUrgent, isActiveCall };
 }
 
 /* ── Build notification options from payload ─────────────────────────── */
 function buildOptions(payload) {
-  const { isCall, isLive, isFeast, isUrgent } = classifyPayload(payload);
+  const { isCall, isLive, isFeast, isUrgent, isActiveCall } = classifyPayload(payload);
 
-  const actions = isCall
+  const actions = isActiveCall
+    ? [
+        { action: 'join',    title: '📞 Revenir à l\'appel' },
+        { action: 'hangup',  title: '🔴 Raccrocher' },
+      ]
+    : isCall
     ? [
         { action: 'join',    title: '📞 Rejoindre' },
         { action: 'dismiss', title: 'Ignorer' },
@@ -37,7 +43,7 @@ function buildOptions(payload) {
         { action: 'dismiss', title: 'Fermer' },
       ];
 
-  const vibrate = isCall
+  const vibrate = isCall || isActiveCall
     ? [400, 200, 400, 200, 600, 200, 600]
     : isLive
     ? [300, 150, 300, 150, 500]
@@ -48,14 +54,13 @@ function buildOptions(payload) {
   const badge = payload.badge || '/badge-72x72.png';
   const icon  = payload.icon  || '/icon-192x192.png';
 
-  /* WhatsApp-style: call/live notifications always require interaction and aren't silent */
   return {
     body:               payload.body || '',
     badge,
     icon,
     image:              payload.image,
-    tag:                payload.tag || (isUrgent ? `urgent-${action}` : `notification-${Date.now()}`),
-    renotify:           true,
+    tag:                payload.tag || (isUrgent ? `urgent-${payload.action}` : `notification-${Date.now()}`),
+    renotify:           isActiveCall ? false : true,
     requireInteraction: isUrgent || isFeast ? true : (payload.requireInteraction ?? false),
     silent:             isUrgent ? false : (isFeast ? false : (payload.silent ?? true)),
     vibrate,
@@ -73,7 +78,7 @@ function buildOptions(payload) {
 
 /* ── Resolve URL to open on click ────────────────────────────────────── */
 function resolveUrl(payload, action) {
-  if (action === 'dismiss') return null;
+  if (action === 'dismiss' || action === 'hangup') return null;
 
   if (payload.meetingUrl) return payload.meetingUrl;
   if (payload.url && payload.url !== '/') return payload.url;
@@ -120,13 +125,39 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   const payload = event.notification.data || {};
-  const urlToOpen = resolveUrl(payload, event.action);
+  const clickedAction = event.action;
+
+  // ── "Raccrocher" from the active-call banner notification ──
+  if (clickedAction === 'hangup') {
+    event.waitUntil(
+      self.clients
+        .matchAll({ type: 'window', includeUncontrolled: true })
+        .then((clients) => {
+          // Tell every tab to hang up
+          clients.forEach((client) => {
+            client.postMessage({
+              type: 'SW_HANG_UP',
+              payload: { roomId: payload.roomId },
+            });
+          });
+          // If no tab is open, open one so the app can clean up server-side
+          if (clients.length === 0 && self.clients.openWindow) {
+            const url = payload.roomId ? `/meeting/${payload.roomId}?hangup=1` : '/';
+            return self.clients.openWindow(url);
+          }
+        })
+    );
+    return;
+  }
+
+  const urlToOpen = resolveUrl(payload, clickedAction);
   if (!urlToOpen) return;
 
   event.waitUntil(
     (async () => {
       const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
 
+      // Try to focus an existing tab first
       for (const client of clients) {
         if ('focus' in client) {
           try {
@@ -141,6 +172,7 @@ self.addEventListener('notificationclick', (event) => {
         }
       }
 
+      // No existing tab — open a new one
       if (self.clients.openWindow) {
         return self.clients.openWindow(urlToOpen);
       }
@@ -162,7 +194,7 @@ self.addEventListener('message', (event) => {
     self.registration.showNotification(n.title || '🔔 Voie Vérité Vie', buildOptions(n));
   }
 
-  /* WhatsApp-style call ring — play audio via client-side Audio API */
+  /* WhatsApp-style call ring — relay to all client tabs */
   if (event.data.type === 'CALL_RING') {
     self.clients.matchAll({ type: 'window' }).then(clients => {
       clients.forEach(client => client.postMessage({ type: 'PLAY_RING', payload: event.data.payload }));

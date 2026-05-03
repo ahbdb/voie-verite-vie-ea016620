@@ -273,6 +273,48 @@ const AdminVideoRoom = () => {
   const isWaitingForPeers = isConnected && participants.length > 0 && remoteStreams.length === 0;
   useCallRing(isWaitingForPeers);
 
+  // ── Service Worker "Raccrocher" message handler ──────────────────────────
+  // When the user clicks "🔴 Raccrocher" on the persistent SW notification
+  // (shown while tab is in background), the SW posts SW_HANG_UP to all tabs.
+  // We listen here and actually call leaveRoom.
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'SW_HANG_UP') {
+        void handleLeave();
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handler);
+    return () => navigator.serviceWorker.removeEventListener('message', handler);
+  // handleLeave is stable but captured via closure; eslint-disable-next-line is intentional
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Audio-only background mode — disables video tracks when tab is hidden ─
+  // Keeps audio alive while saving battery, exactly like WhatsApp when you
+  // switch to another app mid-call.
+  useEffect(() => {
+    if (!isConnected || !localStream) return;
+    const handleVisibility = () => {
+      const hidden = document.visibilityState === 'hidden';
+      // Pause local video encoding to save CPU/battery, but keep audio
+      localStream.getVideoTracks().forEach((t) => {
+        // Only affect if camera was enabled — don't force-enable it
+        if (t.readyState === 'live') t.enabled = hidden ? false : cameraEnabled;
+      });
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      // Restore video tracks to their correct state when effect cleans up
+      if (localStream) {
+        localStream.getVideoTracks().forEach((t) => {
+          if (t.readyState === 'live') t.enabled = cameraEnabled;
+        });
+      }
+    };
+  }, [isConnected, localStream, cameraEnabled]);
+
   const handleEndRoom = async () => {
     await endRoom();
     toast.success('Réunion terminée');
