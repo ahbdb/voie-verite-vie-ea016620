@@ -31,8 +31,10 @@ const typeIcons: Record<string, React.ReactNode> = {
   announcement: <Info className="w-4 h-4 text-primary" />,
   update: <BookOpen className="w-4 h-4 text-primary" />,
   reading: <BookOpen className="w-4 h-4 text-primary" />,
+  bible: <BookOpen className="w-4 h-4 text-primary" />,
   activity: <Calendar className="w-4 h-4 text-primary" />,
   prayer: <MessageCircle className="w-4 h-4 text-primary" />,
+  feast: <span className="text-base leading-none">✝️</span>,
   info: <Info className="w-4 h-4 text-muted-foreground" />,
 };
 
@@ -66,13 +68,16 @@ export const NotificationBell = () => {
         },
         (payload) => {
           const newNotification = payload.new as UserNotification;
+          if (!newNotification?.id || !newNotification?.created_at) return;
           setNotifications((prev) => [newNotification, ...prev]);
 
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification(newNotification.title, {
-              body: newNotification.message,
-              icon: '/logo-3v.png',
-            });
+            try {
+              new Notification(newNotification.title ?? '', {
+                body: newNotification.message ?? '',
+                icon: '/logo-3v.png',
+              });
+            } catch {}
           }
         }
       )
@@ -272,10 +277,16 @@ export const NotificationBell = () => {
                         {notification.message}
                       </p>
                       <p className="text-xs text-muted-foreground/70 mt-2">
-                        {formatDistanceToNow(new Date(notification.created_at), {
-                          addSuffix: true,
-                          locale: dateFnsLocales[lang] || fr,
-                        })}
+                        {(() => {
+                          try {
+                            const d = new Date(notification.created_at);
+                            if (isNaN(d.getTime())) return '';
+                            return formatDistanceToNow(d, {
+                              addSuffix: true,
+                              locale: dateFnsLocales[lang] || fr,
+                            });
+                          } catch { return ''; }
+                        })()}
                       </p>
                     </div>
                     <Button

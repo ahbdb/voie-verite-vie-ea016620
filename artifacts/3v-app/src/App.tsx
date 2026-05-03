@@ -55,19 +55,28 @@ import AdminNotificationScheduler from "./pages/admin/AdminNotificationScheduler
 import AdminVideo from "./pages/admin/AdminVideo";
 import AdminVideoRoom from "./pages/admin/AdminVideoRoom";
 import AdminRepair from "./pages/AdminRepair";
+import AdminFeastDays from "./pages/admin/AdminFeastDays";
 import Profile from "./pages/Profile";
 import Creator from "./pages/Creator";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import AdminDiagnostics from "@/components/AdminDiagnostics";
 import NotificationInitializer from "@/components/NotificationInitializer";
+import CelebrationOverlay from "@/components/CelebrationOverlay";
+import { useFeastDayNotifier } from "@/hooks/useFeastDayNotifier";
 
 const queryClient = new QueryClient();
+
+const FeastNotifierRunner = () => {
+  useFeastDayNotifier();
+  return null;
+};
 
 const AppNotificationInitializer = ({ children }: { children: React.ReactNode }) => {
   return (
     <>
       <NotificationInitializer />
+      <FeastNotifierRunner />
       {children}
     </>
   );
@@ -108,6 +117,7 @@ const App = () => {
                 <BrowserRouter>
                   <AppNotificationInitializer>
                     <ScrollToTop />
+                    <CelebrationOverlay />
                     <Routes>
                       <Route path="/" element={<Index />} />
                       <Route path="/about" element={<About />} />
@@ -156,6 +166,7 @@ const App = () => {
                       <Route path="/meeting/:roomId" element={<AdminVideoRoom />} />
                       <Route path="/admin/users" element={<AdminUsers />} />
                       <Route path="/admin/admins" element={<AdminManagement />} />
+                      <Route path="/admin/feast-days" element={<AdminFeastDays />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>

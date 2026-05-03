@@ -836,6 +836,8 @@
       "contactDesc": "Voir les messages",
       "notifications": "Notifications",
       "notificationsDesc": "Envoyer des notifications persistentes",
+      "feastDays": "Fêtes chrétiennes",
+      "feastDaysDesc": "Gérer les fêtes et solennités du calendrier liturgique",
       "scheduler": "Scheduler",
       "schedulerDesc": "Gérer les notifications automatiques",
       "videoRooms": "Salles vidéo",

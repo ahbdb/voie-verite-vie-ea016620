@@ -120,6 +120,7 @@ export const useAdminVideoRoom = ({
   const [startRequested, setStartRequested] = useState(false);
   const [mutedParticipants, setMutedParticipants] = useState<Set<string>>(new Set());
   const [activeSpeakers, setActiveSpeakers] = useState<Set<string>>(new Set());
+  const [raisedHands, setRaisedHands] = useState<Set<string>>(new Set());
   const [connectionQuality, setConnectionQuality] = useState<'good' | 'poor' | 'reconnecting'>('good');
 
   const channelRef = useRef<any>(null);
@@ -794,6 +795,23 @@ export const useAdminVideoRoom = ({
     setCameraEnabled(next);
   }, [cameraEnabled, isScreenSharing, roomType]);
 
+  // ── Hand raise ────────────────────────────────────────────────────────────
+
+  const toggleHandRaise = useCallback(() => {
+    if (!channelRef.current || !userId) return;
+    const isRaised = !raisedHands.has(userId);
+    setRaisedHands((prev) => {
+      const next = new Set(prev);
+      if (isRaised) next.add(userId); else next.delete(userId);
+      return next;
+    });
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'hand-raise',
+      payload: { userId, raised: isRaised },
+    }).catch(() => {});
+  }, [raisedHands, userId]);
+
   // ── Admin mute ────────────────────────────────────────────────────────────
 
   const muteParticipant = useCallback((pid: string) => {
@@ -926,6 +944,14 @@ export const useAdminVideoRoom = ({
               event: 'UPDATE', schema: 'public', table: 'video_rooms',
               filter: `id=eq.${roomId}`,
             }, (p: { new: VideoRoomRecord }) => setRoom(p.new))
+            .on('broadcast', { event: 'hand-raise' }, ({ payload }: { payload: { userId: string; raised: boolean } }) => {
+              if (!payload?.userId) return;
+              setRaisedHands((prev) => {
+                const next = new Set(prev);
+                if (payload.raised) next.add(payload.userId); else next.delete(payload.userId);
+                return next;
+              });
+            })
             .subscribe(async (status: string) => {
               if (status === 'SUBSCRIBED') {
                 // ★ KEY FIX: now that we're subscribed, fetch any signals
@@ -969,6 +995,7 @@ export const useAdminVideoRoom = ({
       setIsConnected(false);
       setStartRequested(false);
       setActiveSpeakers(new Set());
+      setRaisedHands(new Set());
       // Cleanup audio
       analyserNodesRef.current.clear();
       sourceNodesRef.current.clear();
@@ -1014,8 +1041,10 @@ export const useAdminVideoRoom = ({
     canShareScreen,
     mutedParticipants,
     activeSpeakers,
+    raisedHands,
     connectionQuality,
     requestJoin,
+    toggleHandRaise,
     toggleMicrophone,
     toggleCamera,
     flipCamera,

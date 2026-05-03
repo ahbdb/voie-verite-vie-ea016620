@@ -7,6 +7,7 @@ import {
   useAdminVideoRoom,
   type VideoMessageReactionRecord,
 } from '@/hooks/useAdminVideoRoom';
+import PreCallTest from '@/components/PreCallTest';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -18,6 +19,7 @@ import {
   ArrowLeft,
   Camera,
   Edit2,
+  Hand,
   Link2,
   Loader2,
   Mic,
@@ -28,6 +30,7 @@ import {
   Radio,
   RotateCcw,
   Send,
+  SmilePlus,
   SwitchCamera,
   Trash2,
   Video,
@@ -38,10 +41,17 @@ import {
   WifiOff,
   AlertCircle,
   CheckCircle2,
+  FlaskConical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const QUICK_REACTIONS = ['👍', '❤️', '🙏', '😂', '🔥', '👏'];
+const ALL_REACTIONS = [
+  '👍','❤️','🙏','😂','🔥','👏',
+  '😍','🎉','💪','✝️','🕊️','🌟',
+  '😭','🤩','💯','🙌','🫶','😇',
+  '🤲','🕯️','📖','⛪','🌹','👑',
+];
 
 // ── Video panel ──────────────────────────────────────────────────────────────
 
@@ -65,8 +75,13 @@ const VideoPanel = ({
   const hasAudio = Boolean(stream?.getAudioTracks().some((t) => t.readyState === 'live'));
 
   useEffect(() => {
-    if (videoRef.current && stream) {
+    if (!videoRef.current) return;
+    if (stream) {
       videoRef.current.srcObject = stream;
+      // Resume AudioContext if suspended (browser autoplay policy)
+      videoRef.current.play().catch(() => {});
+    } else {
+      videoRef.current.srcObject = null;
     }
   }, [stream]);
 
@@ -79,17 +94,18 @@ const VideoPanel = ({
           : 'border-border'
       )}
     >
-      <div className="aspect-video bg-zinc-900">
-        {stream && hasVideo ? (
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted={muted || isMutedByAdmin}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className="aspect-video bg-zinc-900 relative">
+        {/* Always render <video> so audio plays even in audio-only mode */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted={muted || isMutedByAdmin}
+          className={cn('h-full w-full object-cover', !hasVideo && 'invisible absolute inset-0')}
+        />
+        {/* Avatar shown when no video track */}
+        {!hasVideo && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
             <div
               className={cn(
                 'flex h-14 w-14 items-center justify-center rounded-full text-xl font-bold text-white transition-all',
@@ -202,6 +218,8 @@ const AdminVideoRoom = () => {
   const [draftMessage, setDraftMessage] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+  const [showAllEmojis, setShowAllEmojis] = useState(false);
+  const [showPreCallTest, setShowPreCallTest] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const {
@@ -209,6 +227,7 @@ const AdminVideoRoom = () => {
     localStream, loading, mediaError, micEnabled, cameraEnabled,
     isScreenSharing, isJoining, isConnected, canShareScreen,
     mutedParticipants, activeSpeakers, connectionQuality,
+    raisedHands, toggleHandRaise,
     requestJoin, toggleMicrophone, toggleCamera, flipCamera,
     startScreenShare, stopScreenShare,
     sendMessage, editMessage, deleteMessage, toggleReaction,
@@ -388,12 +407,29 @@ const AdminVideoRoom = () => {
               <p className="text-white font-semibold text-lg">Prêt à rejoindre ?</p>
               <p className="text-zinc-400 text-sm mt-1">Rejoins la réunion pour voir et entendre les autres participants.</p>
             </div>
-            <Button size="lg" onClick={() => void requestJoin()} className="px-8">
-              <Camera className="h-4 w-4 mr-2" />
-              Rejoindre la réunion
-            </Button>
+            <div className="flex gap-3 flex-wrap justify-center">
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-2"
+                onClick={() => setShowPreCallTest(true)}
+              >
+                <FlaskConical className="h-4 w-4" />
+                Tester micro &amp; connexion
+              </Button>
+              <Button size="lg" onClick={() => void requestJoin()} className="px-8">
+                <Camera className="h-4 w-4 mr-2" />
+                Rejoindre la réunion
+              </Button>
+            </div>
           </div>
         )}
+
+        <PreCallTest
+          open={showPreCallTest}
+          onClose={() => setShowPreCallTest(false)}
+          onJoin={() => { setShowPreCallTest(false); void requestJoin(); }}
+        />
 
         {/* Video + sidebar grid */}
         {(isConnected || remoteStreams.length > 0 || localStream) && (
@@ -548,16 +584,28 @@ const AdminVideoRoom = () => {
                   </ScrollArea>
 
                   <div className="p-3 border-t border-zinc-800 space-y-2 shrink-0">
-                    <div className="flex flex-wrap gap-1">
-                      {QUICK_REACTIONS.map((emoji) => (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Réactions</span>
                         <button
-                          key={emoji}
-                          onClick={() => setDraftMessage((c) => c + emoji)}
-                          className="rounded-md border border-zinc-700 px-2 py-1 text-sm hover:bg-zinc-800 text-zinc-300"
+                          onClick={() => setShowAllEmojis(v => !v)}
+                          className="text-[10px] text-zinc-500 hover:text-zinc-300 flex items-center gap-1"
                         >
-                          {emoji}
+                          <SmilePlus className="h-3 w-3" />
+                          {showAllEmojis ? 'Moins' : 'Plus'}
                         </button>
-                      ))}
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {(showAllEmojis ? ALL_REACTIONS : QUICK_REACTIONS).map((emoji) => (
+                          <button
+                            key={emoji}
+                            onClick={() => setDraftMessage((c) => c + emoji)}
+                            className="rounded-md border border-zinc-700 px-2 py-1 text-sm hover:bg-zinc-800 text-zinc-300"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     <form onSubmit={handleSubmit} className="flex gap-2">
                       <Input
@@ -587,13 +635,16 @@ const AdminVideoRoom = () => {
                         const isSelf = p.user_id === user.id;
                         const isMuted = mutedParticipants.has(p.user_id);
                         const speaking = activeSpeakers.has(p.user_id);
+                        const hasHandRaised = raisedHands.has(p.user_id);
 
                         return (
                           <div
                             key={p.user_id}
                             className={cn(
                               'flex items-center justify-between rounded-lg border px-3 py-2.5 transition-colors',
-                              speaking
+                              hasHandRaised
+                                ? 'border-yellow-500/40 bg-yellow-500/5'
+                                : speaking
                                 ? 'border-green-500/40 bg-green-500/5'
                                 : 'border-zinc-700 bg-zinc-800'
                             )}
@@ -608,17 +659,24 @@ const AdminVideoRoom = () => {
                                 {(p.display_name || 'P').charAt(0).toUpperCase()}
                               </div>
                               <div>
-                                <p className="text-sm font-medium text-white leading-none">
+                                <p className="text-sm font-medium text-white leading-none flex items-center gap-1">
                                   {p.display_name || 'Participant'}
-                                  {isSelf && <span className="ml-1.5 text-[10px] text-zinc-500">(Vous)</span>}
+                                  {isSelf && <span className="text-[10px] text-zinc-500">(Vous)</span>}
+                                  {hasHandRaised && <span title="Main levée">✋</span>}
                                 </p>
-                                {speaking && (
+                                {hasHandRaised && (
+                                  <p className="text-[10px] text-yellow-400 mt-0.5 flex items-center gap-1">
+                                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-yellow-400 animate-pulse" />
+                                    Main levée
+                                  </p>
+                                )}
+                                {!hasHandRaised && speaking && (
                                   <p className="text-[10px] text-green-400 mt-0.5 flex items-center gap-1">
                                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
                                     En train de parler
                                   </p>
                                 )}
-                                {!speaking && (
+                                {!hasHandRaised && !speaking && (
                                   <p className="text-[10px] text-zinc-600 mt-0.5">
                                     Rejoint {formatTime(p.joined_at)}
                                   </p>
@@ -730,6 +788,21 @@ const AdminVideoRoom = () => {
                 <span className="text-[9px] font-medium">{isScreenSharing ? 'Arrêter' : 'Partager'}</span>
               </button>
             )}
+
+            {/* Hand raise */}
+            <button
+              onClick={toggleHandRaise}
+              className={cn(
+                'flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors min-w-[56px]',
+                raisedHands.has(user?.id || '')
+                  ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
+                  : 'bg-zinc-800 text-white hover:bg-zinc-700'
+              )}
+              title={raisedHands.has(user?.id || '') ? 'Baisser la main' : 'Lever la main'}
+            >
+              <Hand className="h-5 w-5" />
+              <span className="text-[9px] font-medium">Main</span>
+            </button>
 
             {/* Participants count (mobile info) */}
             <div className="flex flex-col items-center gap-1 rounded-xl bg-zinc-800/50 px-3 py-2 text-zinc-500 min-w-[56px]">

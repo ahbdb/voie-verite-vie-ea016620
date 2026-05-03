@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import FixSuperadminRole from '@/components/admin/FixSuperadminRole';
 import {
   Home, Info, Calendar, BookOpen, MessageSquare,
-  Image, HelpCircle, Mail, Bot, Settings, Users, Shield, Flame, Cross, User, Palette, Bell, Clock, Video
+  Image, HelpCircle, Mail, Bot, Settings, Users, Shield, Flame, Cross, User, Palette, Bell, Clock, Video, CalendarDays
 } from 'lucide-react';
 
 const adminSectionKeys = [
@@ -24,6 +24,7 @@ const adminSectionKeys = [
   { titleKey: 'admin.sections.gallery', descKey: 'admin.sections.galleryDesc', icon: Image, path: '/admin/gallery' },
   { titleKey: 'admin.sections.faq', descKey: 'admin.sections.faqDesc', icon: HelpCircle, path: '/admin/faq' },
   { titleKey: 'admin.sections.contact', descKey: 'admin.sections.contactDesc', icon: Mail, path: '/admin/contact' },
+  { titleKey: 'admin.sections.feastDays', descKey: 'admin.sections.feastDaysDesc', icon: CalendarDays, path: '/admin/feast-days' },
   { titleKey: 'admin.sections.notifications', descKey: 'admin.sections.notificationsDesc', icon: Bell, path: '/admin/notifications' },
   { titleKey: 'admin.sections.scheduler', descKey: 'admin.sections.schedulerDesc', icon: Clock, path: '/admin/notification-scheduler' },
   { titleKey: 'admin.sections.videoRooms', descKey: 'admin.sections.videoRoomsDesc', icon: Video, path: '/admin/video' },
