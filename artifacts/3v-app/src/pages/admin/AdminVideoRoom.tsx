@@ -76,6 +76,7 @@ const VideoPanel = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [, forceTick] = useState(0);
   const hasVideo = Boolean(stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled));
+  const hasAudio = Boolean(stream?.getAudioTracks().some((t) => t.readyState === 'live' && t.enabled));
 
   // ── CRITICAL AUDIO FIX ────────────────────────────────────────────────
   // 1. Attach the stream to BOTH a <video> (for picture) AND a hidden

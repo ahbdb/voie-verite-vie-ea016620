@@ -56,8 +56,9 @@ export const NotificationBell = () => {
 
     loadNotifications(user.id);
 
-    const channel = supabase
-      .channel(`notifications:${user.id}`)
+    const channel = supabase.channel(`notifications:${user.id}-${Date.now()}`);
+
+    channel
       .on(
         'postgres_changes',
         {
@@ -113,6 +114,7 @@ export const NotificationBell = () => {
       .subscribe();
 
     return () => {
+      void channel.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, [user?.id]);
