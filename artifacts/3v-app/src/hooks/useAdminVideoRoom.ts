@@ -441,11 +441,13 @@ export const useAdminVideoRoom = ({
       const existing = peerConnectionsRef.current.get(pid);
       if (existing) return existing;
 
+      console.log('[video-room] Creating peer connection for', pid);
       const pc = new RTCPeerConnection(RTC_CONFIGURATION);
       const stream = localStreamRef.current;
       const audioTracks = stream?.getAudioTracks() || [];
       const videoTracks = stream?.getVideoTracks() || [];
 
+      console.log('[video-room] Local stream tracks - audio:', audioTracks.length, 'video:', videoTracks.length);
       audioTracks.forEach((t) => pc.addTrack(t, stream as MediaStream));
       videoTracks.forEach((t) => pc.addTrack(t, stream as MediaStream));
 
@@ -453,15 +455,20 @@ export const useAdminVideoRoom = ({
       if (roomType !== 'audio' && videoTracks.length === 0) pc.addTransceiver('video', { direction: 'recvonly' });
 
       pc.onicecandidate = (ev) => {
-        if (ev.candidate) void sendSignal('ice-candidate', ev.candidate.toJSON(), pid);
+        if (ev.candidate) {
+          console.log('[video-room] Sending ICE candidate to', pid, ev.candidate);
+          void sendSignal('ice-candidate', ev.candidate.toJSON(), pid);
+        }
       };
 
       pc.ontrack = (ev) => {
+        console.log('[video-room] Received track from', pid, ev.track.kind);
         const [s] = ev.streams;
         if (s) upsertRemoteStream(pid, s);
       };
 
       pc.onconnectionstatechange = () => {
+        console.log('[video-room] Connection state for', pid, ':', pc.connectionState);
         const state = pc.connectionState;
         const uid = userIdRef.current;
         const existingTimer = disconnectTimersRef.current.get(pid);
@@ -627,6 +634,7 @@ export const useAdminVideoRoom = ({
       if (!userId || signal.sender_id === userId) return;
       if (signal.recipient_id && signal.recipient_id !== userId) return;
 
+      console.log('[video-room] Handling signal from', signal.sender_id, 'type:', signal.signal_type);
       const pc = createPeerConnection(signal.sender_id);
 
       try {
@@ -778,7 +786,9 @@ export const useAdminVideoRoom = ({
             autoGainControl: true,
             sampleRate: 48000,
           },
-        });
+        console.log('[video-room] Media access granted - audio tracks:', media.getAudioTracks().length, 'video tracks:', media.getVideoTracks().length);
+      } catch (mediaError) {
+        console.error('[video-room] Media access failed:', mediaError);
       } catch {
         if (shouldUseVideo) {
           try {
