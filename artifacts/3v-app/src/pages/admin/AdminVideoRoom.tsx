@@ -73,19 +73,45 @@ const VideoPanel = ({
   isLocal?: boolean;
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [, forceTick] = useState(0);
   const hasVideo = Boolean(stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled));
-  const hasAudio = Boolean(stream?.getAudioTracks().some((t) => t.readyState === 'live'));
 
+  // ── CRITICAL AUDIO FIX ────────────────────────────────────────────────
+  // 1. Attach the stream to BOTH a <video> (for picture) AND a hidden
+  //    <audio> element (so sound plays even when there is no video track).
+  // 2. Re-call play() whenever a new track is added (audio often arrives
+  //    AFTER the first ontrack fires for video).
+  // 3. NEVER mute a remote stream from the <video> tag — that's what was
+  //    silencing everyone. Local preview is the only legitimate mute case.
+  // 4. Force every incoming audio track to enabled=true.
   useEffect(() => {
-    if (!videoRef.current) return;
-    if (stream) {
-      videoRef.current.srcObject = stream;
-      // Resume AudioContext if suspended (browser autoplay policy)
-      videoRef.current.play().catch(() => {});
-    } else {
-      videoRef.current.srcObject = null;
+    const v = videoRef.current;
+    const a = audioRef.current;
+    if (!stream) {
+      if (v) v.srcObject = null;
+      if (a) a.srcObject = null;
+      return;
     }
-  }, [stream]);
+
+    stream.getAudioTracks().forEach((t) => { try { t.enabled = true; } catch {} });
+
+    if (v) { v.srcObject = stream; v.play().catch(() => {}); }
+    if (a && !isLocal) { a.srcObject = stream; a.play().catch(() => {}); }
+
+    const handleTrack = () => {
+      stream.getAudioTracks().forEach((t) => { try { t.enabled = true; } catch {} });
+      if (v) v.play().catch(() => {});
+      if (a && !isLocal) a.play().catch(() => {});
+      forceTick((n) => n + 1);
+    };
+    stream.addEventListener('addtrack', handleTrack);
+    stream.addEventListener('removetrack', handleTrack);
+    return () => {
+      stream.removeEventListener('addtrack', handleTrack);
+      stream.removeEventListener('removetrack', handleTrack);
+    };
+  }, [stream, isLocal]);
 
   return (
     <div
@@ -102,9 +128,15 @@ const VideoPanel = ({
           ref={videoRef}
           autoPlay
           playsInline
-          muted={muted || isMutedByAdmin}
+          muted={isLocal}
           className={cn('h-full w-full object-cover', !hasVideo && 'invisible absolute inset-0')}
         />
+        {/* Hidden dedicated audio sink — guarantees sound even if <video>
+            is hidden, off-screen, or has no video track. Never rendered for
+            the local preview (would create echo). */}
+        {!isLocal && (
+          <audio ref={audioRef} autoPlay playsInline className="hidden" />
+        )}
         {/* Avatar shown when no video track */}
         {!hasVideo && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
