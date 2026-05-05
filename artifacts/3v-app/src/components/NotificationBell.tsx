@@ -56,7 +56,9 @@ export const NotificationBell = () => {
 
     loadNotifications(user.id);
 
-    const channel = supabase.channel(`notifications:${user.id}-${Date.now()}`);
+    const channel = supabase.channel(
+      `notifications:${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    );
 
     channel
       .on(
