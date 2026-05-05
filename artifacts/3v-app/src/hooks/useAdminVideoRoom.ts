@@ -786,10 +786,10 @@ export const useAdminVideoRoom = ({
             autoGainControl: true,
             sampleRate: 48000,
           },
+        });
         console.log('[video-room] Media access granted - audio tracks:', media.getAudioTracks().length, 'video tracks:', media.getVideoTracks().length);
       } catch (mediaError) {
         console.error('[video-room] Media access failed:', mediaError);
-      } catch {
         if (shouldUseVideo) {
           try {
             media = await navigator.mediaDevices.getUserMedia({
