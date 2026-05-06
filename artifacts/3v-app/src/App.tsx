@@ -25,6 +25,7 @@ import Auth from "./pages/Auth";
 import AIChat from "./pages/AIChat";
 import PrayerForum from "./pages/PrayerForum";
 import Careme2026 from "./pages/Careme2026";
+import Careme from "./pages/Careme";
 import CheminDeCroix from "./pages/CheminDeCroix";
 import ShareDebug from "./pages/ShareDebug";
 import ActivityReports from "./pages/ActivityReports";
@@ -133,6 +134,7 @@ const App = () => {
                       <Route path="/ai-chat" element={<AIChat />} />
                       <Route path="/prayer-forum" element={<PrayerForum />} />
                       <Route path="/careme-2026" element={<Careme2026 />} />
+                      <Route path="/careme" element={<Careme />} />
                       <Route path="/chemin-de-croix" element={<CheminDeCroix />} />
                       <Route path="/share-debug" element={<ShareDebug />} />
                       <Route path="/reports" element={<ActivityReports />} />
