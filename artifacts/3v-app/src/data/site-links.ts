@@ -28,7 +28,7 @@ export const siteLinks: SiteCategory[] = [
     items: [
       { nameKey: 'common.biblicalReading', href: '/biblical-reading', icon: 'BookOpen' },
       { nameKey: 'common.prayerForum', href: '/prayer-forum', icon: 'Heart' },
-      { nameKey: 'common.lent2026', href: '/careme-2026', icon: 'Cross' },
+      { nameKey: 'common.lent2026', href: '/careme', icon: 'Cross' },
       { nameKey: 'common.stationsOfCross', href: '/chemin-de-croix', icon: 'Cross' },
       { nameKey: 'common.novenas', href: '/neuvaines', icon: 'BookOpen' },
     ],
