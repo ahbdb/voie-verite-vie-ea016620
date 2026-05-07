@@ -24,9 +24,9 @@ const RTC_CONFIGURATION: RTCConfiguration = {
   bundlePolicy: 'max-bundle',
 };
 
-/** When the page is hidden (app minimised), disconnect timer is paused.
- *  We give 60 s of grace period so the connection survives app switching. */
-const DISCONNECT_TIMEOUT_MS = 60_000;
+/** When the page is hidden (app minimised / soft-left), keep the connection
+ *  alive for up to 5 minutes so users can return quickly. */
+const DISCONNECT_TIMEOUT_MS = 300_000;
 
 const SPEAKING_THRESHOLD = 10;
 const SPEAKING_POLL_MS = 120;
@@ -138,6 +138,8 @@ export const useAdminVideoRoom = ({
   const facingModeRef = useRef<'user' | 'environment'>('user');
   const userIdRef = useRef(userId);
   const isPageHiddenRef = useRef(false);
+  /** When true, unmount cleanup skips leaveRoom + track/peer teardown so audio continues. */
+  const softLeaveRef = useRef(false);
 
   // Audio level detection
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -703,6 +705,11 @@ export const useAdminVideoRoom = ({
     setIsConnected(false);
   }, [roomId]);
 
+  /** Call before navigating away to keep audio flowing to remote peers (WhatsApp-style). */
+  const softLeave = useCallback(() => {
+    softLeaveRef.current = true;
+  }, []);
+
   // ── Join request ──────────────────────────────────────────────────────────
 
   const requestJoin = useCallback(async () => {
@@ -949,15 +956,29 @@ export const useAdminVideoRoom = ({
 
     return () => {
       active = false;
-      void leaveRoom();
+      // Always remove the Supabase realtime channel
       if (channelRef.current) db.removeChannel(channelRef.current);
       channelRef.current = null;
+      disconnectTimersRef.current.forEach((t) => window.clearTimeout(t));
+      disconnectTimersRef.current.clear();
+
+      const isSoft = softLeaveRef.current;
+      softLeaveRef.current = false; // reset for next mount
+
+      if (isSoft) {
+        // ── Soft leave: keep peer connections + tracks alive so remote peers
+        //    still receive our audio (WhatsApp-style background mode).
+        //    The orphaned WebRTC connections will auto-close after
+        //    DISCONNECT_TIMEOUT_MS if the user does not return.
+        return;
+      }
+
+      // ── Hard leave / unmount: full cleanup ──────────────────────────────
+      void leaveRoom();
       peerConnectionsRef.current.forEach((pc) => pc.close());
       peerConnectionsRef.current.clear();
       initiatedPeersRef.current.clear();
       pendingIceCandidatesRef.current.clear();
-      disconnectTimersRef.current.forEach((t) => window.clearTimeout(t));
-      disconnectTimersRef.current.clear();
       setRemoteStreams([]);
       screenTrackRef.current?.stop();
       screenTrackRef.current = null;
@@ -969,14 +990,12 @@ export const useAdminVideoRoom = ({
       setIsConnected(false);
       setStartRequested(false);
       setActiveSpeakers(new Set());
-      // Cleanup audio
       analyserNodesRef.current.clear();
       sourceNodesRef.current.clear();
       try { keepAliveNodeRef.current?.stop(); } catch {}
       keepAliveNodeRef.current = null;
       try { audioContextRef.current?.close(); } catch {}
       audioContextRef.current = null;
-      // Reset MediaSession
       if ('mediaSession' in navigator) {
         navigator.mediaSession.playbackState = 'none';
         try { navigator.mediaSession.setActionHandler('play', null); } catch {}
@@ -1028,5 +1047,6 @@ export const useAdminVideoRoom = ({
     muteParticipant,
     leaveRoom,
     endRoom,
+    softLeave,
   };
 };

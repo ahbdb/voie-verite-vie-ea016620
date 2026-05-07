@@ -14,6 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
@@ -332,6 +336,7 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
   const [prayerCount, setPrayerCount] = useState(0);
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number }[]>([]);
   const [starting, setStarting] = useState(false);
+  const [sessionToEnd, setSessionToEnd] = useState<ScheduledSession | null>(null);
 
   const sendReaction = (emoji: string) => {
     const id = Date.now();
@@ -432,6 +437,28 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
   };
 
   return (
+    <>
+    {/* End-session confirmation dialog */}
+    <AlertDialog open={!!sessionToEnd} onOpenChange={(open) => !open && setSessionToEnd(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Terminer la session en direct ?</AlertDialogTitle>
+          <AlertDialogDescription>
+            La session « {sessionToEnd?.title} » sera marquée comme terminée. Les participants seront déconnectés. Cette action est irréversible.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Annuler</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => { if (sessionToEnd) { void endSession(sessionToEnd); setSessionToEnd(null); } }}
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            Terminer la session
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
     <div className="space-y-6">
       {/* Admin: Start buttons when no live session */}
       {isAdmin && sessions.length === 0 && (
@@ -593,7 +620,7 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
                   <Crown className="h-3 w-3" /> {t('calls.adminControls')}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="destructive" size="sm" onClick={() => endSession(session)} className="gap-1.5">
+                  <Button variant="destructive" size="sm" onClick={() => setSessionToEnd(session)} className="gap-1.5">
                     <X className="h-3.5 w-3.5" /> {t('calls.endSession')}
                   </Button>
                   <Button variant="outline" size="sm" className="gap-1.5">
@@ -606,6 +633,7 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
         </div>
       ))}
     </div>
+    </>
   );
 };
 
