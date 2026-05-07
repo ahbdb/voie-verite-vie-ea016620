@@ -56,7 +56,7 @@ const AdminGallery = () => {
       .from('gallery_images')
       .select('*')
       .order('sort_order', { ascending: true });
-    if (data) setImages(data);
+    if (data) setImages(data as GalleryImage[]);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -410,13 +410,13 @@ const AdminGallery = () => {
 
                 {groupImages[0].group_name && (
                   <div className="flex items-center gap-2">
-                    <Button size="icon" variant="outline" onClick={() => handleAddToAlbum(groupImages[0].group_name, groupImages[0].title)} title="Ajouter des images à cet album">
+                    <Button size="icon" variant="outline" onClick={() => handleAddToAlbum(groupImages[0].group_name ?? '', groupImages[0].title)} title="Ajouter des images à cet album">
                       <Plus className="h-3 w-3" />
                     </Button>
-                    <Button size="icon" variant="outline" onClick={() => handleRenameAlbum(groupImages[0].group_name)} title="Renommer l'album">
+                    <Button size="icon" variant="outline" onClick={() => handleRenameAlbum(groupImages[0].group_name ?? '')} title="Renommer l'album">
                       <Pencil className="h-3 w-3" />
                     </Button>
-                    <Button size="icon" variant="destructive" onClick={() => handleDeleteAlbum(groupImages[0].group_name)} title="Supprimer l'album">
+                    <Button size="icon" variant="destructive" onClick={() => handleDeleteAlbum(groupImages[0].group_name ?? '')} title="Supprimer l'album">
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>

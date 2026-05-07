@@ -64,6 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       debugService.logError(error, 'useAuth-effect');
       setLoading(false);
+      return undefined;
     }
   }, []);
 

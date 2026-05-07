@@ -15,7 +15,9 @@ export type AppNotificationType =
   | 'activity'
   | 'prayer'
   | 'info'
-  | 'call';
+  | 'call'
+  | 'bible'
+  | 'feast';
 
 export const useBroadcastNotifications = () => {
   const { user } = useAuth();

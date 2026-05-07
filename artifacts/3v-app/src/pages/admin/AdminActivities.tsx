@@ -503,7 +503,7 @@ const AdminActivities = () => {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Switch checked={activity.is_published} onCheckedChange={() => togglePublished(activity)} />
+                          <Switch checked={!!activity.is_published} onCheckedChange={() => togglePublished(activity)} />
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">

@@ -42,7 +42,7 @@ interface Message {
 interface Conversation {
   id: string;
   title: string | null;
-  created_at: string;
+  created_at: string | null;
 }
 
 interface UploadedFile {

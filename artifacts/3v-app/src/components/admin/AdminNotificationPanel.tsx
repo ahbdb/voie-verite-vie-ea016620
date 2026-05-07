@@ -278,7 +278,7 @@ export const AdminNotificationPanel = () => {
                         <span>
                           {notif.is_sent ? '✅ Envoyée' : '⏳ En attente'}
                         </span>
-                        <span>{getTargetText(notif.target_role)}</span>
+                        <span>{getTargetText(notif.target_role ?? null)}</span>
                         <time>
                           {new Date(notif.created_at).toLocaleDateString('fr-FR')}
                         </time>

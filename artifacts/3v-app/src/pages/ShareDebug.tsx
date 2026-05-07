@@ -174,14 +174,14 @@ export default function ShareDebug() {
                     {images[ex.id]?.src ? (
                       <div className="flex flex-col items-center gap-4">
                         <img 
-                          src={images[ex.id].src} 
+                          src={images[ex.id].src ?? undefined} 
                           alt="share-preview" 
                           className="border rounded" 
                           style={{ width: 270, height: 480, objectFit: 'cover' }} 
                         />
                         <a 
                           className="inline-block bg-violet-600 text-white px-4 py-2 rounded text-sm hover:bg-violet-700"
-                          href={images[ex.id].src}
+                          href={images[ex.id].src ?? undefined}
                           download={`share-${ex.id}.png`}
                         >
                           Télécharger

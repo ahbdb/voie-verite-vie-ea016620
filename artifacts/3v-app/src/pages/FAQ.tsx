@@ -30,7 +30,7 @@ const FAQ = () => {
 
   const loadFAQ = async () => {
     const { data } = await supabase.from('faq_items').select('*').eq('is_published', true).order('sort_order', { ascending: true });
-    if (data) setFaqData(data);
+    if (data) setFaqData(data as FAQItem[]);
     setLoading(false);
   };
 

@@ -93,7 +93,7 @@ const BiblicalReading = () => {
       .from('user_reading_progress')
       .select('reading_id, completed')
       .eq('user_id', user.id);
-    setUserProgress(data || []);
+    setUserProgress((data || []) as UserProgress[]);
   }, [user]);
 
   useEffect(() => {
@@ -294,7 +294,7 @@ const BiblicalReading = () => {
         <main className="pt-16 pb-8">
           <section className="py-4">
             <div className="container mx-auto px-4 max-w-4xl">
-              <DayReadingViewer reading={selectedDayReading} onClose={() => setSelectedDayReading(null)} />
+              <DayReadingViewer reading={selectedDayReading as any} onClose={() => setSelectedDayReading(null)} />
             </div>
           </section>
         </main>
