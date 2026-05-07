@@ -73,6 +73,7 @@ const VideoPanel = ({
   isLocal?: boolean;
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const hasVideo = Boolean(stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled));
   const hasAudio = Boolean(stream?.getAudioTracks().some((t) => t.readyState === 'live'));
 
@@ -81,6 +82,15 @@ const VideoPanel = ({
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
+
+  // Always attach stream to a dedicated audio element for remote participants.
+  // This guarantees audio plays even in audio-only rooms or when the camera is off
+  // (cases where the <video> element is not rendered and srcObject was never set).
+  useEffect(() => {
+    if (audioRef.current && stream && !isLocal) {
+      audioRef.current.srcObject = stream;
+    }
+  }, [stream, isLocal]);
 
   return (
     <div
@@ -91,13 +101,20 @@ const VideoPanel = ({
           : 'border-border'
       )}
     >
+      {/* Dedicated audio element for remote participants — always mounted so audio
+          plays regardless of whether video is available. The <video> element below
+          is muted to avoid double playback; all sound routes through this element. */}
+      {!isLocal && (
+        <audio ref={audioRef} autoPlay playsInline muted={muted || isMutedByAdmin} />
+      )}
+
       <div className="aspect-video bg-zinc-900">
         {stream && hasVideo ? (
           <video
             ref={videoRef}
             autoPlay
             playsInline
-            muted={muted || isMutedByAdmin}
+            muted
             className="h-full w-full object-cover"
           />
         ) : (

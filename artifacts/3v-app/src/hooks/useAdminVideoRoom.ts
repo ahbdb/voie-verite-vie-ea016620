@@ -5,6 +5,7 @@ const db = supabase as any;
 
 const RTC_CONFIGURATION: RTCConfiguration = {
   iceServers: [
+    // STUN — multiple providers for redundancy
     {
       urls: [
         'stun:stun.l.google.com:19302',
@@ -12,12 +13,19 @@ const RTC_CONFIGURATION: RTCConfiguration = {
         'stun:stun2.l.google.com:19302',
         'stun:stun3.l.google.com:19302',
         'stun:stun.cloudflare.com:3478',
+        'stun:freestun.net:3479',
       ],
     },
+    // TURN — openrelay (UDP + TCP for stricter firewalls)
     { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
     { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
     { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    // TURNS (TLS) — traverses corporate/mobile firewalls that block plain TURN
+    { urls: 'turns:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    // freestun.net — independent free TURN as a second provider
+    { urls: 'turn:freestun.net:3479', username: 'free', credential: 'free' },
+    { urls: 'turns:freestun.net:5350', username: 'free', credential: 'free' },
   ],
   iceCandidatePoolSize: 10,
   iceTransportPolicy: 'all',
