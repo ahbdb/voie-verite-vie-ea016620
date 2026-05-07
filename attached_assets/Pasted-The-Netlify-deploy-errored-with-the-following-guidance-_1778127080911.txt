@@ -1,0 +1,125 @@
+The Netlify deploy errored, with the following guidance provided:
+
+Diagnosis
+- The build itself succeeded ([line 256](#L256), [line 258](#L258)), but Netlify failed at deploy because it couldn't find the publish directory: "Deploy directory 'artifacts/3v-app/artifacts/3v-app/dist/public' does not exist" ([line 269](#L269)).
+- The resolved config shows base is set to artifacts/3v-app ([line 273](#L273)) while publish is resolved to /opt/build/repo/artifacts/3v-app/artifacts/3v-app/dist/public ([line 279](#L279)). Netlify is effectively prefixing the publish path with the base, producing a duplicated path ([line 8](#L8)).
+- Error type: configuration error (wrong publish directory). Cause: publish path in netlify configuration is relative to the repo root but base is also set to artifacts/3v-app, so Netlify concatenates them and ends up looking in a non-existent duplicated path.
+
+Solution
+1. Inspect your netlify configuration (likely netlify.toml at the repo root). Verify the file exists: https://github.com/ahbdb/voie-verite-vie-ea016620/blob/main/netlify.toml
+
+2. Fix the publish path so it is correct relative to the configured base. You have two options:
+
+- Preferred: keep base = "artifacts/3v-app" and set publish to the build output relative to that base (e.g. "dist/public"). Example netlify.toml change:
+```toml
+[build]
+  base = "artifacts/3v-app"
+  command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/3v-app run build"
+  publish = "dist/public"
+```
+
+- Alternative: remove/clear the base and set publish to the full path relative to the repo root (if you prefer a single absolute/relative path). For example:
+```toml
+[build]
+  # remove or empty base
+  # base = ""
+  command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/3v-app run build"
+  publish = "artifacts/3v-app/dist/public"
+```
+
+3. Commit the change to netlify.toml (or update the Publish directory in your Site settings on Netlify to match the corrected path). If you update via the Netlify UI, be careful to keep Base directory and Publish directory consistent (don’t duplicate the same segment in both).
+
+4. Verify locally before pushing:
+- Run the same build command used by Netlify and check that the output folder exists:
+```bash
+# from repo root
+corepack enable && pnpm install --frozen-lockfile
+pnpm --filter @workspace/3v-app run build
+
+# then check the path that will be published
+ls -la artifacts/3v-app/dist/public
+```
+(If your netlify.toml uses base = "artifacts/3v-app", run ls -la artifacts/3v-app/dist/public; if publish is "dist/public" relative to base, the path Netlify will use is base + publish -> artifacts/3v-app/dist/public.)
+
+5. Re-deploy on Netlify. The deploy should succeed once the publish path points to the actual build output directory.
+
+References to the logs used:
+- Custom publish path detected: [line 8](#L8)
+- Build completed: [line 256](#L256), [line 258](#L258)
+- Error: publish dir does not exist: [line 269](#L269)
+- Resolved base and publish: [line 273](#L273), [line 279](#L279)
+
+The relevant error logs are:
+
+Line 0: build-image version: ac6eb13fbf000e5c09ad677efd8b7c3c2d0142b6 (noble-new-builds)
+Line 1: buildbot version: 361b8ae7783dcf11554627378e75c829cc866748
+Line 2: Fetching cached dependencies
+Line 3: Failed to fetch cache, continuing with build
+Line 4: Starting to prepare the repo for build
+Line 5: No cached dependencies found. Cloning fresh repo
+Line 6: git clone --filter=blob:none https://github.com/ahbdb/voie-verite-vie-ea016620
+Line 7: Preparing Git Reference refs/heads/main
+Line 8: Custom publish path detected. Proceeding with the specified path: 'artifacts/3v-app/artifacts/3v-app/dist/public'
+Line 9: Installing dependencies
+Line 10: mise ~/.config/mise/config.toml tools: python@3.14.3
+Line 11: mise ~/.config/mise/config.toml tools: ruby@3.4.8
+Line 12: mise ~/.config/mise/config.toml tools: go@1.26.2
+Line 13: v20.20.2 is already installed.
+Line 60: + @radix-ui/react-slider 1.3.6
+Line 61: + @radix-ui/react-slot 1.2.4
+Line 62: + @radix-ui/react-switch 1.2.6
+Line 63: + @radix-ui/react-tabs 1.1.13
+Line 64: + @radix-ui/react-toast 1.2.15
+Line 65: + @radix-ui/react-toggle 1.1.10
+Line 66: + @radix-ui/react-toggle-group 1.1.11
+Line 67: + @radix-ui/react-tooltip 1.2.8
+Line 68: + @replit/vite-plugin-cartographer 0.5.1
+Line 69: + @replit/vite-plugin-dev-banner 0.1.2
+Line 70: + @replit/vite-plugin-runtime-error-modal 0.0.6
+Line 71: + @tailwindcss/typography 0.5.19
+Line 72: + @tanstack/react-query 5.90.21
+Line 73: + @types/node 25.3.5
+Line 74: + @types/react 19.2.14
+Line 75: + @types/react-dom 19.2.3
+Line 76: + @vitejs/plugin-react 5.1.4
+Line 77: + @workspace/api-client-react 0.0.0 <- ../../lib/api-client-react
+Line 78: + autoprefixer 10.5.0
+Line 79: + class-variance-authority 0.7.1
+Line 80: + clsx 2.1.1
+Line 255: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+Line 256: ✓ built in 13.07s
+Line 257: ​
+Line 258: (build.command completed in 15.8s)
+Line 259: ​
+Line 260: Deploy site                                                   
+Line 261: ────────────────────────────────────────────────────────────────
+Line 262: ​
+Line 263: Section completed: deploying
+Line 264: ​
+Line 265: Configuration error                                           
+Line 266: ────────────────────────────────────────────────────────────────
+Line 267: ​
+Line 268:   Error message
+Line 269:   Deploy did not succeed: Deploy directory 'artifacts/3v-app/artifacts/3v-app/dist/public' does not exist
+Line 270: ​
+Line 271:   Resolved config
+Line 272:   build:
+Line 273:     base: /opt/build/repo/artifacts/3v-app
+Line 274:     command: corepack enable && pnpm install --frozen-lockfile && pnpm --filter
+Line 275:       @workspace/3v-app run build
+Line 276:     commandOrigin: config
+Line 277:     environment:
+Line 278:       - NODE_VERSION
+Line 279:     publish: /opt/build/repo/artifacts/3v-app/artifacts/3v-app/dist/public
+Line 280:     publishOrigin: config
+Line 281:   redirects:
+Line 282: Failed during stage 'building site': Build script returned non-zero exit code: 2
+Line 283:     - from: /neuvaines/*.pdf
+      status: 200
+      to: /neuvaines/:splat
+    - from: /reports/*.pdf
+      status: 200
+      to
+Line 284: Build failed due to a user error: Build script returned non-zero exit code: 2
+Line 285: Failing build: Failed to build site
+Line 286: Finished processing build request in 30.693s

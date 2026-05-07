@@ -1,7 +1,7 @@
 [build]
-  # Build the 3V app from the pnpm monorepo
+  base = "artifacts/3v-app"
   command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/3v-app run build"
-  publish = "artifacts/3v-app/dist/public"
+  publish = "dist/public"
 
 [build.environment]
   NODE_VERSION = "20"
