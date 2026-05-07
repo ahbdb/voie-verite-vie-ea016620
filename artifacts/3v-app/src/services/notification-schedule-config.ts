@@ -9,22 +9,37 @@ export interface ScheduledNotificationConfig {
   timezone?: string;
   priority: 'high' | 'normal' | 'low';
   messageFunction: () => Promise<void>;
-  maxDailyFrequency?: number; // Max fois par jour (défaut 1)
+  maxDailyFrequency?: number;
   description: string;
 }
 
 /**
  * Calendrier quotidien des messages inspirants
- * Format: HH:MM (24h)
  */
 export const dailyNotificationSchedule: ScheduledNotificationConfig[] = [
+  {
+    hour: 6,
+    minute: 30,
+    priority: 'high',
+    description: '✝️ Verset du matin',
+    messageFunction: async () => {
+      const { broadcastNotificationService } = await import('../hooks/useBroadcastNotifications');
+      const verses = [
+        'Que ce jour soit béni par la grâce de Dieu. "Je suis la voie, la vérité et la vie." — Jean 14:6',
+        'Bonjour ! "Cherchez d\'abord le royaume de Dieu..." — Matthieu 6:33',
+        '"Soyez dans la joie, priez sans cesse." — 1 Thessaloniciens 5:16-17',
+      ];
+      const v = verses[new Date().getDay() % verses.length];
+      await broadcastNotificationService.sendToAll('✝️ Voie Vérité Vie', v, 'bible');
+    },
+    maxDailyFrequency: 1,
+  },
   {
     hour: 8,
     minute: 0,
     priority: 'high',
     description: '💖 Message d\'amour et d\'encouragement',
     messageFunction: async () => {
-      // Sera importé dynamiquement pour éviter les dépendances circulaires
       const { sendLoveMessage } = await import('./motivational-notifications');
       await sendLoveMessage();
     },
@@ -64,6 +79,21 @@ export const dailyNotificationSchedule: ScheduledNotificationConfig[] = [
     maxDailyFrequency: 1,
   },
   {
+    hour: 18,
+    minute: 0,
+    priority: 'normal',
+    description: '📖 Rappel lecture biblique',
+    messageFunction: async () => {
+      const { broadcastNotificationService } = await import('../hooks/useBroadcastNotifications');
+      await broadcastNotificationService.sendToAll(
+        '📖 Lecture du jour',
+        'Prenez quelques minutes pour lire la Parole de Dieu. La Bible vous attend !',
+        'bible'
+      );
+    },
+    maxDailyFrequency: 1,
+  },
+  {
     hour: 20,
     minute: 0,
     priority: 'high',
@@ -74,7 +104,59 @@ export const dailyNotificationSchedule: ScheduledNotificationConfig[] = [
     },
     maxDailyFrequency: 1,
   },
+  {
+    hour: 21,
+    minute: 30,
+    priority: 'normal',
+    description: '🌙 Bonne nuit chrétienne',
+    messageFunction: async () => {
+      const { broadcastNotificationService } = await import('../hooks/useBroadcastNotifications');
+      const msgs = [
+        'Bonne nuit ! "En paix je me couche et je m\'endors, car toi seul, ô Éternel..." — Psaume 4:8',
+        'Que le Seigneur veille sur vous cette nuit. Bonne nuit à tous ! 🌙🙏',
+        'Remettez vos soucis à Dieu et reposez en paix. Bonne nuit ! 🌙',
+      ];
+      const m = msgs[new Date().getDay() % msgs.length];
+      await broadcastNotificationService.sendToAll('🌙 Voie Vérité Vie', m, 'prayer');
+    },
+    maxDailyFrequency: 1,
+  },
 ];
+
+/**
+ * Notifications de fêtes chrétiennes
+ * À appeler depuis useFeastDayNotifier (hook dédié)
+ */
+export async function sendFeastNotification(feastName: string, feastMessage: string, feastIcon: string): Promise<void> {
+  try {
+    const { broadcastNotificationService } = await import('../hooks/useBroadcastNotifications');
+    const title = `${feastIcon} ${feastName}`;
+    await broadcastNotificationService.sendToAll(title, feastMessage, 'feast');
+
+    // Also push via service worker if available
+    if ('serviceWorker' in navigator && 'Notification' in window && Notification.permission === 'granted') {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg?.showNotification) {
+        reg.showNotification(title, {
+          body: feastMessage,
+          icon: '/icon-192x192.png',
+          badge: '/badge-72x72.png',
+          tag: `feast-${Date.now()}`,
+          requireInteraction: true,
+          silent: false,
+          vibrate: [200, 100, 200, 100, 200],
+          data: { action: 'feast', url: '/' },
+          actions: [
+            { action: 'open', title: '🙏 Voir la célébration' },
+            { action: 'dismiss', title: 'Fermer' },
+          ],
+        } as any);
+      }
+    }
+  } catch (e) {
+    console.warn('[FeastNotification] Failed to send:', e);
+  }
+}
 
 /**
  * Messages spéciaux - triggered par événements
@@ -84,12 +166,11 @@ export const specialNotificationSchedule = {
     description: '👋 Notification de bienvenue à l\'ouverture',
     messageFunction: async () => {
       const hours = new Date().getHours();
-      const greeting = hours < 12 
-        ? '☀️ Bonjour! Que Dieu bénisse votre jour.' 
-        : hours < 18 
-        ? '🌤️ Bon après-midi! Continuez à prier.' 
+      const greeting = hours < 12
+        ? '☀️ Bonjour! Que Dieu bénisse votre jour.'
+        : hours < 18
+        ? '🌤️ Bon après-midi! Continuez à prier.'
         : '🌙 Bonsoir! Prenez du temps pour prier.';
-      
       const { broadcastNotificationService } = await import('../hooks/useBroadcastNotifications');
       await broadcastNotificationService.sendToAll('👋 Bienvenue', greeting, 'greeting');
     },
@@ -105,7 +186,7 @@ export const specialNotificationSchedule = {
 
   weeklyDailyReading: {
     description: '📖 Rappel de lecture biblique quotidienne',
-    times: ['06:00', '18:00'], // Matin et soir
+    times: ['06:30', '18:00'],
   },
 
   monthlyRespiritual: {
@@ -119,41 +200,40 @@ export const specialNotificationSchedule = {
  * Options de notification Web Push
  */
 export const webPushOptions = {
-  icon: '/logo-3v.png',
-  badge: '/logo-3v.png',
+  icon: '/icon-192x192.png',
+  badge: '/badge-72x72.png',
   tag: 'voie-verite-vie',
-  requireInteraction: true, // ✨ Important: reste visible jusquà action
-  silent: false, // Notification sonore activée
-  vibrate: [200, 100, 200], // Vibration en ms: vibrer 200ms, pause 100ms, vibrer 200ms
-  renotify: true, // Pousser notif même si app au foreground
+  requireInteraction: true,
+  silent: false,
+  vibrate: [200, 100, 200],
+  renotify: true,
 };
 
 /**
  * Fréquence limite des notifications
  */
 export const notificationLimits = {
-  maxPerDay: 7, // Max 7 notifications par jour
-  maxPerHour: 3, // Max 3 par heure
-  minIntervalMinutes: 5, // Au minimum 5 min entre notifications
+  maxPerDay: 10,
+  maxPerHour: 3,
+  minIntervalMinutes: 5,
 };
 
 /**
- * Zones horaires supportées pour l'envoi personnalisé
- * (pour futur: permettre à chaque utilisateur d'avoir ses heures locales)
+ * Zones horaires supportées
  */
 export const supportedTimezones = [
-  'Africa/Abidjan', // CET/CST - Côte d'Ivoire, Guinée, Mali, Burkina Faso
-  'Africa/Accra', // GMT - Ghana, Togo, Bénin, Nigeria
-  'Africa/Casablanca', // WET/WEST - Maroc, Mauritanie
-  'Africa/Lagos', // WAT - Nigeria
-  'Africa/Nairobi', // EAT - Afrique de l'Est
-  'Africa/Cairo', // EET - Égypte
-  'Africa/Johannesburg', // SAST - Afrique du Sud
-  'Europe/London', // GMT/BST - UK
-  'Europe/Paris', // CET/CEST - France
-  'America/New_York', // EST/EDT - USA Est
-  'America/Los_Angeles', // PST/PDT - USA Ouest
-  'Asia/Dubai', // GST
-  'Asia/Singapore', // SGT
-  'Australia/Sydney', // AEDT/AEST
+  'Africa/Abidjan',
+  'Africa/Accra',
+  'Africa/Casablanca',
+  'Africa/Lagos',
+  'Africa/Nairobi',
+  'Africa/Cairo',
+  'Africa/Johannesburg',
+  'Europe/London',
+  'Europe/Paris',
+  'America/New_York',
+  'America/Los_Angeles',
+  'Asia/Dubai',
+  'Asia/Singapore',
+  'Australia/Sydney',
 ];
