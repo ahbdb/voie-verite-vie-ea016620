@@ -1,0 +1,339 @@
+ 
+⠀⠀#######
+ ##########
+#############
+##############
+##############
+###################
+#####################
+#######################
+#######################
+#######################
+######################
+###################
+
+We're hiring!https://lovable.dev/careers
+ Initializing RudderStack Analytics
+ Unrecognized feature: 'vr'.
+ Unrecognized feature: 'ambient-light-sensor'.
+ Unrecognized feature: 'battery'.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+ [2026-05-06T03:55:44.157Z]  @firebase/database: FIREBASE WARNING: The Firebase database 'gpt-engineer-390607-default-rtdb' has reached its peak connections limit. If you are the Firebase owner, consider upgrading. (https://gpt-engineer-390607-default-rtdb.firebaseio.com/) 
+ [Meta Pixel] - Removed parameters from custom data due to potential violations. Go to Events Manager to learn more.
+ [LocalStorage] Timeout after 500ms, resolving with null
+ preview_iframe_stuck_recovery_exhausted Object
+ preview_live_displayed Object
+ preview_load_completed Object
+ Checking for app updates
+ Code WebSocket closed prematurely Object
+ Checking for app updates
+ Checking for app updates
+ App update check: Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/latest-message:1  Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR
+ unexpected_error_during_sse Object
+ stream_connection_retry Object
+ Checking for app updates
+ App update check: Object
+ Checking for app updates
+ App update check: Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ WebSocket connection to 'wss://0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/' failed: 
+ devserver_websocket_error Object
+ devserver_websocket_error Object
+ Max reconnect attempts of 20 exceeded
+ Max reconnect attempts of 20 exceeded
+ Max reconnect attempts of 20 exceeded
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/latest-message:1  Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR
+ unexpected_error_during_sse Object
+ stream_connection_retry Object
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&RID=10146&CVER=22&X-HTTP-Session-Id=gsessionid&zx=8kq23eej5pjx&t=1:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ [2026-05-06T06:35:49.973Z]  @firebase/firestore: Firestore (11.10.0): WebChannelConnection RPC 'Listen' stream 0x660aef24 transport errored. Name: undefined Message: undefined
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&gsessionid=b1upzFPIK7YHlfV8CoBfNrl-PaLE-0bilPRqAodwXG_FVNLkJhrbYQ&SID=r2rx66_HztTEipXzgEViBQ&RID=32608&TYPE=terminate&zx=zcb5q8uvd1qd:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/latest-message:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ stream_connection_retry Object
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=b1upzFPIK7YHlfV8CoBfNrl-PaLE-0bilPRqAodwXG_FVNLkJhrbYQ&VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&RID=rpc&SID=r2rx66_HztTEipXzgEViBQ&AID=77&CI=0&TYPE=xmlhttp&zx=axig3pfv0h2w&t=2:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&RID=72673&CVER=22&X-HTTP-Session-Id=gsessionid&zx=3wixegwb924x&t=1:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ [2026-05-06T06:35:50.072Z]  @firebase/firestore: Firestore (11.10.0): WebChannelConnection RPC 'Listen' stream 0x660aef25 transport errored. Name: undefined Message: undefined
+www.google.com/images/cleardot.gif?zx=ahr76gvlfe1s:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+www.google.com/images/cleardot.gif?zx=9ikubkt1no3n:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&RID=23048&CVER=22&X-HTTP-Session-Id=gsessionid&zx=jbokd62mzlls&t=1:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/presence:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/permissions?projectId=0d95312f-577b-405f-aca8-3354a904f40d:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/permissions:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/cloud/config:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/integrations/shopify:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/documents:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/surveys/active:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/user/projects/shared:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/auth-token:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/collaborators:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+ Failed to fetch collaborators Object
+api.lovable.dev/user/workspaces:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/workspaces/x2MvML9nNs5sxuSbjom4/projects/0d95312f-577b-405f-aca8-3354a904f40d/folder:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/user/projects/starred-projects:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/agents:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/permissions?workspaceId=x2MvML9nNs5sxuSbjom4:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/latest-message:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ stream_connection_retry Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/workspace:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/workspaces/x2MvML9nNs5sxuSbjom4/projects/0d95312f-577b-405f-aca8-3354a904f40d/gitsync:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/workspaces/x2MvML9nNs5sxuSbjom4/folders:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/workspaces/x2MvML9nNs5sxuSbjom4/credit-balance:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/workspaces/x2MvML9nNs5sxuSbjom4/user-monthly-usage:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+ Error fetching user monthly usage: 
+api.lovable.dev/workspaces/x2MvML9nNs5sxuSbjom4/connections/gitsync/1505fb93-7390-58df-bda7-09578892d1d5/projects/0d95312f-577b-405f-aca8-3354a904f40d/repo-accessibility:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/security/hvt-status:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/cloud/exhaustion/status?env=prod:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/integrations/ai_gateway:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/workspaces/x2MvML9nNs5sxuSbjom4/cloud-grant-status:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/workspaces/x2MvML9nNs5sxuSbjom4/ai-grant-status:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/cloud/status?env=prod:1  Failed to load resource: net::ERR_NAME_NOT_RESOLVED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/mark-viewed:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+ Native network error: Failed to fetch (api.lovable.dev) Object
+ Failed to mark project viewed Object
+ Failed to mark project viewed Object
+ server_sse_error Object
+ stream_connection_retry Object
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&gsessionid=YW15V5uiY5VqeKKetsm2eRCzuQPmSVYjXoFq26LF4_yY1y6OdlrsEw&SID=YRmBO7Z6ValJRnLlZlT9lw&RID=88481&TYPE=terminate&zx=2ziqv3a93o55:1  Failed to load resource: the server responded with a status of 400 ()
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=YW15V5uiY5VqeKKetsm2eRCzuQPmSVYjXoFq26LF4_yY1y6OdlrsEw&VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&RID=rpc&SID=YRmBO7Z6ValJRnLlZlT9lw&AID=48&CI=0&TYPE=xmlhttp&zx=i482zl3nz1i3&t=2:1  Failed to load resource: the server responded with a status of 400 ()
+ server_sse_error Object
+ stream_connection_retry Object
+ server_sse_error Object
+ stream_connection_retry Object
+ server_sse_error Object
+ stream_connection_retry Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/latest-message:1  Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR
+ unexpected_error_during_sse Object
+ stream_connection_retry Object
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=vtRqxOpU0fdD-oEB5vntg_ej9byIawEb5e3UB_TmmVvx8hmL2hwpig&VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&RID=rpc&SID=Lg_D-noHK4WaRdtKOUJxDA&AID=144&CI=0&TYPE=xmlhttp&zx=a9svedj8luvg&t=1:1  Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_NETWORK_IDLE_TIMEOUT
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=vtRqxOpU0fdD-oEB5vntg_ej9byIawEb5e3UB_TmmVvx8hmL2hwpig&VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&RID=rpc&SID=Lg_D-noHK4WaRdtKOUJxDA&AID=146&CI=0&TYPE=xmlhttp&zx=ctrlktwh7uta&t=2:1  Failed to load resource: the server responded with a status of 400 ()
+ [2026-05-06T08:45:56.472Z]  @firebase/firestore: Firestore (11.10.0): WebChannelConnection RPC 'Listen' stream 0x660aef29 transport errored. Name: undefined Message: undefined
+ server_sse_error Object
+ stream_connection_retry Object
+ server_sse_error Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/latest-message:1  Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 unexpected_error_during_sse Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+securetoken.googleapis.com/v1/token?key=AIzaSyBQNjlw9Vp4tP4VVeANzyPJnqbG2wLbYPw:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=DC-5PaySzYA_36DxFt1TTcn3fIsdok_bWh-y3esNLU8NXk0uv5876A&VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&RID=rpc&SID=XK4IRi00oMzc-AGe99UdHg&AID=77&CI=0&TYPE=xmlhttp&zx=i4k94unwzmu9&t=2:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+securetoken.googleapis.com/v1/token?key=AIzaSyBQNjlw9Vp4tP4VVeANzyPJnqbG2wLbYPw:1  Failed to load resource: net::ERR_INTERNET_DISCONNECTED
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 TokenManager: token refresh failed Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/latest-message:1  Failed to load resource: the server responded with a status of 401 ()
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&gsessionid=DC-5PaySzYA_36DxFt1TTcn3fIsdok_bWh-y3esNLU8NXk0uv5876A&SID=XK4IRi00oMzc-AGe99UdHg&RID=34717&TYPE=terminate&zx=4miyntf4yal4:1  Failed to load resource: the server responded with a status of 400 ()
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 server_sse_error Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/latest-message:1  Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 unexpected_error_during_sse Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=rDijuyuvO8q4VN-yzHJVU8SmdVbxamS8NmK53l233kmWYezYU5kJnQ&VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&RID=rpc&SID=f0k6qRe_R23O6uSgSxKtYg&AID=218&CI=0&TYPE=xmlhttp&zx=5itekpiawdfl&t=1:1  Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR.QUIC_NETWORK_IDLE_TIMEOUT
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=rDijuyuvO8q4VN-yzHJVU8SmdVbxamS8NmK53l233kmWYezYU5kJnQ&VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&RID=rpc&SID=f0k6qRe_R23O6uSgSxKtYg&AID=220&CI=0&TYPE=xmlhttp&zx=vdi5z5s4hc50&t=2:1  Failed to load resource: the server responded with a status of 400 ()
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 [2026-05-06T17:35:19.359Z]  @firebase/firestore: Firestore (11.10.0): WebChannelConnection RPC 'Listen' stream 0x660aef33 transport errored. Name: undefined Message: undefined
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/latest-message:1  Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 unexpected_error_during_sse Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 stream_connection_retry Object
+firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?gsessionid=eY2w8Q2Z5HNwXPG_iN8kd5F21YrLC26Cxy0ySI0cWozTjo5NVJ6o5w&VER=8&database=projects%2Fgpt-engineer-390607%2Fdatabases%2F(default)&RID=rpc&SID=o3wXhVQcxfmBJB0BjHlq4w&AID=109&CI=0&TYPE=xmlhttp&zx=4sf2hk6xrdm6&t=2:1  Failed to load resource: the server responded with a status of 400 ()
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 [2026-05-07T01:58:41.188Z]  @firebase/firestore: Firestore (11.10.0): WebChannelConnection RPC 'Listen' stream 0x660aef34 transport errored. Name: undefined Message: undefined
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 Checking for app updates
+0d95312f-577b-405f-aca8-3354a904f40d.lovableproject.com/_sandbox/dev-server:1  Failed to load resource: the server responded with a status of 404 ()
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 App update check: Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 Checking for app updates
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 App update check: Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 [LocalStorage] Timeout after 500ms, resolving with null
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+api.lovable.dev/projects/0d95312f-577b-405f-aca8-3354a904f40d/chat:1  Failed to load resource: the server responded with a status of 402 ()
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 api_error_Payment required Object
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 preview_live_displayed Object
+debug-service.ts:29 [main] Application starting...
+debug-service.ts:29 [main] React dependencies loaded
+debug-service.ts:29 [main] Root element found, creating React app
+debug-service.ts:29 [main] React app rendered successfully
+lovable.js:60 ❤️ Lovable Script — v1.4.12
+lovable.js:12 [useAuth] useAuth: initializing auth listener
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 preview_blank_detected Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 preview_load_completed Object
+lovable.js:12 @supabase/gotrue-js: Lock "lock:sb-kaddsojhnkyfavaulrfc-auth-token" was not released within 5000ms. This may indicate an orphaned lock from a component unmount (e.g., React Strict Mode). Forcefully acquiring the lock to recover.
+console.<computed> @ lovable.js:12
+lovable.js:12 [useAuth] useAuth: auth state changed to SIGNED_IN
+lovable.js:12 Notifications not permitted
+lovable.js:12 [useAdmin] Failed to resolve admin role Error: timeout
+    at useAdmin.tsx:20:43 Error: timeout
+    at useAdmin.tsx:20:43
+console.<computed> @ lovable.js:12
+lovable.js:12 [useAuth] useAuth: auth state changed to INITIAL_SESSION
+lovable.js:12 [useAuth] useAuth: initial session loaded
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 Checking for app updates
+lovable.js:12 [useAuth] useAuth: auth state changed to SIGNED_IN
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 App update check: Object
+lovable.js:12 [useAdmin] Failed to resolve admin role Error: timeout
+    at useAdmin.tsx:20:43 Error: timeout
+    at useAdmin.tsx:20:43
+console.<computed> @ lovable.js:12
+lovable.js:12 [useAuth] useAuth: auth state changed to SIGNED_IN
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 Checking for app updates
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 App update check: Object
+lovable.js:12 [useAdmin] Failed to resolve admin role Error: timeout
+    at useAdmin.tsx:20:43 Error: timeout
+    at useAdmin.tsx:20:43
+console.<computed> @ lovable.js:12
+lovable.js:12 [useAuth] useAuth: auth state changed to SIGNED_IN
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 Checking for app updates
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 App update check: Object
+lovable.js:12 [useAdmin] Failed to resolve admin role Error: timeout
+    at useAdmin.tsx:20:43 Error: timeout
+    at useAdmin.tsx:20:43
+console.<computed> @ lovable.js:12
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 Code WebSocket closed prematurely Object
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10
+lovable.js:12 [useAuth] useAuth: auth state changed to SIGNED_IN
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 Checking for app updates
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 App update check: Object
+lovable.js:12 [useAdmin] Failed to resolve admin role Error: timeout
+    at useAdmin.tsx:20:43 Error: timeout
+    at useAdmin.tsx:20:43
+console.<computed> @ lovable.js:12
+0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10 Tooltip is changing from controlled to uncontrolled. Components should not switch from controlled to uncontrolled (or vice versa). Decide between using a controlled or uncontrolled value for the lifetime of the component.
+(anonymous) @ 0l3iqe8e2k998.js?dpl=a1-a603e4fff6f616883cb0a6379c085:10

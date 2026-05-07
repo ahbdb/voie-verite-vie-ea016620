@@ -8,6 +8,8 @@ import { HelmetProvider } from "react-helmet-async";
 import { toast } from "sonner";
 import { SettingsProvider } from "@/hooks/useSettings";
 import { AuthProvider } from "@/hooks/useAuth";
+import { CallSessionProvider } from "@/contexts/CallSessionContext";
+import { FloatingCallBanner } from "@/components/FloatingCallBanner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LoadingScreen from "@/components/LoadingScreen";
 import ScrollToTop from "@/components/ScrollToTop";
@@ -25,6 +27,7 @@ import Auth from "./pages/Auth";
 import AIChat from "./pages/AIChat";
 import PrayerForum from "./pages/PrayerForum";
 import Careme2026 from "./pages/Careme2026";
+import Careme from "./pages/Careme";
 import CheminDeCroix from "./pages/CheminDeCroix";
 import ShareDebug from "./pages/ShareDebug";
 import ActivityReports from "./pages/ActivityReports";
@@ -106,8 +109,10 @@ const App = () => {
               <PWAUpdatePrompt />
               <ErrorBoundary>
                 <BrowserRouter>
+                  <CallSessionProvider>
                   <AppNotificationInitializer>
                     <ScrollToTop />
+                    <FloatingCallBanner />
                     <Routes>
                       <Route path="/" element={<Index />} />
                       <Route path="/about" element={<About />} />
@@ -122,6 +127,7 @@ const App = () => {
                       <Route path="/auth" element={<Auth />} />
                       <Route path="/ai-chat" element={<AIChat />} />
                       <Route path="/prayer-forum" element={<PrayerForum />} />
+                      <Route path="/careme" element={<Careme />} />
                       <Route path="/careme-2026" element={<Careme2026 />} />
                       <Route path="/chemin-de-croix" element={<CheminDeCroix />} />
                       <Route path="/share-debug" element={<ShareDebug />} />
@@ -159,8 +165,9 @@ const App = () => {
                       <Route path="/profile" element={<Profile />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
+                    <AdminDiagnostics />
                   </AppNotificationInitializer>
-                  <AdminDiagnostics />
+                  </CallSessionProvider>
                 </BrowserRouter>
               </ErrorBoundary>
             </SettingsProvider>

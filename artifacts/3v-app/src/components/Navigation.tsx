@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Component } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,23 @@ import { useToast } from '@/components/ui/use-toast';
 import { NotificationBell } from './NotificationBell';
 import LanguageSelector from './LanguageSelector';
 import AnimatedLogo from './AnimatedLogo';
+import { Bell } from 'lucide-react';
+
+class NotificationBellBoundary extends Component<
+  { children: React.ReactNode },
+  { failed: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { failed: false };
+  }
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch() {}
+  render() {
+    if (this.state.failed) return <Bell className="w-5 h-5 text-muted-foreground opacity-50" />;
+    return this.props.children;
+  }
+}
 
 const ICONS: Record<string, any> = {
   Cross,
@@ -194,7 +211,7 @@ const Navigation = () => {
           </div>
 
           <div className="hidden lg:flex items-center gap-2">
-            <NotificationBell />
+            <NotificationBellBoundary><NotificationBell /></NotificationBellBoundary>
             <LanguageSelector variant="icon" />
 
             <Button
@@ -266,7 +283,7 @@ const Navigation = () => {
             <Button onClick={handleZoomIn} variant="ghost" size="icon" className="h-8 w-8" disabled={!canZoomIn}>
               <ZoomIn className="w-4 h-4" />
             </Button>
-            <NotificationBell />
+            <NotificationBellBoundary><NotificationBell /></NotificationBellBoundary>
 
             <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
               <SheetTrigger asChild>

@@ -10,10 +10,13 @@ A spiritual web app for the Voie, Vérité, Vie (3V) Catholic association in Cam
 - Biblical reading program (daily readings, Carême 2026, Chemin de Croix, Neuvaines)
 - Community features: prayer forum, activities, gallery
 - AI spiritual assistant (chat)
-- Notification system (push notifications via FCM/VAPID)
+- Notification system (push notifications via FCM/VAPID, WhatsApp-style call/live sounds, feast-day push)
 - Admin panel with full content management
 - Multilingual: French (primary), English, Italian
-- Dark mode support
+- Dark mode + **customizable color palettes** (5 presets + custom color pickers, persisted in localStorage)
+- **Audio/video calls**: audio-only bug fixed, hand-raise (Supabase broadcast), full emoji reactions (24), pre-call mic/latency test
+- **Christian feast animations**: `CelebrationOverlay` (garlands, doves, candles, cross-beam via framer-motion), AdminFeastDays CRUD
+- **Feast-day notifier**: `useFeastDayNotifier` checks liturgical calendar on app start and sends push notification once per day
 
 ## Architecture
 
