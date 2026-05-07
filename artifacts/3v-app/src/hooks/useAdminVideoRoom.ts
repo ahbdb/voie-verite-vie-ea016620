@@ -3,29 +3,25 @@ import { supabase } from '@/integrations/supabase/client';
 
 const db = supabase as any;
 
+const METERED_USER = 'a2356b6905de4125c48c1199';
+const METERED_CRED = 'qiDS7HJT6hxF4GAa';
+
 const RTC_CONFIGURATION: RTCConfiguration = {
   iceServers: [
-    // STUN — multiple providers for redundancy
+    // STUN
     {
       urls: [
+        'stun:stun.relay.metered.ca:80',
         'stun:stun.l.google.com:19302',
         'stun:stun1.l.google.com:19302',
-        'stun:stun2.l.google.com:19302',
-        'stun:stun3.l.google.com:19302',
         'stun:stun.cloudflare.com:3478',
-        'stun:freestun.net:3479',
       ],
     },
-    // TURN — openrelay (UDP + TCP for stricter firewalls)
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-    // TURNS (TLS) — traverses corporate/mobile firewalls that block plain TURN
-    { urls: 'turns:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    // freestun.net — independent free TURN as a second provider
-    { urls: 'turn:freestun.net:3479', username: 'free', credential: 'free' },
-    { urls: 'turns:freestun.net:5350', username: 'free', credential: 'free' },
+    // TURN via metered.ca dedicated credentials (UDP, TCP, TLS)
+    { urls: 'turn:global.relay.metered.ca:80',                    username: METERED_USER, credential: METERED_CRED },
+    { urls: 'turn:global.relay.metered.ca:80?transport=tcp',      username: METERED_USER, credential: METERED_CRED },
+    { urls: 'turn:global.relay.metered.ca:443',                   username: METERED_USER, credential: METERED_CRED },
+    { urls: 'turns:global.relay.metered.ca:443?transport=tcp',    username: METERED_USER, credential: METERED_CRED },
   ],
   iceCandidatePoolSize: 10,
   iceTransportPolicy: 'all',
