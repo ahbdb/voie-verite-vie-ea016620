@@ -19,7 +19,7 @@ const ActivitiesSection = () => {
     { title: t('homeActivities.communityTitle'), desc: t('homeActivities.communityDesc'), image: activityCommunity, link: '/prayer-forum', icon: Heart },
     { title: t('homeActivities.conferences'), desc: t('homeActivities.conferencesDesc'), image: activityConference, link: '/activities', icon: Calendar },
     { title: t('homeActivities.novenasTitle'), desc: t('homeActivities.novenasDesc'), image: activityCreative, link: '/neuvaines', icon: Heart },
-    { title: t('homeActivities.meditation'), desc: t('homeActivities.meditationDesc'), image: activityMeditation, link: '/careme-2026', icon: BookOpen },
+    { title: t('homeActivities.meditation'), desc: t('homeActivities.meditationDesc'), image: activityMeditation, link: '/careme', icon: BookOpen },
   ];
 
   return (
