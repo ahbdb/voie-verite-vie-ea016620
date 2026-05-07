@@ -142,7 +142,10 @@ export const useAdminVideoRoom = ({
   const facingModeRef = useRef<'user' | 'environment'>('user');
   const userIdRef = useRef(userId);
   const isPageHiddenRef = useRef(false);
-  /** When true, unmount cleanup skips leaveRoom + track/peer teardown so audio continues. */
+  /** When true, unmount cleanup does full teardown (explicit hang-up / admin end).
+   *  Default is false: navigation without raccrocher keeps peers alive. */
+  const hardLeaveRef = useRef(false);
+  /** Legacy soft-leave flag kept for compatibility. */
   const softLeaveRef = useRef(false);
 
   // Audio level detection
@@ -709,9 +712,16 @@ export const useAdminVideoRoom = ({
     setIsConnected(false);
   }, [roomId]);
 
-  /** Call before navigating away to keep audio flowing to remote peers (WhatsApp-style). */
+  /** Call before navigating away to keep audio flowing to remote peers (WhatsApp-style).
+   *  This is now the DEFAULT behaviour on unmount — calling this is optional. */
   const softLeave = useCallback(() => {
     softLeaveRef.current = true;
+  }, []);
+
+  /** Call when user explicitly hangs up or admin ends the room.
+   *  This is the ONLY scenario that fully disconnects peers and marks the user as left. */
+  const triggerHardLeave = useCallback(() => {
+    hardLeaveRef.current = true;
   }, []);
 
   // ── Join request ──────────────────────────────────────────────────────────
@@ -966,18 +976,20 @@ export const useAdminVideoRoom = ({
       disconnectTimersRef.current.forEach((t) => window.clearTimeout(t));
       disconnectTimersRef.current.clear();
 
-      const isSoft = softLeaveRef.current;
-      softLeaveRef.current = false; // reset for next mount
+      const isHard = hardLeaveRef.current;
+      hardLeaveRef.current = false; // reset for next mount
+      softLeaveRef.current = false;
 
-      if (isSoft) {
-        // ── Soft leave: keep peer connections + tracks alive so remote peers
-        //    still receive our audio (WhatsApp-style background mode).
-        //    The orphaned WebRTC connections will auto-close after
-        //    DISCONNECT_TIMEOUT_MS if the user does not return.
+      if (!isHard) {
+        // ── Default / soft leave: keep peer connections + tracks alive so remote
+        //    peers still receive our audio (WhatsApp-style background mode).
+        //    This covers: back navigation, closing the tab, switching pages.
+        //    Orphaned WebRTC connections auto-close after DISCONNECT_TIMEOUT_MS
+        //    if the user does not return.
         return;
       }
 
-      // ── Hard leave / unmount: full cleanup ──────────────────────────────
+      // ── Hard leave (explicit raccrocher or admin terminer): full cleanup ─
       void leaveRoom();
       peerConnectionsRef.current.forEach((pc) => pc.close());
       peerConnectionsRef.current.clear();
@@ -1052,5 +1064,6 @@ export const useAdminVideoRoom = ({
     leaveRoom,
     endRoom,
     softLeave,
+    triggerHardLeave,
   };
 };

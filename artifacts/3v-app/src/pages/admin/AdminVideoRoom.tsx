@@ -84,13 +84,23 @@ const VideoPanel = ({
   }, [stream]);
 
   // Always attach stream to a dedicated audio element for remote participants.
-  // This guarantees audio plays even in audio-only rooms or when the camera is off
-  // (cases where the <video> element is not rendered and srcObject was never set).
+  // Explicitly call .play() to bypass browser autoplay policy restrictions.
   useEffect(() => {
-    if (audioRef.current && stream && !isLocal) {
-      audioRef.current.srcObject = stream;
-    }
+    const audio = audioRef.current;
+    if (!audio || !stream || isLocal) return;
+    audio.srcObject = stream;
+    audio.play().catch(() => {
+      // Autoplay was blocked; audio will resume on next user interaction
+    });
   }, [stream, isLocal]);
+
+  // Control muted state via DOM directly — React's muted prop doesn't update
+  // reliably on already-playing <audio> elements.
+  useEffect(() => {
+    if (audioRef.current && !isLocal) {
+      audioRef.current.muted = muted || isMutedByAdmin;
+    }
+  }, [muted, isMutedByAdmin, isLocal]);
 
   return (
     <div
@@ -103,9 +113,10 @@ const VideoPanel = ({
     >
       {/* Dedicated audio element for remote participants — always mounted so audio
           plays regardless of whether video is available. The <video> element below
-          is muted to avoid double playback; all sound routes through this element. */}
+          is muted to avoid double playback; all sound routes through this element.
+          muted/play state is controlled via DOM refs in the useEffect hooks above. */}
       {!isLocal && (
-        <audio ref={audioRef} autoPlay playsInline muted={muted || isMutedByAdmin} />
+        <audio ref={audioRef} playsInline />
       )}
 
       <div className="aspect-video bg-zinc-900">
@@ -247,7 +258,7 @@ const AdminVideoRoom = () => {
     requestJoin, toggleMicrophone, toggleCamera, flipCamera,
     startScreenShare, stopScreenShare,
     sendMessage, editMessage, deleteMessage, toggleReaction,
-    muteParticipant, leaveRoom, endRoom, softLeave,
+    muteParticipant, leaveRoom, endRoom, softLeave, triggerHardLeave,
   } = useAdminVideoRoom({
     roomId,
     userId: user?.id,
@@ -270,6 +281,7 @@ const AdminVideoRoom = () => {
 
     callSession.setHangUpFn(async () => {
       hardHangUpRef.current = true;
+      triggerHardLeave();
       await leaveRoom();
       callSession.endCallSession();
       navigate(hasManagement ? '/admin/video' : '/');
@@ -308,6 +320,35 @@ const AdminVideoRoom = () => {
     void requestJoin();
   }, [room, loading, roomId, user?.id, requestJoin]);
 
+  // ── Auto-eject all participants when admin ends the room ──────────────────
+  // The hook's Supabase subscription updates `room.status` for everyone in real
+  // time. When it becomes 'ended', non-admin participants navigate away too.
+  useEffect(() => {
+    if (room?.status !== 'ended') return;
+    // The admin who clicked "Terminer" already navigated away via handleEndRoom,
+    // so hardHangUpRef is true for them — skip to avoid double-navigation.
+    if (hardHangUpRef.current) return;
+    // For all other participants: do a hard leave and navigate home.
+    triggerHardLeave();
+    callSession.endCallSession();
+    toast.info('Cette réunion a été terminée par l\'administrateur.');
+    navigate(hasManagement ? '/admin/video' : '/');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.status]);
+
+  // ── Soft-leave when user closes/refreshes the browser tab ────────────────
+  // The component unmount already defaults to soft-leave; this catches the case
+  // where the page is unloaded before React's cleanup runs (e.g., browser close).
+  useEffect(() => {
+    const handleUnload = () => {
+      // Already a no-op since default unmount = soft leave.
+      // We explicitly ensure hardLeaveRef stays false on accidental close.
+      hardHangUpRef.current = false;
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, []);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
@@ -338,6 +379,7 @@ const AdminVideoRoom = () => {
   /** Hard hang-up — disconnects fully and clears context. */
   const handleHardHangUp = async () => {
     hardHangUpRef.current = true;
+    triggerHardLeave();
     await leaveRoom();
     callSession.endCallSession();
     navigate(hasManagement ? '/admin/video' : '/');
@@ -346,6 +388,7 @@ const AdminVideoRoom = () => {
   /** Admin end-room — confirmation required. */
   const handleEndRoom = async () => {
     hardHangUpRef.current = true;
+    triggerHardLeave();
     await endRoom();
     callSession.endCallSession();
     toast.success('Réunion terminée pour tous');
