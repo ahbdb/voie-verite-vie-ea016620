@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { playAttentionTone, sendVisibleNotification } from '@/lib/notification-service';
+import { createElement } from 'react';
+import { NotificationToast, type NotifType } from '@/components/NotificationToast';
 
 export type AppNotificationType =
   | 'greeting'
@@ -38,7 +40,7 @@ export const useBroadcastNotifications = () => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const channel = supabase
-      .channel(`notifications-toast:${user.id}`)
+      .channel(`notifications-toast:${user.id}:${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
@@ -92,20 +94,29 @@ export const useBroadcastNotifications = () => {
             data: { url },
           });
 
-          toast(n.title, {
-            description: n.message,
-            duration: isCall ? 15000 : 6000,
-            action: n.link
-              ? {
-                  label: isCall ? 'Rejoindre' : 'Ouvrir',
-                  onClick: () => {
-                    stopRinging();
-                    window.location.href = n.link!;
-                  },
-                }
-              : undefined,
-            onDismiss: stopRinging,
-          });
+          toast.custom(
+            (toastId) =>
+              createElement(NotificationToast, {
+                title: n.title,
+                message: n.message,
+                type: n.type as NotifType,
+                link: n.link,
+                isCall,
+                onOpen: () => {
+                  stopRinging();
+                  toast.dismiss(toastId);
+                  if (n.link) window.location.href = n.link;
+                },
+                onDismiss: () => {
+                  stopRinging();
+                  toast.dismiss(toastId);
+                },
+              }),
+            {
+              duration: isCall ? 20000 : 7000,
+              position: 'top-right',
+            }
+          );
         }
       )
       .subscribe();
