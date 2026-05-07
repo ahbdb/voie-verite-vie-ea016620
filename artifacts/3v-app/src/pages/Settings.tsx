@@ -5,8 +5,8 @@ import { motion } from 'framer-motion';
 import Navigation from '@/components/Navigation';
 import LanguageSelector from '@/components/LanguageSelector';
 import { Button } from '@/components/ui/button';
-import { useSettings, type Theme, type TextSize } from '@/hooks/useSettings';
-import { Sun, Moon, Monitor, Type, Bell, Globe, Lock, Download, Trash2, AlertTriangle, Volume2 } from 'lucide-react';
+import { useSettings, type Theme, type TextSize, PRESET_PALETTES, type PaletteId, hslStringToHex, hexToHsl } from '@/hooks/useSettings';
+import { Sun, Moon, Monitor, Type, Bell, Globe, Lock, Download, Trash2, AlertTriangle, Volume2, Palette } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -14,22 +14,22 @@ import {
   AlertDialogDescription, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 
 const fadeUp = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
 
 const Settings = memo(() => {
   const { t } = useTranslation();
-  const { settings, setTheme, setTextSize, setSelectedVoice, availableVoices } = useSettings();
+  const { settings, setTheme, setTextSize, setSelectedVoice, availableVoices, activePalette, setPaletteById, setCustomColors } = useSettings();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const [customPrimary, setCustomPrimary] = useState(hslStringToHex(settings.customPrimary));
+  const [customAccent, setCustomAccent] = useState(hslStringToHex(settings.customAccent));
+  const [customStained, setCustomStained] = useState(hslStringToHex(settings.customStained));
 
   const themeOptions: { value: Theme; label: string; icon: React.ReactNode }[] = [
     { value: 'light', label: t('settings.light'), icon: <Sun className="w-5 h-5" /> },
@@ -45,7 +45,7 @@ const Settings = memo(() => {
   ];
 
   const clearCache = () => {
-    if ('caches' in window) { caches.keys().then((names) => { names.forEach(name => { caches.delete(name); }); }); }
+    if ('caches' in window) { caches.keys().then(names => names.forEach(n => caches.delete(n))); }
     localStorage.clear();
     alert(t('settings.clearCache'));
   };
@@ -54,18 +54,18 @@ const Settings = memo(() => {
     try {
       setDeletingAccount(true);
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) { toast({ title: t('common.error'), variant: "destructive" }); return; }
+      if (!session?.user) { toast({ title: t('common.error'), variant: 'destructive' }); return; }
       const userId = session.user.id;
       await supabase.from('profiles').delete().eq('id', userId).select();
       await supabase.from('user_roles').delete().eq('user_id', userId).select();
       try { await supabase.rpc('hard_delete_auth_user', { target_user_id: userId }); } catch {}
       try { await supabase.auth.signOut(); } catch {}
       localStorage.clear(); sessionStorage.clear();
-      toast({ title: "✅ " + t('settings.deleteAccount') });
+      toast({ title: '✅ ' + t('settings.deleteAccount') });
       setTimeout(() => navigate('/'), 2000);
     } catch (error) {
       console.error('Erreur:', error);
-      toast({ title: t('common.error'), variant: "destructive" });
+      toast({ title: t('common.error'), variant: 'destructive' });
     } finally { setDeletingAccount(false); setDeleteDialogOpen(false); }
   };
 
@@ -79,6 +79,11 @@ const Settings = memo(() => {
       if (voice) utterance.voice = voice;
     }
     window.speechSynthesis.speak(utterance);
+  };
+
+  const handleApplyCustomColors = () => {
+    setCustomColors(hexToHsl(customPrimary), hexToHsl(customAccent), hexToHsl(customStained));
+    toast({ title: 'Couleurs personnalisées appliquées !' });
   };
 
   const Section = ({ icon: Icon, title, desc, children }: { icon: any; title: string; desc: string; children: React.ReactNode }) => (
@@ -121,6 +126,69 @@ const Settings = memo(() => {
               </div>
             </Section>
 
+            {/* Color Palette */}
+            <Section icon={Palette} title="Palette de couleurs" desc="Personnalisez les couleurs principales de l'application">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {PRESET_PALETTES.filter(p => p.id !== 'custom').map(palette => (
+                    <button
+                      key={palette.id}
+                      onClick={() => setPaletteById(palette.id as PaletteId)}
+                      className={`relative p-3 rounded-lg border transition-all text-left ${
+                        settings.paletteId === palette.id
+                          ? 'border-cathedral-gold bg-cathedral-gold/5 ring-2 ring-cathedral-gold/30'
+                          : 'border-border/40 hover:border-border'
+                      }`}
+                    >
+                      <div className="flex gap-1.5 mb-2">
+                        <div className="w-5 h-5 rounded-full border border-white/20 shadow-sm" style={{ background: `hsl(${palette.primary})` }} />
+                        <div className="w-5 h-5 rounded-full border border-white/20 shadow-sm" style={{ background: `hsl(${palette.accent})` }} />
+                        <div className="w-5 h-5 rounded-full border border-white/20 shadow-sm" style={{ background: `hsl(${palette.stainedBlue})` }} />
+                      </div>
+                      <span className="text-xs font-inter font-medium text-foreground">{palette.label}</span>
+                      {settings.paletteId === palette.id && (
+                        <span className="absolute top-1.5 right-1.5 text-cathedral-gold text-[10px]">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom colors */}
+                <div className="border border-border/40 rounded-lg p-4 space-y-3">
+                  <p className="text-sm font-inter font-medium text-foreground flex items-center gap-2">
+                    <Palette className="w-4 h-4 text-cathedral-gold" />
+                    Couleurs personnalisées
+                    {settings.paletteId === 'custom' && <span className="text-[10px] text-cathedral-gold border border-cathedral-gold/40 rounded-full px-2 py-0.5">Actif</span>}
+                  </p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Principale', value: customPrimary, onChange: setCustomPrimary },
+                      { label: 'Accent', value: customAccent, onChange: setCustomAccent },
+                      { label: 'Vitrail', value: customStained, onChange: setCustomStained },
+                    ].map(({ label, value, onChange }) => (
+                      <div key={label} className="flex flex-col items-center gap-1.5">
+                        <label className="text-[11px] text-muted-foreground font-inter">{label}</label>
+                        <div className="relative">
+                          <input
+                            type="color"
+                            value={value}
+                            onChange={e => onChange(e.target.value)}
+                            className="w-10 h-10 rounded-lg border border-border cursor-pointer p-0.5"
+                            style={{ background: value }}
+                          />
+                        </div>
+                        <span className="text-[9px] text-muted-foreground font-mono">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Button size="sm" onClick={handleApplyCustomColors} className="w-full gap-2">
+                    <Palette className="w-4 h-4" />
+                    Appliquer les couleurs personnalisées
+                  </Button>
+                </div>
+              </div>
+            </Section>
+
             {/* Text Size */}
             <Section icon={Type} title={t('settings.textSize')} desc={t('settings.textSizeDesc')}>
               <div className="space-y-2">
@@ -143,14 +211,14 @@ const Settings = memo(() => {
               <div className="space-y-3">
                 <Select
                   value={settings.selectedVoice || 'default'}
-                  onValueChange={(val) => setSelectedVoice(val === 'default' ? null : val)}
+                  onValueChange={val => setSelectedVoice(val === 'default' ? null : val)}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder={t('settings.selectVoice', 'Sélectionner une voix')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="default">{t('settings.defaultVoice', 'Voix par défaut')}</SelectItem>
-                    {availableVoices.map((voice) => (
+                    {availableVoices.map(voice => (
                       <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
                         {voice.name} ({voice.lang})
                       </SelectItem>
@@ -207,7 +275,6 @@ const Settings = memo(() => {
               </Button>
             </motion.div>
 
-            {/* About */}
             <div className="pt-8 text-center">
               <p className="text-sm font-cinzel text-foreground">{t('brand.fullName')}</p>
               <p className="text-xs text-muted-foreground/40 font-inter">v1.0.0</p>
