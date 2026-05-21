@@ -37,7 +37,11 @@ const TOTAL_PROGRAM_DAYS = 358;
 
 const BiblicalReading = () => {
   const { t, i18n } = useTranslation();
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const currentMonthKey = useMemo(() => {
+    const now = new Date();
+    return `${now.getMonth() + 1}-${now.getFullYear()}`;
+  }, []);
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey);
   const [selectedTestament, setSelectedTestament] = useState<'all' | 'old' | 'new'>('all');
   const [onlyUnread, setOnlyUnread] = useState(false);
   const [activeTab, setActiveTab] = useState('program');
@@ -289,19 +293,31 @@ const BiblicalReading = () => {
 
   if (selectedDayReading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Navigation />
-        <DayReadingViewer
-          reading={selectedDayReading as any}
-          onClose={() => setSelectedDayReading(null)}
-          isCompleted={isCompleted(selectedDayReading.id)}
-          onMarkComplete={() => toggleReadingComplete(selectedDayReading)}
-          onShowQuiz={() => {
-            setQuizReading(selectedDayReading);
-            setShowQuiz(true);
-          }}
-        />
-      </div>
+      <>
+        <div className="min-h-screen bg-background">
+          <Navigation />
+          <DayReadingViewer
+            reading={selectedDayReading as any}
+            onClose={() => setSelectedDayReading(null)}
+            isCompleted={isCompleted(selectedDayReading.id)}
+            onMarkComplete={() => toggleReadingComplete(selectedDayReading)}
+            onShowQuiz={() => {
+              setQuizReading(selectedDayReading);
+              setShowQuiz(true);
+            }}
+          />
+        </div>
+        {showQuiz && quizReading && (
+          <QuizModal
+            reading={quizReading}
+            isOpen={showQuiz}
+            onClose={() => {
+              setShowQuiz(false);
+              setQuizReading(null);
+            }}
+          />
+        )}
+      </>
     );
   }
 
@@ -416,19 +432,28 @@ const BiblicalReading = () => {
                 {monthsOrder.map((month) => {
                   const stats = monthStats[month.key];
                   if (!stats || stats.total === 0) return null;
+                  const isSelected = selectedMonth === month.key;
+                  const isCurrent = month.key === currentMonthKey;
 
                   return (
                     <button
                       key={month.key}
                       onClick={() => setSelectedMonth(month.key)}
-                      className={`rounded-xl border p-3 text-left transition-colors flex-shrink-0 w-32 sm:w-auto ${
-                        selectedMonth === month.key
-                          ? 'border-primary bg-primary/10'
+                      className={`rounded-xl border p-3 text-left transition-colors flex-shrink-0 w-32 sm:w-auto relative ${
+                        isSelected
+                          ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                          : isCurrent
+                          ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-500 hover:bg-amber-100/60 dark:hover:bg-amber-900/30'
                           : 'border-border bg-card hover:bg-muted/40'
                       }`}
                     >
+                      {isCurrent && !isSelected && (
+                        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 dark:bg-amber-500" />
+                      )}
                       <div className="flex items-center justify-between gap-1">
-                        <p className="text-xs font-semibold text-foreground truncate">{month.name}</p>
+                        <p className={`text-xs font-semibold truncate ${isCurrent && !isSelected ? 'text-amber-700 dark:text-amber-300' : 'text-foreground'}`}>
+                          {month.name}
+                        </p>
                         <span className="text-[10px] text-muted-foreground flex-shrink-0">
                           {stats.completed}/{stats.total}
                         </span>

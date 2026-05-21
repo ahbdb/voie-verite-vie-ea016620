@@ -126,6 +126,42 @@ export default function DayReadingViewer({
         </div>
 
         <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-border/60 px-4 py-3">
+          {isLastChapter && (
+            <div className="max-w-4xl mx-auto mb-2 flex gap-2">
+              {!isCompleted && onMarkComplete && (
+                <Button
+                  size="sm"
+                  className="gap-1.5 flex-1 bg-primary text-primary-foreground shadow-md"
+                  onClick={onMarkComplete}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {t('dayReading.markAndQuiz')}
+                </Button>
+              )}
+              {isCompleted && onShowQuiz && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 flex-1 border-primary text-primary"
+                  onClick={onShowQuiz}
+                >
+                  <Brain className="w-4 h-4" />
+                  {t('dayReading.doQuiz')}
+                </Button>
+              )}
+              {isCompleted && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1.5 text-muted-foreground"
+                  disabled
+                >
+                  <CheckCircle className="w-4 h-4 text-primary" />
+                  {t('biblicalReading.completed')}
+                </Button>
+              )}
+            </div>
+          )}
           <div className="flex items-center justify-between gap-2 max-w-4xl mx-auto">
             <Button
               variant="outline"
@@ -138,34 +174,9 @@ export default function DayReadingViewer({
               <span className="hidden sm:inline">{t('dayReading.prevChapter')}</span>
             </Button>
 
-            {isLastChapter && !isCompleted && onMarkComplete && (
-              <Button
-                size="sm"
-                className="gap-1.5 flex-1 mx-2 bg-primary text-primary-foreground"
-                onClick={() => {
-                  setSelectedChapterIdx(null);
-                  onMarkComplete();
-                }}
-              >
-                <CheckCircle className="w-4 h-4" />
-                {t('dayReading.markAndQuiz')}
-              </Button>
-            )}
-
-            {isLastChapter && isCompleted && onShowQuiz && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5 flex-1 mx-2"
-                onClick={() => {
-                  setSelectedChapterIdx(null);
-                  onShowQuiz();
-                }}
-              >
-                <Brain className="w-4 h-4" />
-                {t('dayReading.doQuiz')}
-              </Button>
-            )}
+            <span className="text-xs text-muted-foreground">
+              {selectedChapterIdx + 1} / {chapters.length}
+            </span>
 
             <Button
               variant="outline"
