@@ -41,6 +41,7 @@ export const siteLinks: SiteCategory[] = [
       { nameKey: 'common.gallery', href: '/gallery', icon: 'Camera' },
       { nameKey: 'common.callsAndLives', href: '/calls-lives', icon: 'Radio' },
       { nameKey: 'reports.activityReports', href: '/reports', icon: 'FileText' },
+      { nameKey: 'common.documents3v', href: '/documents-3v', icon: 'FileText' },
     ],
   },
   {

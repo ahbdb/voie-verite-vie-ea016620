@@ -53,7 +53,8 @@
     "darkMode": "Dark mode",
     "reduceText": "Reduce text",
     "enlargeText": "Enlarge text",
-    "callsAndLives": "Calls & Lives"
+    "callsAndLives": "Calls & Lives",
+    "documents3v": "3V Documents"
   },
   "nav": {
     "main": "Main",
@@ -1092,6 +1093,58 @@
       "totalViewers": "Total views",
       "manageSessions": "Session management",
       "noSessions": "No sessions to manage."
+    }
+  },
+  "documents3v": {
+    "title": "3V Documents",
+    "subtitle": "Find all the official documents of the Voie-Vérité-Vie Movement here — founding documents, regulations and forms.",
+    "view": "View",
+    "download": "Download",
+    "footer": "These documents form the official canonical corpus of the Voie-Vérité-Vie Movement. Founder-Moderator: AHOUFACK DYLANNE BAUDOUIN — Douala, Cameroon.",
+    "category": {
+      "fondateurs": "Founding Documents",
+      "reglements": "Regulations",
+      "adhesion": "Membership",
+      "gouvernance": "Governance"
+    },
+    "badge": {
+      "fondateur": "Founding",
+      "spirituel": "Spiritual",
+      "reglementaire": "Regulatory",
+      "adhesion": "Membership",
+      "gouvernance": "Governance"
+    },
+    "statuts": {
+      "title": "3V Statutes",
+      "description": "The canonical reference document of the association — 15 Titles, 136 Articles. Defines the legal nature, identity, governance and foundations of the Movement."
+    },
+    "reglementInterieur": {
+      "title": "Internal Regulations",
+      "description": "Specifies the practical operation of 3V in application of the Statutes — 14 Titles, 85 Articles. Governs membership, bodies, activities and financial life."
+    },
+    "regleDeVie": {
+      "title": "Rule of Life",
+      "description": "The inner face of 3V — 10 Chapters, 55 Articles. Concretely translates the pillars of spiritual life for each member: prayer, penance, formation and service."
+    },
+    "texteCharisme": {
+      "title": "Text of the Charism",
+      "description": "Founding document n°5 expounding the nature, sources and expressions of 3V's charism — 7 Chapters. A gift of the Holy Spirit for the edification of the Body of Christ."
+    },
+    "acteFondation": {
+      "title": "Act of Foundation",
+      "description": "Founding document n°3 — official act of creation of the Movement on January 1, 2024 in Douala, feast of Mary Mother of God. 5 Parts, 22 Articles."
+    },
+    "reglementNumerique": {
+      "title": "Digital Internal Regulations",
+      "description": "Governs 3V's digital presence: official platforms, editorial policy, member conduct online and data protection — 6 Titles, 39 Articles."
+    },
+    "formulairesAdhesion": {
+      "title": "Membership Application Dossier",
+      "description": "Official forms to join the Movement: active member, family member, associate brother/sister, parental consent and temporary leave of absence."
+    },
+    "memorandumRevision": {
+      "title": "2033 Revision Memorandum",
+      "description": "Guidance document for the ordinary revision of the Statutes scheduled for 2033 — five years after the formal adoption of 2028. Institutional memory of 3V."
     }
   }
 }

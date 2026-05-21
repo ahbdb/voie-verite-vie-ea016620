@@ -61,6 +61,7 @@ import AdminRepair from "./pages/AdminRepair";
 import Profile from "./pages/Profile";
 import Creator from "./pages/Creator";
 import Settings from "./pages/Settings";
+import Documents3V from "./pages/Documents3V";
 import NotFound from "./pages/NotFound";
 import AdminDiagnostics from "@/components/AdminDiagnostics";
 import NotificationInitializer from "@/components/NotificationInitializer";
@@ -163,6 +164,7 @@ const App = () => {
                       <Route path="/admin/users" element={<AdminUsers />} />
                       <Route path="/admin/admins" element={<AdminManagement />} />
                       <Route path="/profile" element={<Profile />} />
+                      <Route path="/documents-3v" element={<Documents3V />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                     <AdminDiagnostics />

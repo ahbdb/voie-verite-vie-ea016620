@@ -53,7 +53,8 @@
     "darkMode": "Modalità scura",
     "reduceText": "Riduci il testo",
     "enlargeText": "Ingrandisci il testo",
-    "callsAndLives": "Chiamate & Live"
+    "callsAndLives": "Chiamate & Live",
+    "documents3v": "Documenti 3V"
   },
   "nav": {
     "main": "Principale",
@@ -1092,6 +1093,58 @@
       "totalViewers": "Visualizzazioni totali",
       "manageSessions": "Gestione sessioni",
       "noSessions": "Nessuna sessione da gestire."
+    }
+  },
+  "documents3v": {
+    "title": "Documenti 3V",
+    "subtitle": "Qui trovi tutti i documenti ufficiali del Movimento Voie-Vérité-Vie — documenti fondatori, regolamenti e moduli.",
+    "view": "Consulta",
+    "download": "Scarica",
+    "footer": "Questi documenti costituiscono il corpus canonico ufficiale del Movimento Voie-Vérité-Vie. Fondatore-Moderatore: AHOUFACK DYLANNE BAUDOUIN — Douala, Camerun.",
+    "category": {
+      "fondateurs": "Documenti Fondatori",
+      "reglements": "Regolamenti",
+      "adhesion": "Adesione",
+      "gouvernance": "Governance"
+    },
+    "badge": {
+      "fondateur": "Fondatore",
+      "spirituel": "Spirituale",
+      "reglementaire": "Regolamentare",
+      "adhesion": "Adesione",
+      "gouvernance": "Governance"
+    },
+    "statuts": {
+      "title": "Statuti di 3V",
+      "description": "Il documento di riferimento canonico dell'associazione — 15 Titoli, 136 Articoli. Definisce la natura giuridica, l'identità, la governance e i fondamenti del Movimento."
+    },
+    "reglementInterieur": {
+      "title": "Regolamento Interno",
+      "description": "Specifica il funzionamento pratico di 3V in applicazione degli Statuti — 14 Titoli, 85 Articoli. Disciplina l'adesione, gli organi, le attività e la vita finanziaria."
+    },
+    "regleDeVie": {
+      "title": "Regola di Vita",
+      "description": "Il volto interiore di 3V — 10 Capitoli, 55 Articoli. Traduce concretamente nella quotidianità di ogni membro i pilastri della vita spirituale: preghiera, penitenza, formazione e servizio."
+    },
+    "texteCharisme": {
+      "title": "Testo del Carisma",
+      "description": "Documento fondatore n°5 che espone la natura, le fonti e le espressioni del carisma di 3V — 7 Capitoli. Un dono dello Spirito Santo per l'edificazione del Corpo di Cristo."
+    },
+    "acteFondation": {
+      "title": "Atto di Fondazione",
+      "description": "Documento fondatore n°3 — atto ufficiale di creazione del Movimento il 1° gennaio 2024 a Douala, festa di Maria Madre di Dio. 5 Parti, 22 Articoli."
+    },
+    "reglementNumerique": {
+      "title": "Regolamento Interno Digitale",
+      "description": "Disciplina la presenza digitale di 3V: piattaforme ufficiali, linea editoriale, condotta dei membri online e protezione dei dati — 6 Titoli, 39 Articoli."
+    },
+    "formulairesAdhesion": {
+      "title": "Dossier di Adesione",
+      "description": "Moduli ufficiali per aderire al Movimento: membro attivo, membro famiglia, fratello/sorella associato/a, consenso genitoriale e disponibilità temporanea."
+    },
+    "memorandumRevision": {
+      "title": "Memorandum di Revisione 2033",
+      "description": "Documento di orientamento per la revisione ordinaria degli Statuti prevista nel 2033 — cinque anni dopo l'adozione formale del 2028. Memoria istituzionale di 3V."
     }
   }
 }
