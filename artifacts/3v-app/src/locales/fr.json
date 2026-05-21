@@ -710,7 +710,14 @@
     "tipClickChapter": "Cliquez sur un chapitre ci-dessus pour lire les versets",
     "tipTakeTime": "Prenez votre temps - c'est un voyage spirituel",
     "tipMeditate": "Méditez sur ce que Dieu vous dit",
-    "tipMarkComplete": "Revenez marquer ce jour comme complété"
+    "tipMarkComplete": "Revenez marquer ce jour comme complété",
+    "backToList": "Liste des chapitres",
+    "chapterOf": "Chapitre {{current}} sur {{total}}",
+    "prevChapter": "Précédent",
+    "nextChapter": "Suivant",
+    "markAndQuiz": "Lu — Faire le quiz",
+    "doQuiz": "Faire le quiz",
+    "startReading": "Commencer la lecture"
   },
   "bibleBookSelector": {
     "searchPlaceholder": "Rechercher un livre biblique...",

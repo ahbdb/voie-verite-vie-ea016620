@@ -291,13 +291,16 @@ const BiblicalReading = () => {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
-        <main className="pt-16 pb-8">
-          <section className="py-4">
-            <div className="container mx-auto px-4 max-w-4xl">
-              <DayReadingViewer reading={selectedDayReading as any} onClose={() => setSelectedDayReading(null)} />
-            </div>
-          </section>
-        </main>
+        <DayReadingViewer
+          reading={selectedDayReading as any}
+          onClose={() => setSelectedDayReading(null)}
+          isCompleted={isCompleted(selectedDayReading.id)}
+          onMarkComplete={() => toggleReadingComplete(selectedDayReading)}
+          onShowQuiz={() => {
+            setQuizReading(selectedDayReading);
+            setShowQuiz(true);
+          }}
+        />
       </div>
     );
   }
@@ -397,16 +400,16 @@ const BiblicalReading = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide sm:grid sm:grid-cols-3 sm:overflow-visible lg:grid-cols-4">
                 <button
                   onClick={() => setSelectedMonth('all')}
-                  className={`rounded-xl border p-3 text-left transition-colors ${
+                  className={`rounded-xl border p-3 text-left transition-colors flex-shrink-0 w-32 sm:w-auto ${
                     selectedMonth === 'all'
                       ? 'border-primary bg-primary/10'
                       : 'border-border bg-card hover:bg-muted/40'
                   }`}
                 >
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">{t('about.filter')}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('about.filter')}</p>
                   <p className="text-sm font-semibold text-foreground">{t('biblicalReading.all')}</p>
                 </button>
 
@@ -418,15 +421,15 @@ const BiblicalReading = () => {
                     <button
                       key={month.key}
                       onClick={() => setSelectedMonth(month.key)}
-                      className={`rounded-xl border p-3 text-left transition-colors ${
+                      className={`rounded-xl border p-3 text-left transition-colors flex-shrink-0 w-32 sm:w-auto ${
                         selectedMonth === month.key
                           ? 'border-primary bg-primary/10'
                           : 'border-border bg-card hover:bg-muted/40'
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground truncate">{month.name}</p>
-                        <span className="text-[11px] text-muted-foreground">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-xs font-semibold text-foreground truncate">{month.name}</p>
+                        <span className="text-[10px] text-muted-foreground flex-shrink-0">
                           {stats.completed}/{stats.total}
                         </span>
                       </div>

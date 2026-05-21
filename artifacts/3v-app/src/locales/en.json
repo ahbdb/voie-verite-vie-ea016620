@@ -707,10 +707,17 @@
     "chapterCountPlural": "{{count}} chapters",
     "chaptersToRead": "Chapters to read",
     "howToContinue": "How to continue",
-    "tipClickChapter": "Click on a chapter above to read the verses",
-    "tipTakeTime": "Take your time — it's a spiritual journey",
-    "tipMeditate": "Meditate on what God is telling you",
-    "tipMarkComplete": "Come back to mark this day as completed"
+    "tipClickChapter": "Click a chapter above to read the verses",
+    "tipTakeTime": "Take your time — it is a spiritual journey",
+    "tipMeditate": "Meditate on what God is saying to you",
+    "tipMarkComplete": "Come back to mark this day as completed",
+    "backToList": "Chapter list",
+    "chapterOf": "Chapter {{current}} of {{total}}",
+    "prevChapter": "Previous",
+    "nextChapter": "Next",
+    "markAndQuiz": "Done — Take the quiz",
+    "doQuiz": "Take the quiz",
+    "startReading": "Start reading"
   },
   "bibleBookSelector": {
     "searchPlaceholder": "Search for a Bible book...",
