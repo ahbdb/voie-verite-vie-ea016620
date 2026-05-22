@@ -266,23 +266,7 @@ const Navigation = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-0.5 lg:hidden">
-            <LanguageSelector variant="icon" />
-            <Button
-              onClick={() => setTheme(isDarkMode ? 'light' : 'dark')}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              title={isDarkMode ? t('common.lightMode') : t('common.darkMode')}
-            >
-              {isDarkMode ? <Sun className="w-4 h-4 text-primary" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
-            </Button>
-            <Button onClick={handleZoomOut} variant="ghost" size="icon" className="h-8 w-8" disabled={!canZoomOut}>
-              <ZoomOut className="w-4 h-4" />
-            </Button>
-            <Button onClick={handleZoomIn} variant="ghost" size="icon" className="h-8 w-8" disabled={!canZoomIn}>
-              <ZoomIn className="w-4 h-4" />
-            </Button>
+          <div className="flex items-center gap-1 lg:hidden">
             <NotificationBellBoundary><NotificationBell /></NotificationBellBoundary>
 
             <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
@@ -346,6 +330,29 @@ const Navigation = () => {
                   </div>
 
                   <div className="border-t border-border/50 pt-4 space-y-2">
+                    <div className="flex items-center justify-between px-2 pb-2">
+                      <div className="flex items-center gap-1">
+                        <Button onClick={handleZoomOut} variant="ghost" size="icon" className="h-8 w-8" disabled={!canZoomOut} title={t('common.reduceText')}>
+                          <ZoomOut className="w-4 h-4" />
+                        </Button>
+                        <Button onClick={handleZoomIn} variant="ghost" size="icon" className="h-8 w-8" disabled={!canZoomIn} title={t('common.enlargeText')}>
+                          <ZoomIn className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          onClick={() => setTheme(isDarkMode ? 'light' : 'dark')}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title={isDarkMode ? t('common.lightMode') : t('common.darkMode')}
+                        >
+                          {isDarkMode ? <Sun className="w-4 h-4 text-primary" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
+                        </Button>
+                        <LanguageSelector variant="icon" />
+                      </div>
+                    </div>
+
                     <Button
                       onClick={() => {
                         handleInstall();

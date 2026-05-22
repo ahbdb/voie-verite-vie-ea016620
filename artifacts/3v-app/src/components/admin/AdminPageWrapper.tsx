@@ -4,6 +4,7 @@ import { useAdmin } from '@/hooks/useAdmin';
 import AdminLoadingSpinner from './AdminLoadingSpinner';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 interface AdminPageWrapperProps {
   children: ReactNode;
@@ -17,6 +18,7 @@ export const AdminPageWrapper: React.FC<AdminPageWrapperProps> = ({
   requiresPrincipal = false,
 }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { user, isAdmin, adminRole, loading } = useAdmin();
 
   useEffect(() => {
@@ -39,15 +41,15 @@ export const AdminPageWrapper: React.FC<AdminPageWrapperProps> = ({
         <div className="max-w-md w-full bg-card border border-destructive/50 rounded-lg shadow-lg p-6">
           <div className="flex items-center gap-3 mb-4">
             <AlertCircle className="h-6 w-6 text-destructive" />
-            <h1 className="text-lg font-bold">Accès refusé</h1>
+            <h1 className="text-lg font-bold">{t('admin.accessDenied')}</h1>
           </div>
 
           <p className="text-sm text-muted-foreground mb-4">
-            Cette page est réservée à l'Admin Principal
+            {t('admin.principalOnly')}
           </p>
 
           <Button onClick={() => navigate('/admin')} className="w-full">
-            Retour à l'administration
+            {t('admin.backToAdmin')}
           </Button>
         </div>
       </div>
@@ -58,4 +60,3 @@ export const AdminPageWrapper: React.FC<AdminPageWrapperProps> = ({
 };
 
 export default AdminPageWrapper;
-

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAdmin } from '@/hooks/useAdmin';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
@@ -37,6 +38,7 @@ interface AdminUser {
 
 const AdminManagementContent = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { user } = useAdmin();
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,23 +89,17 @@ const AdminManagementContent = () => {
 
   const updateAdminRole = async (userId: string, newRole: 'admin' | 'moderator') => {
     try {
-      // Find admin and prevent changing principal admin
       const adminToUpdate = admins.find(a => a.id === userId);
       if (adminToUpdate?.email === 'ahdybau@gmail.com') {
-        toast.error('Impossible de modifier le rôle du créateur de l\'application');
+        toast.error(t('admin.cannotModifyCreator'));
         return;
       }
-      
-      // Supprimer l'ancien rôle
       await supabase.from('user_roles').delete().eq('user_id', userId);
-      
-      // Ajouter le nouveau rôle
       await supabase.from('user_roles').insert({ user_id: userId, role: newRole as any });
-
-      toast.success('Rôle mis à jour');
+      toast.success(t('admin.roleUpdated'));
       loadAdmins();
     } catch (error) {
-      toast.error('Erreur lors de la mise à jour');
+      toast.error(t('admin.updateError'));
       console.error(error);
     }
   };
@@ -111,32 +107,28 @@ const AdminManagementContent = () => {
   const deleteAdmin = async () => {
     if (!selectedAdminId) return;
     try {
-      // Find admin and prevent deleting principal admin
       const adminToDelete = admins.find(a => a.id === selectedAdminId);
       if (adminToDelete?.email === 'ahdybau@gmail.com') {
-        toast.error('Impossible de retirer les droits admin du créateur de l\'application');
+        toast.error(t('admin.cannotRemoveCreator'));
         setDeleteDialogOpen(false);
         return;
       }
-      
-      // Supprimer le rôle admin
       await supabase.from('user_roles').delete().eq('user_id', selectedAdminId);
-      
-      toast.success('Admin supprimé');
+      toast.success(t('admin.adminDeleted'));
       setDeleteDialogOpen(false);
       loadAdmins();
     } catch (error) {
-      toast.error('Erreur lors de la suppression');
+      toast.error(t('admin.deleteError2'));
       console.error(error);
     }
   };
 
   const getRoleLabel = (role: string) => {
     switch (role) {
-      case 'admin_principal': return '👑 Admin Principal';
-      case 'admin': return '🔐 Admin';
-      case 'moderator': return '📋 Modérateur';
-      default: return 'Utilisateur';
+      case 'admin_principal': return `👑 ${t('admin.adminPrincipal')}`;
+      case 'admin': return `🔐 Admin`;
+      case 'moderator': return `📋 ${t('admin.moderatorLabel')}`;
+      default: return t('common.user') ?? 'User';
     }
   };
 
@@ -147,31 +139,31 @@ const AdminManagementContent = () => {
       <Navigation />
       <main className="flex-1 container mx-auto px-4 py-8 pt-24">
         <Button variant="ghost" onClick={() => navigate('/admin')} className="mb-4">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Retour
+          <ArrowLeft className="h-4 w-4 mr-2" /> {t('admin.back')}
         </Button>
 
         <div className="mb-8">
           <h1 className="text-3xl font-bold flex items-center gap-2 mb-2">
-            <Shield className="h-8 w-8" /> Gestion des Administrateurs
+            <Shield className="h-8 w-8" /> {t('admin.manageTitle')}
           </h1>
-          <p className="text-muted-foreground">Page réservée à l'Admin Principal</p>
+          <p className="text-muted-foreground">{t('admin.principalOnlyPage')}</p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5" />
-              {admins.length} administrateur(s)
+              {admins.length} {t('admin.administrators').toLowerCase()}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Rôle</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead>{t('admin.nameCol')}</TableHead>
+                  <TableHead>{t('admin.emailCol')}</TableHead>
+                  <TableHead>{t('admin.roleCol')}</TableHead>
+                  <TableHead>{t('admin.actionsCol')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -181,8 +173,8 @@ const AdminManagementContent = () => {
                   return (
                     <TableRow key={admin.id} className={isCurrentUser ? 'bg-muted/50' : ''}>
                       <TableCell className="font-medium">
-                        {admin.full_name || 'Non renseigné'}
-                        {isCurrentUser && <span className="ml-2 text-xs text-primary">(Vous)</span>}
+                        {admin.full_name || t('admin.notSpecified')}
+                        {isCurrentUser && <span className="ml-2 text-xs text-primary">{t('admin.you')}</span>}
                       </TableCell>
                       <TableCell>{admin.email}</TableCell>
                       <TableCell>
@@ -208,16 +200,15 @@ const AdminManagementContent = () => {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="moderator">Modérateur</SelectItem>
+                                <SelectItem value="moderator">{t('admin.moderatorLabel')}</SelectItem>
                               </SelectContent>
                             </Select>
                             <Button 
                               size="sm" 
                               variant="destructive"
                               onClick={() => {
-                                // Prevent deletion of admin_principal
                                 if (admin.email === 'ahdybau@gmail.com') {
-                                  toast.error('Impossible de retirer les droits admin du créateur');
+                                  toast.error(t('admin.cannotRemoveCreator'));
                                   return;
                                 }
                                 setSelectedAdminId(admin.id);
@@ -241,14 +232,14 @@ const AdminManagementContent = () => {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Retirer les droits admin</AlertDialogTitle>
+            <AlertDialogTitle>{t('admin.removeAdminRights')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir retirer cette personne des administrateurs?
+              {t('admin.removeAdminConfirm')}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogCancel>Annuler</AlertDialogCancel>
+          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
           <AlertDialogAction onClick={deleteAdmin} className="bg-destructive">
-            Retirer
+            {t('admin.remove')}
           </AlertDialogAction>
         </AlertDialogContent>
       </AlertDialog>
