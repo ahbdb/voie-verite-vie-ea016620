@@ -44,17 +44,17 @@ export const useAdmin = () => {
 
     setLoading(true);
 
+    // Use the dedicated RPC function that bypasses RLS and returns the
+    // current authenticated user's role directly.
     supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
+      .rpc('get_user_admin_role')
       .then(({ data, error }) => {
         let role: AdminRole = null;
-        if (!error && data && data.length > 0) {
-          const roles = data.map((r: any) => r.role as string);
-          if (roles.includes('admin_principal')) role = 'admin_principal';
-          else if (roles.includes('admin')) role = 'admin';
-          else if (roles.includes('moderator')) role = 'moderator';
+        if (!error && data) {
+          const r = data as string;
+          if (r === 'admin_principal') role = 'admin_principal';
+          else if (r === 'admin') role = 'admin';
+          else if (r === 'moderator') role = 'moderator';
         }
         roleCache.set(user.id, { role, timestamp: Date.now() });
         setAdminRole(role);
