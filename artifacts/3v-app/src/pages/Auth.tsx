@@ -34,7 +34,11 @@ const Auth = () => {
           <Button
             className="w-full"
             onClick={() => {
-              window.location.href = '/api/auth/login?return_to=' + encodeURIComponent(window.location.origin + '/');
+              window.location.href =
+                'https://replit.com/auth_with_repl_site?domain=' +
+                window.location.host +
+                '&redirect_url=' +
+                encodeURIComponent('/');
             }}
           >
             {t('auth.signInBtn', 'Se connecter')}

@@ -6,6 +6,21 @@ import { requireAuth, getUserAdminRole } from "../lib/auth";
 
 const router = Router();
 
+// Login — redirects to Replit Auth, which injects X-Replit-User-* headers
+router.get("/auth/login", (req, res) => {
+  const returnTo = (req.query.return_to as string) || "/";
+  const host = req.get("host") || "";
+  // Use Replit's auth_with_repl_site flow
+  res.redirect(
+    `https://replit.com/auth_with_repl_site?domain=${host}&redirect_url=${encodeURIComponent(returnTo)}`
+  );
+});
+
+// Logout — Replit auth is stateless (headers), just redirect home
+router.get("/auth/logout", (_req, res) => {
+  res.redirect("/");
+});
+
 router.get("/auth/user", (req, res) => {
   const user = (req as any).user;
   if (!user) {
