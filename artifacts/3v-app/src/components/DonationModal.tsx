@@ -19,7 +19,7 @@ const REVOLUT_INFO = {
   iban: 'IT94 O036 6901 6009 7214 2622 259',
   ibanRaw: 'IT94O0366901600972142622259',
   beneficiary: 'DYLANNE BAUDOUIN AHOUFACK',
-  title: 'Fondateur-Modérateur de VOIE VERITE VIE',
+  title: 'Fondateur-Modérateur du Mouvement VOIE VERITE VIE',
 };
 
 const WHATSAPP_NUMBER = '+393513430349';
