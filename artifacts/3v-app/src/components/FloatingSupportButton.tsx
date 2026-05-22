@@ -35,7 +35,7 @@ const FloatingSupportButton = () => {
         style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.18)' }}
       >
         <Heart className="w-4 h-4 fill-current flex-shrink-0" />
-        <span className="hidden xs:inline">Soutenir</span>
+        <span>Faire un Don</span>
       </button>
 
       <DonationModal open={open} onOpenChange={setOpen} />

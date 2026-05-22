@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db } from "@db";
-import { donationSettings } from "@db/schema";
+import { db } from "@workspace/db";
+import { donationSettings } from "@workspace/db/schema";
 
 const router = Router();
 

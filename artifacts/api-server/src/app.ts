@@ -58,7 +58,7 @@ app.use("/api", router);
 // Serve the built frontend in production
 const frontendDist = path.resolve(__dirname, "../../3v-app/dist/public");
 app.use(express.static(frontendDist));
-app.get("*", (_req, res) => {
+app.get("*splat", (_req, res) => {
   res.sendFile(path.join(frontendDist, "index.html"));
 });
 
