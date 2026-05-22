@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "arRbG9IVGk_wsoIzBNi8g"
+uri = "file://artifacts/3v-app/public/opengraph.jpg"
+type = "image"
+title = "Image Open Graph 3V (1200×630)"
