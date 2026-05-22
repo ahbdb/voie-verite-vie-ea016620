@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
-import { api } from '@/lib/api';
+import { supabase } from '@/integrations/supabase/client';
 
 export type AdminRole = 'admin_principal' | 'admin' | 'moderator' | null;
 
@@ -43,9 +43,19 @@ export const useAdmin = () => {
     }
 
     setLoading(true);
-    api.get('/auth/admin-role')
-      .then((data) => {
-        const role = data.role as AdminRole;
+
+    supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .then(({ data, error }) => {
+        let role: AdminRole = null;
+        if (!error && data && data.length > 0) {
+          const roles = data.map((r: any) => r.role as string);
+          if (roles.includes('admin_principal')) role = 'admin_principal';
+          else if (roles.includes('admin')) role = 'admin';
+          else if (roles.includes('moderator')) role = 'moderator';
+        }
         roleCache.set(user.id, { role, timestamp: Date.now() });
         setAdminRole(role);
         setIsAdmin(role !== null);
