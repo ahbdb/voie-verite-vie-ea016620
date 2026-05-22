@@ -24,21 +24,19 @@ const REVOLUT_INFO = {
 
 const WHATSAPP_NUMBER = '+393513430349';
 
-// ─── Generates EPC/GiroCode QR payload (SEPA standard) ──────────────────────
-// When scanned by a banking app, all fields are pre-filled automatically.
 function buildEpcPayload(reference = 'Don - 3V') {
   return [
-    'BCD',          // Service Tag
-    '002',          // Version
-    '1',            // Character set: UTF-8
-    'SCT',          // SEPA Credit Transfer
+    'BCD',
+    '002',
+    '1',
+    'SCT',
     REVOLUT_INFO.bic,
     REVOLUT_INFO.beneficiary,
     REVOLUT_INFO.ibanRaw,
-    '',             // Amount (empty = user fills in their app)
-    '',             // Purpose code (empty)
-    '',             // Structured remittance (empty)
-    reference,      // Unstructured remittance info
+    '',
+    '',
+    '',
+    reference,
   ].join('\n');
 }
 
@@ -53,17 +51,23 @@ const DonationModal = ({ open, onOpenChange }: DonationModalProps) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
-      toast({ title: '✅ Copié !', description: `${field} copié.` });
+      toast({
+        title: t('donation.copied'),
+        description: t('donation.copiedField', { field }),
+      });
       setTimeout(() => setCopiedField(null), 2000);
     } catch {
-      toast({ title: 'Erreur', description: 'Impossible de copier.', variant: 'destructive' });
+      toast({
+        title: t('donation.copyError'),
+        description: t('donation.copyErrorDesc'),
+        variant: 'destructive',
+      });
     }
   };
 
   const openWhatsApp = () => {
-    const msg = encodeURIComponent(
-      `Bonjour ! Je souhaite faire un don à l'association Voie, Vérité, Vie (3V).${user?.name ? `\nNom : ${user.name}` : ''}`
-    );
+    const base = t('donation.whatsappMsg');
+    const msg = encodeURIComponent(`${base}${user?.name ? `\n${t('donation.yourName').replace(' *', '')} : ${user.name}` : ''}`);
     window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\+/g, '')}?text=${msg}`, '_blank');
   };
 
@@ -76,7 +80,7 @@ const DonationModal = ({ open, onOpenChange }: DonationModalProps) => {
       <button
         onClick={() => copy(value, label)}
         className="flex-shrink-0 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-        title="Copier"
+        title={t('donation.copy')}
       >
         {copiedField === field ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
       </button>
@@ -89,10 +93,10 @@ const DonationModal = ({ open, onOpenChange }: DonationModalProps) => {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-primary">
             <Heart className="w-5 h-5" />
-            {t('donation.title', 'Soutenir l\'Association 3V')}
+            {t('donation.title')}
           </DialogTitle>
           <DialogDescription>
-            {t('donation.subtitle', 'Votre soutien permet à l\'association Voie, Vérité, Vie de poursuivre sa mission spirituelle.')}
+            {t('donation.subtitle')}
           </DialogDescription>
         </DialogHeader>
 
@@ -108,17 +112,14 @@ const DonationModal = ({ open, onOpenChange }: DonationModalProps) => {
                 <QrCode className="w-7 h-7 text-primary" />
               </div>
               <div className="text-center">
-                <p className="font-semibold text-foreground text-base">Virer via mon appli bancaire</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Scannez le QR code avec votre application bancaire — toutes les coordonnées sont pré-remplies, il ne reste qu'à entrer le montant.
-                </p>
+                <p className="font-semibold text-foreground text-base">{t('donation.qrTitle')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('donation.qrDesc')}</p>
               </div>
             </button>
           ) : (
-            /* ── QR code EPC affiché ─────────────────────────────────── */
             <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-5">
               <div className="flex items-center justify-between w-full">
-                <p className="font-semibold text-foreground">QR code de virement</p>
+                <p className="font-semibold text-foreground">{t('donation.qrCodeTitle')}</p>
                 <button onClick={() => setShowQr(false)} className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground">
                   <X className="w-4 h-4" />
                 </button>
@@ -135,18 +136,18 @@ const DonationModal = ({ open, onOpenChange }: DonationModalProps) => {
 
               <div className="w-full rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 space-y-1.5">
                 <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-                  📱 Comment scanner ?
+                  {t('donation.qrHowTitle')}
                 </p>
                 <ol className="text-xs text-amber-700 dark:text-amber-400 space-y-1 list-decimal list-inside">
-                  <li>Ouvrez votre application bancaire</li>
-                  <li>Cherchez « Virement » ou « Scanner un QR »</li>
-                  <li>Scannez ce code — les coordonnées s'affichent</li>
-                  <li>Entrez le montant et confirmez</li>
+                  <li>{t('donation.qrStep1')}</li>
+                  <li>{t('donation.qrStep2')}</li>
+                  <li>{t('donation.qrStep3')}</li>
+                  <li>{t('donation.qrStep4')}</li>
                 </ol>
               </div>
 
               <p className="text-xs text-center text-muted-foreground">
-                Compatible avec la majorité des applications bancaires européennes (SEPA).
+                {t('donation.qrCompat')}
               </p>
             </div>
           )}
@@ -154,7 +155,7 @@ const DonationModal = ({ open, onOpenChange }: DonationModalProps) => {
           {/* ── Séparateur ──────────────────────────────────────────── */}
           <div className="relative flex items-center">
             <div className="flex-1 border-t border-border" />
-            <span className="px-3 text-xs text-muted-foreground">ou virement manuel</span>
+            <span className="px-3 text-xs text-muted-foreground">{t('donation.orManualTransfer')}</span>
             <div className="flex-1 border-t border-border" />
           </div>
 
@@ -162,27 +163,27 @@ const DonationModal = ({ open, onOpenChange }: DonationModalProps) => {
           <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-1">
             <div className="flex items-center gap-2 mb-3">
               <Building2 className="w-4 h-4 text-primary" />
-              <p className="text-sm font-semibold text-foreground">Coordonnées bancaires — Revolut</p>
+              <p className="text-sm font-semibold text-foreground">{t('donation.bankDetails')}</p>
             </div>
             <div className="flex items-start justify-between gap-3 py-2 border-b border-border/50">
               <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-0.5">Bénéficiaire</p>
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('donation.beneficiary')}</p>
                 <p className="text-sm font-medium text-foreground">{REVOLUT_INFO.beneficiary}</p>
                 <p className="text-xs text-muted-foreground italic">{REVOLUT_INFO.title}</p>
               </div>
               <button
-                onClick={() => copy(REVOLUT_INFO.beneficiary, 'Bénéficiaire')}
+                onClick={() => copy(REVOLUT_INFO.beneficiary, t('donation.beneficiary'))}
                 className="flex-shrink-0 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                title="Copier"
+                title={t('donation.copy')}
               >
-                {copiedField === 'Bénéficiaire' ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedField === t('donation.beneficiary') ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
             </div>
-            <CopyRow label="IBAN"          value={REVOLUT_INFO.iban}        field="IBAN" />
-            <CopyRow label="BIC / SWIFT"   value={REVOLUT_INFO.bic}         field="BIC / SWIFT" />
-            <CopyRow label="Banque"        value={REVOLUT_INFO.bank}        field="Banque" />
+            <CopyRow label="IBAN"        value={REVOLUT_INFO.iban}  field="IBAN" />
+            <CopyRow label="BIC / SWIFT" value={REVOLUT_INFO.bic}   field="BIC / SWIFT" />
+            <CopyRow label={t('donation.bank')} value={REVOLUT_INFO.bank} field="bank" />
             <div className="pt-2">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-0.5">Adresse</p>
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('donation.address')}</p>
               <p className="text-xs text-muted-foreground">{REVOLUT_INFO.address}</p>
             </div>
           </div>
@@ -190,14 +191,14 @@ const DonationModal = ({ open, onOpenChange }: DonationModalProps) => {
           {/* Communication conseillée */}
           <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 p-3">
             <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
-              💡 Communication : <strong>Don — 3V</strong>{user?.name ? ` — ${user.name}` : ''}
+              {t('donation.communication')}{user?.name ? ` — ${user.name}` : ''}
             </p>
           </div>
 
           {/* ── Séparateur ──────────────────────────────────────────── */}
           <div className="relative flex items-center">
             <div className="flex-1 border-t border-border" />
-            <span className="px-3 text-xs text-muted-foreground">ou</span>
+            <span className="px-3 text-xs text-muted-foreground">{t('donation.or')}</span>
             <div className="flex-1 border-t border-border" />
           </div>
 
@@ -205,20 +206,18 @@ const DonationModal = ({ open, onOpenChange }: DonationModalProps) => {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Phone className="w-4 h-4 text-green-600" />
-              <p className="text-sm font-semibold text-foreground">Mobile Money / WhatsApp</p>
+              <p className="text-sm font-semibold text-foreground">{t('donation.mobileMoney')}</p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Pour un don par Orange Money, MTN ou tout autre Mobile Money.
-            </p>
+            <p className="text-xs text-muted-foreground">{t('donation.mobileMoneyDesc')}</p>
             <Button variant="outline" onClick={openWhatsApp}
               className="w-full gap-2 border-green-500 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20">
               <Phone className="w-4 h-4" />
-              Contacter via WhatsApp
+              {t('donation.whatsappBtn')}
             </Button>
           </div>
 
           <p className="text-center text-xs text-muted-foreground pt-1">
-            Merci de votre générosité 🙏 — Que Dieu vous bénisse !
+            {t('donation.thanks')}
           </p>
         </div>
       </DialogContent>

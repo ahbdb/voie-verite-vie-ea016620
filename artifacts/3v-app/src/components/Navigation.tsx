@@ -266,7 +266,8 @@ const Navigation = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-1 lg:hidden">
+          <div className="flex items-center gap-0.5 lg:hidden">
+            <LanguageSelector variant="icon" />
             <NotificationBellBoundary><NotificationBell /></NotificationBellBoundary>
 
             <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
