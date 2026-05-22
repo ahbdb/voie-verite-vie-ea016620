@@ -65,6 +65,7 @@ import Documents3V from "./pages/Documents3V";
 import NotFound from "./pages/NotFound";
 import AdminDiagnostics from "@/components/AdminDiagnostics";
 import NotificationInitializer from "@/components/NotificationInitializer";
+import FloatingSupportButton from "@/components/FloatingSupportButton";
 
 const queryClient = new QueryClient();
 
@@ -114,6 +115,7 @@ const App = () => {
                   <AppNotificationInitializer>
                     <ScrollToTop />
                     <FloatingCallBanner />
+                    <FloatingSupportButton />
                     <Routes>
                       <Route path="/" element={<Index />} />
                       <Route path="/about" element={<About />} />

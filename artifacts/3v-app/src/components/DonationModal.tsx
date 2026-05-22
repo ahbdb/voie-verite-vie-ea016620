@@ -2,105 +2,131 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Heart, CreditCard, Smartphone } from 'lucide-react';
-
-const WHATSAPP_NUMBER = '+393513430349';
+import { Heart, Copy, Check, Building2, CreditCard, Phone } from 'lucide-react';
 
 interface DonationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
+const REVOLUT_INFO = {
+  bank: 'Revolut Bank UAB',
+  address: 'Via Dante 7, 20123, Milano (ML), Italy',
+  bic: 'REVOITM2',
+  iban: 'IT94 O036 6901 6009 7214 2622 259',
+  beneficiary: 'DYLANNE BAUDOUIN AHOUFACK',
+  title: 'Fondateur-Modérateur de VOIE VERITE VIE',
+};
+
+const WHATSAPP_NUMBER = '+393513430349';
+
 const DonationModal = ({ open, onOpenChange }: DonationModalProps) => {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { user } = useAuth();
-  const [amount, setAmount] = useState('');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [message, setMessage] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  const handleSubmit = async () => {
-    if (!amount || parseInt(amount) <= 0) {
-      toast({ title: t('donation.invalidAmount'), description: t('donation.invalidAmountDesc'), variant: 'destructive' });
-      return;
-    }
-    if (!name.trim()) {
-      toast({ title: t('donation.nameRequired'), description: t('donation.nameRequiredDesc'), variant: 'destructive' });
-      return;
-    }
-
-    setSubmitting(true);
+  const copyToClipboard = async (text: string, field: string) => {
     try {
-      const { error } = await supabase.from('donations').insert({
-        amount: parseInt(amount), donor_name: name.trim(), donor_email: email.trim() || null,
-        message: message.trim() || null, user_id: user?.id || null, currency: 'XAF', status: 'pending'
-      });
-      if (error) throw error;
-
-      const donationMessage = encodeURIComponent(
-        `Bonjour! Je souhaite faire un don de ${parseInt(amount).toLocaleString('fr-FR')} FCFA à l'association Voie, Vérité, Vie (3V).\n\nNom: ${name}\n${email ? `Email: ${email}\n` : ''}${message ? `Message: ${message}` : ''}`
-      );
-      window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\+/g, '')}?text=${donationMessage}`, '_blank');
-
-      toast({ title: t('donation.donationSaved'), description: t('donation.donationSavedDesc') });
-      setAmount(''); setName(''); setEmail(''); setMessage('');
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Error submitting donation:', error);
-      toast({ title: t('common.error'), description: t('donation.donationError'), variant: 'destructive' });
-    } finally { setSubmitting(false); }
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      toast({ title: '✅ Copié !', description: `${field} copié dans le presse-papiers.` });
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast({ title: 'Erreur', description: 'Impossible de copier.', variant: 'destructive' });
+    }
   };
+
+  const openWhatsApp = () => {
+    const msg = encodeURIComponent(
+      `Bonjour ! Je souhaite faire un don à l'association Voie, Vérité, Vie (3V).${user?.name ? `\nNom : ${user.name}` : ''}`
+    );
+    window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\+/g, '')}?text=${msg}`, '_blank');
+  };
+
+  const CopyRow = ({ label, value, field }: { label: string; value: string; field: string }) => (
+    <div className="flex items-start justify-between gap-3 py-2 border-b border-border/50 last:border-0">
+      <div className="min-w-0">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-0.5">{label}</p>
+        <p className="text-sm font-medium text-foreground break-all">{value}</p>
+      </div>
+      <button
+        onClick={() => copyToClipboard(value, label)}
+        className="flex-shrink-0 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+        title="Copier"
+      >
+        {copiedField === label ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+      </button>
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-primary"><Heart className="w-5 h-5" />{t('donation.title')}</DialogTitle>
-          <DialogDescription>{t('donation.subtitle')}</DialogDescription>
+          <DialogTitle className="flex items-center gap-2 text-primary">
+            <Heart className="w-5 h-5" />
+            {t('donation.title', 'Soutenir l\'Association 3V')}
+          </DialogTitle>
+          <DialogDescription>
+            {t('donation.subtitle', 'Votre soutien permet à l\'association Voie, Vérité, Vie de poursuivre sa mission spirituelle.')}
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="amount">{t('donation.amount')}</Label>
-            <Input id="amount" type="number" min="1" placeholder={t('donation.amountPlaceholder')} value={amount} onChange={(e) => setAmount(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="name">{t('donation.yourName')}</Label>
-            <Input id="name" placeholder={t('donation.yourNamePlaceholder')} value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="email">{t('donation.emailOptional')}</Label>
-            <Input id="email" type="email" placeholder="votre@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="message">{t('donation.messageOptional')}</Label>
-            <Textarea id="message" placeholder={t('donation.messagePlaceholder')} value={message} onChange={(e) => setMessage(e.target.value)} rows={2} />
-          </div>
-
-          <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-            <p className="text-sm font-medium">{t('donation.paymentMethods')}</p>
-            <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1"><Smartphone className="w-4 h-4" /> Mobile Money</span>
-              <span className="flex items-center gap-1"><CreditCard className="w-4 h-4" /> Orange Money</span>
+        <div className="space-y-5">
+          {/* Revolut virement bancaire */}
+          <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-1">
+            <div className="flex items-center gap-2 mb-3">
+              <Building2 className="w-4 h-4 text-primary" />
+              <p className="text-sm font-semibold text-foreground">Virement bancaire — Revolut</p>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">{t('donation.whatsappRedirect')}</p>
+
+            <CopyRow label="Bénéficiaire" value={REVOLUT_INFO.beneficiary} field="Bénéficiaire" />
+            <CopyRow label="Banque" value={REVOLUT_INFO.bank} field="Banque" />
+            <CopyRow label="IBAN" value={REVOLUT_INFO.iban} field="IBAN" />
+            <CopyRow label="BIC / SWIFT" value={REVOLUT_INFO.bic} field="BIC / SWIFT" />
+
+            <div className="pt-2">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-0.5">Adresse de la banque</p>
+              <p className="text-xs text-muted-foreground">{REVOLUT_INFO.address}</p>
+            </div>
           </div>
 
-          <Button onClick={handleSubmit} disabled={submitting} className="w-full">
-            {submitting ? (
-              <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />{t('donation.sending')}</span>
-            ) : (
-              <span className="flex items-center gap-2"><Heart className="w-4 h-4" />{t('donation.sendBtn')}</span>
-            )}
-          </Button>
+          {/* Communication / motif */}
+          <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 p-3">
+            <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+              💡 Dans la communication du virement, indiquez : <strong>Don — 3V</strong>
+              {user?.name ? ` — ${user.name}` : ''}
+            </p>
+          </div>
+
+          {/* Séparateur */}
+          <div className="relative flex items-center">
+            <div className="flex-1 border-t border-border" />
+            <span className="px-3 text-xs text-muted-foreground">ou</span>
+            <div className="flex-1 border-t border-border" />
+          </div>
+
+          {/* WhatsApp alternative */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Phone className="w-4 h-4 text-green-600" />
+              <p className="text-sm font-semibold text-foreground">Mobile Money / WhatsApp</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Contactez-nous via WhatsApp pour un don par Mobile Money (Orange Money, MTN…)
+            </p>
+            <Button variant="outline" onClick={openWhatsApp} className="w-full gap-2 border-green-500 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20">
+              <Phone className="w-4 h-4" />
+              Contacter via WhatsApp
+            </Button>
+          </div>
+
+          <p className="text-center text-xs text-muted-foreground pt-1">
+            Merci de votre générosité 🙏 — Que Dieu vous bénisse !
+          </p>
         </div>
       </DialogContent>
     </Dialog>
