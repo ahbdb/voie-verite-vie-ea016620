@@ -318,6 +318,17 @@ export const streamingSettings = pgTable("streaming_settings", {
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
+export const authAccounts = pgTable("auth_accounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: text("user_id").notNull().unique(),
+  email: text("email").notNull().unique(),
+  password_hash: text("password_hash").notNull(),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
+export type AuthAccount = typeof authAccounts.$inferSelect;
+
 export const insertProfileSchema = createInsertSchema(profiles);
 export const insertUserRoleSchema = createInsertSchema(userRoles);
 export const insertBiblicalReadingSchema = createInsertSchema(biblicalReadings);
