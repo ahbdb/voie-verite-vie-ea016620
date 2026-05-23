@@ -9,6 +9,7 @@ import {
   type PeerStat,
 } from '@/hooks/useAdminVideoRoom';
 import { useCallSession } from '@/contexts/CallSessionContext';
+import { useCallKeepAlive } from '@/hooks/useCallKeepAlive';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -391,7 +392,7 @@ const AdminVideoRoom = () => {
     requestJoin, toggleMicrophone, toggleCamera, flipCamera,
     startScreenShare, stopScreenShare,
     sendMessage, editMessage, deleteMessage, toggleReaction,
-    muteParticipant, leaveRoom, endRoom, softLeave, triggerHardLeave,
+    muteParticipant, leaveRoom, endRoom, heartbeat, softLeave, triggerHardLeave,
   } = useAdminVideoRoom({
     roomId,
     userId: user?.id,
@@ -441,6 +442,16 @@ const AdminVideoRoom = () => {
   useEffect(() => { callSession.notifyConnected(isConnected); }, [isConnected, callSession]);
   useEffect(() => { callSession.notifyMic(micEnabled); }, [micEnabled, callSession]);
   useEffect(() => { callSession.notifyParticipants(participants.length); }, [participants.length, callSession]);
+
+  // ── Keep-alive when user navigates away without hanging up ────────────────
+  // Shows a persistent OS notification ("appel en cours") when the page is hidden
+  // and sends periodic DB heartbeats to keep the participant row active.
+  useCallKeepAlive({
+    isConnected,
+    roomId,
+    roomTitle: room?.title,
+    onHeartbeat: heartbeat,
+  });
 
   // ── Auto-join on mount (WhatsApp-style: no intermediate "join" prompt) ─────
 
