@@ -32,6 +32,7 @@ import CheminDeCroix from "./pages/CheminDeCroix";
 import ShareDebug from "./pages/ShareDebug";
 import ActivityReports from "./pages/ActivityReports";
 import CallsAndLives from "./pages/CallsAndLives";
+import Invite from "./pages/Invite";
 import Neuvaines from "./pages/Neuvaines";
 import NeuvaineDayView from "./pages/NeuvaineDayView";
 import Admin from "./pages/Admin";
@@ -136,6 +137,7 @@ const App = () => {
                       <Route path="/share-debug" element={<ShareDebug />} />
                       <Route path="/reports" element={<ActivityReports />} />
                       <Route path="/calls-lives" element={<CallsAndLives />} />
+                      <Route path="/invite/:id" element={<Invite />} />
                       <Route path="/neuvaines" element={<Neuvaines />} />
                       <Route path="/neuvaines/:id" element={<NeuvaineDayView />} />
                       <Route path="/settings" element={<Settings />} />

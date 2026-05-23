@@ -5,7 +5,7 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 // PORT is only required when running the dev/preview server (not during `vite build`).
 const rawPort = process.env.PORT;
-const port = rawPort ? Number(rawPort) : 3000;
+const port = rawPort ? Number(rawPort) : 5173;
 
 // BASE_PATH defaults to '/' for standard deployments (Netlify, etc.).
 // In the Replit workspace each artifact is served at a sub-path, so Replit sets this.

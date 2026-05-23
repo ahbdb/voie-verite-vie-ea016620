@@ -13,7 +13,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { ArrowLeft, Phone, Plus, Radio, RefreshCw, Users, Video, Mic } from 'lucide-react';
+import { ArrowLeft, Phone, Plus, Radio, RefreshCw, Users, Video, Mic, Trash2 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import type { VideoParticipantRecord, VideoRoomRecord } from '@/hooks/useAdminVideoRoom';
 
 const db = supabase as any;
@@ -33,6 +37,8 @@ const AdminVideo = () => {
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState<VideoRoomRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [callMode, setCallMode] = useState<'all' | 'select'>('all');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState({
@@ -174,6 +180,30 @@ const AdminVideo = () => {
       if (error) throw error;
       toast.success('Salle terminée.');
     } catch { toast.error('Erreur.'); }
+  };
+
+  const handleDeleteRoom = async () => {
+    if (!roomToDelete) return;
+    setDeleting(true);
+    try {
+      // Cascade-delete dependent records first to avoid FK violations
+      await Promise.all([
+        db.from('video_message_reactions').delete().eq('room_id', roomToDelete.id),
+        db.from('video_room_messages').delete().eq('room_id', roomToDelete.id),
+        db.from('video_room_signals').delete().eq('room_id', roomToDelete.id),
+        db.from('video_room_participants').delete().eq('room_id', roomToDelete.id),
+      ]);
+      const { error } = await db.from('video_rooms').delete().eq('id', roomToDelete.id);
+      if (error) throw error;
+      toast.success('Session supprimée.');
+      setRoomToDelete(null);
+      void loadRooms();
+    } catch (err) {
+      console.error('[admin-video] delete error', err);
+      toast.error('Suppression impossible.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const toggleUserSelection = (uid: string) => {
@@ -340,6 +370,16 @@ const AdminVideo = () => {
                               <Button size="sm" variant="outline" onClick={() => void handleCloseRoom(room.id)}>Terminer</Button>
                             </>
                           )}
+                          {ended && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => setRoomToDelete(room)}
+                              title="Supprimer définitivement cette session terminée"
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-1" /> Supprimer
+                            </Button>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -349,6 +389,29 @@ const AdminVideo = () => {
             )}
           </section>
         </main>
+
+        <AlertDialog open={Boolean(roomToDelete)} onOpenChange={(open) => !open && setRoomToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Supprimer cette session ?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {roomToDelete?.title
+                  ? <>La session <strong>{roomToDelete.title}</strong> et tous ses messages, réactions et participants seront définitivement supprimés. Cette action est irréversible.</>
+                  : 'Cette action est irréversible.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => { e.preventDefault(); void handleDeleteRoom(); }}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? 'Suppression…' : 'Supprimer'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminPageWrapper>
   );
