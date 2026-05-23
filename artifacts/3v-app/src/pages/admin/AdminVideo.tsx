@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner';
 import { ArrowLeft, Phone, Plus, Radio, RefreshCw, Trash2, Users, Video, Mic } from 'lucide-react';
 import type { VideoParticipantRecord, VideoRoomRecord } from '@/hooks/useAdminVideoRoom';
+import { useCallSession } from '@/contexts/CallSessionContext';
 
 const db = supabase as any;
 
@@ -31,6 +32,7 @@ interface UserProfile {
 const AdminVideo = () => {
   const navigate = useNavigate();
   const { user, adminRole } = useAdmin();
+  const { primeAudioPlayback } = useCallSession();
   const hasVideoAccess = adminRole === 'admin' || adminRole === 'admin_principal';
   const [rooms, setRooms] = useState<VideoRoomRecord[]>([]);
   const [participants, setParticipants] = useState<VideoParticipantRecord[]>([]);
@@ -151,6 +153,7 @@ const AdminVideo = () => {
       toast.success('Salle créée, appel envoyé.');
       setFormData({ title: '', description: '', roomType: 'video' });
       setSelectedUserIds(new Set());
+      primeAudioPlayback();
       navigate(meetingPath);
     } catch (err) {
       console.error('[admin-video]', err);
@@ -379,7 +382,7 @@ const AdminVideo = () => {
                           <span>{room.room_type === 'audio' ? '🎙️ Audio' : '📹 Vidéo'}</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          <Button size="sm" asChild><Link to={`/meeting/${room.id}`}>Ouvrir</Link></Button>
+                          <Button size="sm" onClick={() => { primeAudioPlayback(); navigate(`/meeting/${room.id}`); }}>Ouvrir</Button>
                           {!ended && (
                             <>
                               <Button size="sm" variant="outline" onClick={() => void handleRecall(room.id, room.title, room.room_type)}>

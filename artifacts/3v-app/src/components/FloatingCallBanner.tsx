@@ -5,7 +5,7 @@ import { useCallSession } from '@/contexts/CallSessionContext';
 import { cn } from '@/lib/utils';
 
 export const FloatingCallBanner = () => {
-  const { activeCall, isConnected, isMicEnabled, participantCount, endCallSession, getHangUpFn, getMicToggleFn } = useCallSession();
+  const { activeCall, isConnected, isMicEnabled, participantCount, endCallSession, getHangUpFn, getMicToggleFn, primeAudioPlayback } = useCallSession();
   const navigate = useNavigate();
   const location = useLocation();
   const [elapsed, setElapsed] = useState(0);
@@ -35,7 +35,10 @@ export const FloatingCallBanner = () => {
 
   const typeEmoji = activeCall.roomType === 'audio' ? '🎙' : activeCall.roomType === 'live' ? '📡' : '📹';
 
-  const handleReturn = () => navigate(`/meeting/${activeCall.roomId}`);
+  const handleReturn = () => {
+    primeAudioPlayback(); // unlock audio on iOS/Android before navigating back
+    navigate(`/meeting/${activeCall.roomId}`);
+  };
 
   const handleHangUp = async () => {
     setLeaving(true);

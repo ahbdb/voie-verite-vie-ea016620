@@ -25,6 +25,7 @@ import { format, isToday, isBefore, addMinutes, differenceInMinutes, differenceI
 import { fr, enUS, it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { sendCallJoinNotification } from '@/lib/notification-service';
+import { useCallSession } from '@/contexts/CallSessionContext';
 
 /** Build the public share URL pointing to the production app. */
 const buildShareUrl = (session: ScheduledSession) => {
@@ -163,8 +164,11 @@ const CallsAndLives = () => {
     return `${format(d, 'PPP', { locale: dateLocale })} • ${formatGmtTime(session.scheduled_time)}`;
   };
 
+  const { primeAudioPlayback } = useCallSession();
+
   const joinSession = (session: ScheduledSession) => {
     if (session.video_room_id) {
+      primeAudioPlayback();
       navigate(`/meeting/${session.video_room_id}`);
     } else {
       toast.info(t('calls.sessionNotStarted'));

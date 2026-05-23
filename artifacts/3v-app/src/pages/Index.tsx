@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Navigation from '@/components/Navigation';
@@ -9,6 +9,7 @@ import { ActivitiesSection, CTASection } from '@/components/HomeSections';
 import PostSignupCommunityModal from '@/components/PostSignupCommunityModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useCallSession } from '@/contexts/CallSessionContext';
 import { Button } from '@/components/ui/button';
 import { Phone, Video, Mic } from 'lucide-react';
 
@@ -24,6 +25,8 @@ interface ActiveRoom {
 const ActiveCallBanner = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { primeAudioPlayback } = useCallSession();
   const [activeRooms, setActiveRooms] = useState<ActiveRoom[]>([]);
 
   useEffect(() => {
@@ -68,8 +71,8 @@ const ActiveCallBanner = () => {
               {room.room_type === 'audio' ? <Mic className="h-4 w-4 text-primary" /> : <Video className="h-4 w-4 text-primary" />}
               <span className="text-sm font-medium text-foreground truncate max-w-[180px]">{room.title}</span>
             </div>
-            <Button size="sm" asChild className="shrink-0">
-              <Link to={`/meeting/${room.id}`}><Phone className="h-3.5 w-3.5 mr-1" /> {t('activeCall.join')}</Link>
+            <Button size="sm" className="shrink-0" onClick={() => { primeAudioPlayback(); navigate(`/meeting/${room.id}`); }}>
+              <Phone className="h-3.5 w-3.5 mr-1" /> {t('activeCall.join')}
             </Button>
           </div>
         ))}

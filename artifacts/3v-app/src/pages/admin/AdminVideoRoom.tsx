@@ -10,6 +10,7 @@ import {
 } from '@/hooks/useAdminVideoRoom';
 import { useCallSession } from '@/contexts/CallSessionContext';
 import { useCallKeepAlive } from '@/hooks/useCallKeepAlive';
+import { useCallWakeLock } from '@/hooks/useCallWakeLock';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -453,6 +454,10 @@ const AdminVideoRoom = () => {
     roomTitle: room?.title,
     onHeartbeat: heartbeat,
   });
+
+  // ── Screen Wake Lock — prevents phone screen from sleeping during call ────
+  // Android PWA: keeps screen on so Chrome stays in foreground audio mode.
+  useCallWakeLock(isConnected);
 
   // ── Auto-join on mount (WhatsApp-style: no intermediate "join" prompt) ─────
 

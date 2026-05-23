@@ -92,67 +92,72 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
   const micToggleFnRef = useRef<(() => void) | null>(null);
 
   // ── Silent audio keepalive ─────────────────────────────────────────────────
-  // Lives in this global context (never unmounts) so it keeps the browser's
-  // audio subsystem active even after the user navigates away from the call
-  // page. This prevents mobile browsers from throttling ICE keepalive timers,
-  // which would otherwise drop the WebRTC connection and cut the outgoing audio.
-  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+  // A real DOM <audio> element (rendered below) keeps the browser's audio
+  // subsystem active even after the user navigates away from the call page or
+  // the phone screen turns off.
+  //
+  // Why DOM-attached instead of `new Audio()`?
+  //   • iOS PWA: Only a DOM-attached <audio> with `playsInline` that was started
+  //     during a user gesture is allowed to continue playing in the background.
+  //   • Android PWA: Chrome recognises the page as "playing media" and prevents
+  //     it from being suspended, keeping ICE keepalive timers alive.
+  //
+  // The element is kept at volume 0.001 so it is completely inaudible.
+  const silentAudioElRef = useRef<HTMLAudioElement | null>(null);
   const silentBlobUrlRef = useRef<string | null>(null);
 
+  const ensureSrc = useCallback(() => {
+    const el = silentAudioElRef.current;
+    if (!el) return false;
+    if (el.src && el.src.startsWith('blob:')) return true; // already loaded
+    const url = createSilentWavUrl();
+    if (!url) return false;
+    if (silentBlobUrlRef.current) URL.revokeObjectURL(silentBlobUrlRef.current);
+    silentBlobUrlRef.current = url;
+    el.src = url;
+    el.loop = true;
+    el.volume = 0.001;
+    return true;
+  }, []);
+
+  const startSilentAudio = useCallback(() => {
+    const el = silentAudioElRef.current;
+    if (!el) return;
+    if (!el.paused) return; // already playing
+    if (!ensureSrc()) return;
+    el.play().catch(() => {
+      // Autoplay was blocked — will retry on the next user gesture via
+      // primeAudioPlayback(), which is called on every join/navigate action.
+    });
+  }, [ensureSrc]);
+
   const stopSilentAudio = useCallback(() => {
-    if (silentAudioRef.current) {
-      silentAudioRef.current.pause();
-      silentAudioRef.current.src = '';
-      silentAudioRef.current = null;
-    }
+    const el = silentAudioElRef.current;
+    if (el) { el.pause(); el.src = ''; }
     if (silentBlobUrlRef.current) {
       URL.revokeObjectURL(silentBlobUrlRef.current);
       silentBlobUrlRef.current = null;
     }
   }, []);
 
-  const startSilentAudio = useCallback(() => {
-    // Already running — nothing to do
-    if (silentAudioRef.current && !silentAudioRef.current.paused) return;
-
-    const url = createSilentWavUrl();
-    if (!url) return;
-
-    // Reuse existing element if present, otherwise create a fresh one
-    const audio = silentAudioRef.current ?? new Audio();
-    audio.src = url;
-    audio.loop = true;
-    audio.volume = 0.001; // inaudible but "playing"
-    audio.play().catch(() => {
-      // Autoplay blocked — will retry on the next user gesture via primeAudioPlayback
-    });
-
-    if (silentBlobUrlRef.current && silentBlobUrlRef.current !== url) {
-      URL.revokeObjectURL(silentBlobUrlRef.current);
-    }
-    silentBlobUrlRef.current = url;
-    silentAudioRef.current = audio;
-  }, []);
-
   /**
-   * Call this synchronously inside any user-gesture handler (e.g. the "Join"
-   * button click). This unlocks autoplay on iOS/Android so that later calls to
-   * startSilentAudio() succeed even when the page is in the background.
+   * Call synchronously inside EVERY user-gesture handler that navigates to or
+   * returns to a call (join button, recall button, return-to-call banner …).
+   *
+   * On iOS/Android, audio.play() is only allowed when called (directly or
+   * indirectly) from within a user-interaction event. Calling this here
+   * "unlocks" audio for the duration of the call, including when the page is
+   * later moved to the background.
    */
   const primeAudioPlayback = useCallback(() => {
-    // Create a tiny audio element and immediately play+pause to unlock autoplay.
-    // This must be called synchronously inside a user-gesture event handler.
-    try {
-      const unlock = new Audio();
-      unlock.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-      const p = unlock.play();
-      if (p) p.then(() => unlock.pause()).catch(() => {});
-    } catch { /* ignore */ }
-  }, []);
+    const el = silentAudioElRef.current;
+    if (!el) return;
+    if (!ensureSrc()) return;
+    // Intentionally do NOT pause — we want this to keep playing as the keepalive.
+    el.play().catch(() => {});
+  }, [ensureSrc]);
 
-  // Start/stop the silent audio in sync with the connected state.
-  // This effect runs in the global provider — it is NOT cleaned up when the
-  // call-room component unmounts, only when isConnected transitions to false.
+  // Start / stop in sync with the WebRTC connection state
   useEffect(() => {
     if (isConnected) {
       startSilentAudio();
@@ -162,8 +167,8 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected]);
 
-  // Also ensure the silent audio resumes after the page becomes visible again
-  // (some browsers suspend audio elements while hidden).
+  // Resume if the system paused it while the page was hidden (spec-required
+  // for Screen Wake Lock; some browsers also pause audio on visibility change)
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible' && isConnected) {
@@ -221,6 +226,19 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
       primeAudioPlayback,
     }}>
       {children}
+      {/*
+        This hidden <audio> element is the audio keepalive.
+        It MUST be in the DOM (not just `new Audio()`) so iOS treats it as a
+        real media session and allows it to continue in the background.
+        playsInline prevents iOS from forcing fullscreen on play.
+      */}
+      <audio
+        ref={silentAudioElRef}
+        loop
+        playsInline
+        aria-hidden="true"
+        style={{ display: 'none', position: 'absolute', width: 0, height: 0 }}
+      />
     </CallSessionContext.Provider>
   );
 };
