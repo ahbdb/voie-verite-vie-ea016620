@@ -339,11 +339,20 @@ function extractParts(data: unknown, tab: TabId, mi: number, lec: Record<string,
       ? (typeof antVal === 'string' ? antVal : fieldText(antVal)) || undefined
       : undefined;
 
-    // Label: real psalm number for psalms, fixed name for canticles
+    // Label for tab button
     let label: string;
     if (PSALM_FIELD_RE.test(key)) {
-      const num = ref.match(/\d+(?:\s*\(\d+\))?/)?.[0]?.replace(/\s+/g, '') ?? '';
-      label = num ? `Ps ${num}` : (OFFICE_LABELS[key] || key);
+      if (key === 'psaume_invitatoire') {
+        const num = ref.match(/\d+/)?.[0] ?? '';
+        label = num ? `Psaume Invitatoire (${num})` : 'Psaume Invitatoire';
+      } else if (/cantique/i.test(ref) || /cantique/i.test(titre)) {
+        // Canticle stored under a psaume_ key (e.g. Daniel's canticle as psaume_2)
+        const bookM = (ref + ' ' + titre).match(/\(([^)]+)\)/);
+        label = bookM ? `Cantique (${bookM[1]})` : 'Cantique';
+      } else {
+        const num = ref.match(/\d+(?:\s*\(\d+\))?/)?.[0]?.replace(/\s+/g, '') ?? '';
+        label = num ? `Psaume ${num}` : (OFFICE_LABELS[key] || key);
+      }
     } else if (CANTICLE_FIXED[key]) {
       label = CANTICLE_FIXED[key];
     } else {
@@ -455,9 +464,9 @@ function OfficeBlock({ partie, antienne, sectionKind, label }: {
           {sectionKind === 'hymne_mariale' ? 'Hymne mariale' : 'Hymne'}
         </span>
       </div>
-      {titre && <p className="text-[11px] text-white/30 italic mb-3 ml-6">{titre}</p>}
-      <div className="bg-white/[0.025] border border-white/[0.06] rounded-xl px-5 py-5">
-        <div className="text-[14px] italic text-white/82 leading-[2.1] [&_p]:mb-3 [&_p:last-child]:mb-0"
+      {titre && <p className="text-[11px] text-white/30 italic mb-2 ml-6">{titre}</p>}
+      <div className="bg-white/[0.025] border border-white/[0.06] rounded-xl px-5 py-3">
+        <div className="text-[14px] italic text-white/82 leading-[1.75] [&_p]:mb-2 [&_p:last-child]:mb-0"
           dangerouslySetInnerHTML={{ __html: contenu.replace(/\n/g, '<br/>') }} />
       </div>
     </div>
@@ -527,14 +536,6 @@ function OfficeBlock({ partie, antienne, sectionKind, label }: {
   // ── Psalms & canticles (default) — antienne before + after ──────────────────
   return (
     <div className="pb-8">
-      {label && (
-        <div className="flex items-baseline gap-2 mb-4">
-          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/35">{label}</span>
-          {ref && !PSALM_FIELD_RE.test(sectionKind || '') && (
-            <span className="text-xs text-white/25 italic">{ref}</span>
-          )}
-        </div>
-      )}
       {antienne && (
         <div className="bg-blue-950/50 border border-blue-500/20 rounded-xl px-4 py-3 mb-4">
           <span className="text-[9px] font-black uppercase tracking-[0.3em] text-blue-400/70 block mb-1.5">Ant.</span>
