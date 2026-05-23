@@ -26,18 +26,15 @@ interface PartGroup { id: string; label: string; options: Part[]; }
 const AELF   = 'https://api.aelf.org/v1';
 const EN_API = 'https://cpbjr.github.io/catholic-readings-api';
 
-// Only valid AELF zone identifiers
+// Valid AELF zone identifiers (from API documentation)
 const ZONES = [
-  { value:'romain',         label:'Romain'        },
-  { value:'france',         label:'France'        },
-  { value:'belgique',       label:'Belgique'      },
-  { value:'canada-french',  label:'Canada'        },
-  { value:'suisse',         label:'Suisse'        },
-  { value:'luxembourg',     label:'Lux.'          },
-  { value:'monaco',         label:'Monaco'        },
-  { value:'algerie',        label:'Algérie'       },
-  { value:'senegal',        label:'Sénégal'       },
-  { value:'cote-d-ivoire',  label:"Côte d'Iv."   },
+  { value:'afrique',    label:'Afrique'    },
+  { value:'belgique',   label:'Belgique'   },
+  { value:'canada',     label:'Canada'     },
+  { value:'france',     label:'France'     },
+  { value:'luxembourg', label:'Lux.'       },
+  { value:'romain',     label:'Romain'     },
+  { value:'suisse',     label:'Suisse'     },
 ];
 const VALID_ZONES = new Set(ZONES.map(z => z.value));
 
@@ -154,12 +151,10 @@ function detectZone() {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
     if (tz === 'Europe/Paris')                    return 'france';
     if (tz === 'Europe/Brussels')                 return 'belgique';
-    if (/^America\/(Toronto|Montreal|Halifax|Vancouver|Winnipeg)/i.test(tz)) return 'canada-french';
+    if (/^America\/(Toronto|Montreal|Halifax|Vancouver|Winnipeg)/i.test(tz)) return 'canada';
     if (/Europe\/(Zurich|Bern)/i.test(tz))       return 'suisse';
     if (tz === 'Europe/Luxembourg')               return 'luxembourg';
-    if (tz === 'Europe/Monaco')                   return 'monaco';
-    if (/^Africa\/Abidjan/i.test(tz))             return 'cote-d-ivoire';
-    if (/^Africa\/Dakar/i.test(tz))              return 'senegal';
+    if (/^Africa\//i.test(tz))                   return 'afrique';
   } catch {/**/ }
   return 'romain';
 }
@@ -167,9 +162,8 @@ function detectZone() {
 const fmt = (d: Date) => format(d, 'yyyy-MM-dd');
 
 async function fetchAelf(tab: TabId, date: string, zone: string) {
-  const url = tab === 'messes'
-    ? `${AELF}/messes/${date}/${zone}`
-    : `${AELF}/offices/${tab}/${date}/${zone}`;
+  // All offices are at /v1/{office}/{date}/{zone} — not /v1/offices/...
+  const url = `${AELF}/${tab}/${date}/${zone}`;
   const r = await fetch(url, { signal: AbortSignal.timeout(14000) });
   if (!r.ok) throw new Error(String(r.status));
   return r.json() as Promise<Record<string, unknown>>;
@@ -342,7 +336,7 @@ function OfficeBlock({ partie }: { partie: Record<string, unknown> }) {
       {partie.antienne && (
         <div className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 mb-4">
           <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/35 block mb-1.5">Ant.</span>
-          <p className="text-[14px] italic text-white/80 leading-[1.75]">{partie.antienne as string}</p>
+          <p className="text-[14px] italic text-white/80 leading-[1.75]">{String(partie.antienne)}</p>
         </div>
       )}
       <div className="reading-text text-[15px] leading-[1.9] text-white/82"
@@ -374,8 +368,7 @@ export default function MesseOffice() {
   const [date,    setDate]    = useState(() => new Date());
   const [zone,    setZone]    = useState(() => {
     const saved = localStorage.getItem('liturgical_zone') ?? detectZone();
-    if (saved === 'afrique') return 'romain'; // migrate old value
-    return VALID_ZONES.has(saved) ? saved : 'romain';
+    return VALID_ZONES.has(saved) ? saved : detectZone();
   });
   const [view,    setView]    = useState<'overview'|'content'>('overview');
   const [tab,     setTab]     = useState<TabId>('messes');
