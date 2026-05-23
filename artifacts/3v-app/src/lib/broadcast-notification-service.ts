@@ -1,6 +1,8 @@
 export type BroadcastNotificationType = 'greeting' | 'reminder' | 'announcement' | 'update';
 export type BroadcastTargetRole = 'all' | 'user' | 'admin' | null;
 
+import { supabase } from '@/integrations/supabase/client';
+
 export interface BroadcastNotification {
   id: string;
   title: string;
@@ -68,10 +70,18 @@ const saveStoredSettings = (settings: NotificationSettings) => {
 
 export const getUserNotifications = async (limit = 50): Promise<UserNotification[]> => {
   try {
-    const res = await fetch(`/api/notifications?limit=${limit}`, { credentials: 'include' });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data as any[]).map((row) => ({
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data } = await supabase
+      .from('user_notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (!data) return [];
+    return data.map((row) => ({
       id: row.id,
       user_id: row.user_id ?? '',
       title: row.title,
@@ -99,11 +109,11 @@ export const getUnreadCount = async (): Promise<number> => {
 
 export const markNotificationAsRead = async (notificationId: string): Promise<boolean> => {
   try {
-    const res = await fetch(`/api/notifications/${notificationId}/read`, {
-      method: 'PATCH',
-      credentials: 'include',
-    });
-    return res.ok;
+    const { error } = await supabase
+      .from('user_notifications')
+      .update({ is_read: true })
+      .eq('id', notificationId);
+    return !error;
   } catch {
     return false;
   }
@@ -115,11 +125,11 @@ export const markNotificationAsViewed = async (notificationId: string): Promise<
 
 export const deleteNotification = async (notificationId: string): Promise<boolean> => {
   try {
-    const res = await fetch(`/api/notifications/${notificationId}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-    return res.ok;
+    const { error } = await supabase
+      .from('user_notifications')
+      .delete()
+      .eq('id', notificationId);
+    return !error;
   } catch {
     return false;
   }
@@ -127,11 +137,14 @@ export const deleteNotification = async (notificationId: string): Promise<boolea
 
 export const markAllNotificationsAsRead = async (): Promise<boolean> => {
   try {
-    const res = await fetch('/api/notifications/read-all', {
-      method: 'PATCH',
-      credentials: 'include',
-    });
-    return res.ok;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { error } = await supabase
+      .from('user_notifications')
+      .update({ is_read: true })
+      .eq('user_id', user.id);
+    return !error;
   } catch {
     return false;
   }
@@ -174,20 +187,24 @@ export const sendBroadcastNotification = async (broadcastId: string): Promise<bo
 
 export const getBroadcastNotifications = async (limit = 50): Promise<BroadcastNotification[]> => {
   try {
-    const res = await fetch(`/api/notifications?limit=${limit}`, { credentials: 'include' });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data as any[]).map((row) => ({
+    const { data } = await supabase
+      .from('broadcast_notifications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (!data) return [];
+    return data.map((row) => ({
       id: row.id,
       title: row.title,
-      body: row.message,
+      body: row.body,
       type: normalizeBroadcastType(row.type),
-      target_role: null,
-      created_by: row.user_id ?? '',
-      is_sent: true,
-      sent_at: row.created_at,
+      target_role: row.target_role,
+      created_by: row.created_by ?? '',
+      is_sent: row.is_sent,
+      sent_at: row.sent_at,
       created_at: row.created_at,
-      updated_at: row.created_at,
+      updated_at: row.updated_at,
     }));
   } catch {
     return [];
@@ -196,30 +213,38 @@ export const getBroadcastNotifications = async (limit = 50): Promise<BroadcastNo
 
 export const subscribeToNotifications = (callback: (notification: UserNotification) => void) => {
   let active = true;
-  let lastId: string | null = null;
 
-  const poll = async () => {
-    if (!active) return;
-    try {
-      const notifications = await getUserNotifications(5);
-      if (notifications.length > 0) {
-        const newest = notifications[0];
-        if (lastId === null) {
-          lastId = newest.id;
-        } else if (newest.id !== lastId) {
-          lastId = newest.id;
-          callback(newest);
+  const channel = supabase
+    .channel('user-notifications')
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'user_notifications',
+      },
+      (payload) => {
+        if (active) {
+          const n = payload.new as any;
+          callback({
+            id: n.id,
+            user_id: n.user_id,
+            title: n.title,
+            message: n.message,
+            type: n.type,
+            link: n.link,
+            is_read: n.is_read,
+            created_at: n.created_at,
+            updated_at: n.created_at,
+          });
         }
       }
-    } catch {}
-  };
-
-  const interval = setInterval(() => void poll(), 15000);
-  void poll();
+    )
+    .subscribe();
 
   return () => {
     active = false;
-    clearInterval(interval);
+    void channel.unsubscribe();
   };
 };
 
@@ -275,12 +300,9 @@ export const showSystemNotification = async (
 
 export const getNotificationSettings = async (): Promise<NotificationSettings> => {
   try {
-    const res = await fetch('/api/auth/user', { credentials: 'include' });
-    if (!res.ok) return { user_id: '', ...DEFAULT_SETTINGS };
-    const data = await res.json();
-    const userId = data.user?.id ?? '';
-    if (!userId) return { user_id: '', ...DEFAULT_SETTINGS };
-    return getStoredSettings(userId);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { user_id: '', ...DEFAULT_SETTINGS };
+    return getStoredSettings(user.id);
   } catch {
     return { user_id: '', ...DEFAULT_SETTINGS };
   }
@@ -290,12 +312,9 @@ export const updateNotificationSettings = async (
   settings: Partial<NotificationSettings>
 ): Promise<boolean> => {
   try {
-    const res = await fetch('/api/auth/user', { credentials: 'include' });
-    if (!res.ok) return false;
-    const data = await res.json();
-    const userId = data.user?.id;
-    if (!userId) return false;
-    const nextSettings: NotificationSettings = { ...getStoredSettings(userId), ...settings, user_id: userId };
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+    const nextSettings: NotificationSettings = { ...getStoredSettings(user.id), ...settings, user_id: user.id };
     saveStoredSettings(nextSettings);
     return true;
   } catch {

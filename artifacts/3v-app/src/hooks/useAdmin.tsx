@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 export type AdminRole = 'admin_principal' | 'admin' | 'moderator' | null;
 
@@ -15,7 +16,7 @@ if (typeof window !== 'undefined') {
 }
 
 export const useAdmin = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, supabaseUser, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminRole, setAdminRole] = useState<AdminRole>(null);
   const [loading, setLoading] = useState(true);
@@ -24,7 +25,7 @@ export const useAdmin = () => {
   useEffect(() => {
     if (authLoading) return;
 
-    if (!user) {
+    if (!user || !supabaseUser) {
       setAdminRole(null);
       setIsAdmin(false);
       setLoading(false);
@@ -43,13 +44,22 @@ export const useAdmin = () => {
 
     setLoading(true);
 
-    fetch('/api/auth/admin-role', { credentials: 'include' })
-      .then((res) => res.json())
-      .then(({ role }) => {
+    // Récupérer le rôle depuis la table user_roles de Supabase
+    supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data, error }) => {
         let adminRole: AdminRole = null;
-        if (role === 'admin_principal') adminRole = 'admin_principal';
-        else if (role === 'admin') adminRole = 'admin';
-        else if (role === 'moderator') adminRole = 'moderator';
+        
+        if (!error && data) {
+          const role = data.role;
+          if (role === 'admin_principal') adminRole = 'admin_principal';
+          else if (role === 'admin') adminRole = 'admin';
+          else if (role === 'moderator') adminRole = 'moderator';
+        }
+        
         roleCache.set(user.id, { role: adminRole, timestamp: Date.now() });
         setAdminRole(adminRole);
         setIsAdmin(adminRole !== null);
@@ -62,7 +72,7 @@ export const useAdmin = () => {
         setLoading(false);
         setChecked(true);
       });
-  }, [user, authLoading]);
+  }, [user, supabaseUser, authLoading]);
 
   return { user, isAdmin, adminRole, loading, checked };
 };

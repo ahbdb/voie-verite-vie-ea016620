@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { playAttentionTone, sendVisibleNotification } from '@/lib/notification-service';
 import { createElement } from 'react';
@@ -22,7 +23,6 @@ export const useBroadcastNotifications = () => {
   const { user } = useAuth();
   const ringIntervalRef = useRef<number | null>(null);
   const lastSeenIdRef = useRef<string | null>(null);
-  const pollIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -40,32 +40,49 @@ export const useBroadcastNotifications = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    const checkForNew = async () => {
+    // Récupérer les notifications existantes
+    const loadInitialNotifications = async () => {
       try {
-        const res = await fetch('/api/notifications?limit=5', { credentials: 'include' });
-        if (!res.ok) return;
-        const rows = await res.json() as Array<{
-          id: string;
-          title: string;
-          message: string;
-          type: AppNotificationType;
-          link: string | null;
-        }>;
-        if (!rows.length) return;
+        const { data: rows } = await supabase
+          .from('user_notifications')
+          .select('id, title, message, type, link')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(5);
 
-        const newest = rows[0];
-
-        if (lastSeenIdRef.current === null) {
+        if (rows && rows.length > 0) {
+          const newest = rows[0];
           lastSeenIdRef.current = newest.id;
-          return;
         }
+      } catch {
+        // Silently fail
+      }
+    };
 
-        if (newest.id === lastSeenIdRef.current) return;
+    void loadInitialNotifications();
 
-        const newRows = rows.filter((r) => r.id !== lastSeenIdRef.current);
-        lastSeenIdRef.current = newest.id;
+    // S'abonner aux nouvelles notifications via Realtime
+    const channel = supabase
+      .channel(`user_notifications:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'user_notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const n = payload.new as any;
+          
+          if (lastSeenIdRef.current === null) {
+            lastSeenIdRef.current = n.id;
+            return;
+          }
 
-        for (const n of newRows.slice(0, 3)) {
+          if (n.id === lastSeenIdRef.current) return;
+          lastSeenIdRef.current = n.id;
+
           const isCall = n.type === 'call';
           const url = n.link || '/';
 
@@ -123,16 +140,13 @@ export const useBroadcastNotifications = () => {
             { duration: isCall ? 20000 : 7000, position: 'top-right' }
           );
         }
-      } catch {}
-    };
-
-    pollIntervalRef.current = window.setInterval(() => void checkForNew(), 15000);
-    void checkForNew();
+      )
+      .subscribe();
 
     return () => {
       stopRinging();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (pollIntervalRef.current) window.clearInterval(pollIntervalRef.current);
+      void channel.unsubscribe();
     };
   }, [user?.id]);
 };
@@ -145,32 +159,120 @@ export const broadcastNotificationService = {
     _icon?: string,
     link: string | null = null
   ) {
-    const res = await fetch('/api/notifications/broadcast', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ title, message, type, link }),
-    });
-    if (!res.ok) throw new Error('Failed to broadcast');
-    return res.json();
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error('Not authenticated');
+
+      // Créer la notification de broadcast
+      const { error } = await supabase
+        .from('broadcast_notifications')
+        .insert({
+          title,
+          body: message,
+          type,
+          target_role: 'all',
+          created_by: authUser.id,
+          is_sent: true,
+          sent_at: new Date().toISOString(),
+        });
+
+      if (error) throw error;
+
+      // Envoyer via RPC si elle existe
+      try {
+        await supabase.rpc('send_broadcast_notification', {
+          p_title: title,
+          p_body: message,
+          p_type: type,
+          p_target_role: 'all',
+          p_link: link,
+        });
+      } catch {
+        // RPC might not exist, continue anyway
+      }
+
+      return { error: null };
+    } catch (err) {
+      return { error: err };
+    }
   },
 
   async sendToRole(
     title: string,
     message: string,
-    role: 'admin' | 'user',
+    role: 'user' | 'admin',
     type: AppNotificationType = 'announcement',
     _icon?: string,
     link: string | null = null
   ) {
-    const res = await fetch('/api/notifications/broadcast-role', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ title, message, role, type, link }),
-    });
-    if (!res.ok) throw new Error('Failed to broadcast to role');
-    return res.json();
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error('Not authenticated');
+
+      // Créer la notification de broadcast
+      const { error } = await supabase
+        .from('broadcast_notifications')
+        .insert({
+          title,
+          body: message,
+          type,
+          target_role: role,
+          created_by: authUser.id,
+          is_sent: true,
+          sent_at: new Date().toISOString(),
+        });
+
+      if (error) throw error;
+
+      // Envoyer via RPC si elle existe
+      try {
+        await supabase.rpc('send_broadcast_notification', {
+          p_title: title,
+          p_body: message,
+          p_type: type,
+          p_target_role: role,
+          p_link: link,
+        });
+      } catch {
+        // RPC might not exist, continue anyway
+      }
+
+      return { error: null };
+    } catch (err) {
+      return { error: err };
+    }
+  },
+
+  async sendDailyGreeting() {
+    return this.sendToAll(
+      '👋 Bonjour!',
+      'Que ce jour soit rempli de paix et de bénédictions',
+      'greeting'
+    );
+  },
+
+  async sendReminder(
+    title: string,
+    message: string,
+    _icon?: string
+  ) {
+    return this.sendToAll(title, message, 'reminder', _icon);
+  },
+
+  async sendAnnouncement(
+    title: string,
+    message: string,
+    _icon?: string
+  ) {
+    return this.sendToAll(title, message, 'announcement', _icon);
+  },
+
+  async sendUpdate(
+    title: string,
+    message: string,
+    _icon?: string
+  ) {
+    return this.sendToAll(title, message, 'update', _icon);
   },
 };
 
