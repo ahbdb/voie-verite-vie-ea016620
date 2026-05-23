@@ -12,8 +12,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Phone, Plus, Radio, RefreshCw, Users, Video, Mic } from 'lucide-react';
+import { ArrowLeft, Phone, Plus, Radio, RefreshCw, Trash2, Users, Video, Mic } from 'lucide-react';
 import type { VideoParticipantRecord, VideoRoomRecord } from '@/hooks/useAdminVideoRoom';
 
 const db = supabase as any;
@@ -35,6 +39,8 @@ const AdminVideo = () => {
   const [creating, setCreating] = useState(false);
   const [callMode, setCallMode] = useState<'all' | 'select'>('all');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [roomToDelete, setRoomToDelete] = useState<VideoRoomRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -176,6 +182,26 @@ const AdminVideo = () => {
     } catch { toast.error('Erreur.'); }
   };
 
+  const handleDeleteRoom = async () => {
+    if (!roomToDelete) return;
+    setDeleting(true);
+    try {
+      await db.from('video_room_participants').delete().eq('room_id', roomToDelete.id);
+      await db.from('video_room_messages').delete().eq('room_id', roomToDelete.id);
+      await db.from('video_message_reactions').delete().eq('room_id', roomToDelete.id);
+      await db.from('video_room_signals').delete().eq('room_id', roomToDelete.id);
+      const { error } = await db.from('video_rooms').delete().eq('id', roomToDelete.id);
+      if (error) throw error;
+      toast.success('Session supprimée définitivement.');
+      setRoomToDelete(null);
+    } catch (err) {
+      console.error('[admin-video] delete error', err);
+      toast.error('Suppression échouée.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const toggleUserSelection = (uid: string) => {
     setSelectedUserIds((prev) => {
       const next = new Set(prev);
@@ -199,6 +225,28 @@ const AdminVideo = () => {
 
   return (
     <AdminPageWrapper>
+      {/* ── Delete confirmation dialog ───────────────────────────────────── */}
+      <AlertDialog open={Boolean(roomToDelete)} onOpenChange={(open) => { if (!open) setRoomToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette session ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La session <strong>«&nbsp;{roomToDelete?.title}&nbsp;»</strong> et tous ses messages, réactions et journaux de participants seront supprimés de façon définitive. Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleDeleteRoom()}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleting ? 'Suppression…' : 'Supprimer définitivement'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="min-h-screen flex flex-col bg-background">
         <Navigation />
         <main className="flex-1 container mx-auto px-4 py-8 pt-24 space-y-6">
@@ -339,6 +387,16 @@ const AdminVideo = () => {
                               </Button>
                               <Button size="sm" variant="outline" onClick={() => void handleCloseRoom(room.id)}>Terminer</Button>
                             </>
+                          )}
+                          {ended && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-300"
+                              onClick={() => setRoomToDelete(room)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-1" /> Supprimer
+                            </Button>
                           )}
                         </div>
                       </CardContent>

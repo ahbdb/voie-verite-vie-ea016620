@@ -852,13 +852,14 @@ export const useAdminVideoRoom = ({
             noiseSuppression: true,
             autoGainControl: true,
             sampleRate: 48000,
+            channelCount: 1,
           },
         });
       } catch {
         if (shouldUseVideo) {
           try {
             media = await navigator.mediaDevices.getUserMedia({
-              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
               video: false,
             });
             setMediaError('Caméra indisponible — appel audio uniquement.');

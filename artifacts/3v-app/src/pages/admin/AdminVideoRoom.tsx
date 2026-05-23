@@ -555,18 +555,40 @@ const AdminVideoRoom = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="min-h-screen flex flex-col bg-zinc-950">
         <Navigation />
-        <main className="container mx-auto flex flex-1 items-center justify-center px-4 py-24">
-          <Card className="max-w-md">
-            <CardHeader>
-              <CardTitle>Connexion requise</CardTitle>
-              <CardDescription>Connecte-toi pour rejoindre la réunion.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild><Link to="/auth">Se connecter</Link></Button>
-            </CardContent>
-          </Card>
+        <main className="flex-1 flex items-center justify-center px-4 py-24">
+          <div className="w-full max-w-md text-center space-y-8">
+            {/* Icon */}
+            <div className="flex justify-center">
+              <div className="h-20 w-20 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+                <Radio className="h-9 w-9 text-primary animate-pulse" />
+              </div>
+            </div>
+
+            {/* Heading */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-widest text-primary/70">Voie · Vérité · Vie</p>
+              <h1 className="text-2xl font-bold text-white font-cinzel">Vous êtes invité à rejoindre une réunion</h1>
+              <p className="text-zinc-400 text-sm leading-relaxed">
+                Cette réunion est réservée aux membres de l'association 3V. Connectez-vous ou créez un compte gratuit pour y participer.
+              </p>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex flex-col gap-3">
+              <Button asChild size="lg" className="w-full">
+                <Link to={`/auth?redirect=/meeting/${roomId}`}>Se connecter</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+                <Link to={`/auth?mode=signup&redirect=/meeting/${roomId}`}>Créer un compte gratuitement</Link>
+              </Button>
+            </div>
+
+            <p className="text-xs text-zinc-600">
+              En rejoignant, vous acceptez de participer dans le respect de la communauté 3V.
+            </p>
+          </div>
         </main>
       </div>
     );
@@ -739,16 +761,18 @@ const AdminVideoRoom = () => {
             {/* Sidebar */}
             <aside className="border-l border-zinc-800 bg-zinc-900 flex flex-col overflow-hidden">
               <Tabs defaultValue="chat" className="flex flex-col flex-1 overflow-hidden">
-                <TabsList className="grid w-full grid-cols-3 rounded-none border-b border-zinc-800 bg-transparent h-10 shrink-0">
+                <TabsList className={`grid w-full rounded-none border-b border-zinc-800 bg-transparent h-10 shrink-0 ${adminRole === 'admin_principal' ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   <TabsTrigger value="chat" className="rounded-none text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-500">
                     💬 Chat
                   </TabsTrigger>
                   <TabsTrigger value="participants" className="rounded-none text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-500">
                     👥 ({participants.length})
                   </TabsTrigger>
-                  <TabsTrigger value="diagnostic" className="rounded-none text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-500">
-                    📶 Réseau
-                  </TabsTrigger>
+                  {adminRole === 'admin_principal' && (
+                    <TabsTrigger value="diagnostic" className="rounded-none text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-500">
+                      📶 Réseau
+                    </TabsTrigger>
+                  )}
                 </TabsList>
 
                 <TabsContent value="chat" className="flex-1 flex flex-col overflow-hidden m-0 data-[state=inactive]:hidden">
@@ -1027,19 +1051,19 @@ const AdminVideoRoom = () => {
 
             <div className="w-px h-8 bg-zinc-700 mx-1" />
 
-            {/* End (admin) */}
-            {hasManagement && (
+            {/* Terminer — only the admin who CREATED this session */}
+            {room?.created_by === user?.id && (
               <button
                 onClick={() => setShowEndConfirm(true)}
                 className="flex flex-col items-center gap-1 rounded-xl bg-red-500 px-3 py-2 text-white hover:bg-red-600 transition-colors min-w-[56px]"
-                title="Terminer la réunion pour tous"
+                title="Terminer la réunion pour tous les participants"
               >
                 <Radio className="h-5 w-5" />
-                <span className="text-[9px] font-medium">Terminé</span>
+                <span className="text-[9px] font-medium">Terminer</span>
               </button>
             )}
 
-            {/* Soft leave — stay in call */}
+            {/* Soft leave — stay in call, visible to everyone */}
             <button
               onClick={handleSoftLeave}
               className="flex flex-col items-center gap-1 rounded-xl bg-zinc-700 px-3 py-2 text-white hover:bg-zinc-600 transition-colors min-w-[56px]"
@@ -1049,11 +1073,11 @@ const AdminVideoRoom = () => {
               <span className="text-[9px] font-medium">Quitter</span>
             </button>
 
-            {/* Hard hang-up */}
+            {/* Hard hang-up — everyone except the session creator sees this as main exit */}
             <button
               onClick={() => void handleHardHangUp()}
               className="flex flex-col items-center gap-1 rounded-xl bg-red-600 px-3 py-2 text-white hover:bg-red-700 transition-colors min-w-[56px]"
-              title="Raccrocher"
+              title="Raccrocher (quitter l'appel)"
             >
               <PhoneOff className="h-5 w-5" />
               <span className="text-[9px] font-medium">Raccrocher</span>
