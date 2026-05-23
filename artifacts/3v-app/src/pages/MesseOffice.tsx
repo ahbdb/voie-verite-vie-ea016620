@@ -209,8 +209,46 @@ function groupParts(parts: Part[]): PartGroup[] {
   return g;
 }
 
+// Flat field order for AELF office responses (Laudes, Vêpres, Complies, etc.)
+const OFFICE_FIELD_ORDER = [
+  'introduction','hymne','antienne_1','psaume_1','antienne_2','psaume_2',
+  'antienne_3','psaume_3','capitule','pericope','repons','verset',
+  'antienne_ben','benedictus','antienne_mag','magnificat',
+  'antienne_symeon','cantique_symeon','intercessions','notre_pere',
+  'oraison','benediction','hymne_mariale',
+];
+const OFFICE_LABELS: Record<string, string> = {
+  introduction:'Introduction', hymne:'Hymne',
+  antienne_1:'Antienne 1', psaume_1:'Psaume 1',
+  antienne_2:'Antienne 2', psaume_2:'Psaume 2',
+  antienne_3:'Antienne 3', psaume_3:'Psaume 3',
+  capitule:'Capitule', pericope:'Péricope', repons:'Répons', verset:'Verset',
+  antienne_ben:'Ant. Benedictus', benedictus:'Benedictus',
+  antienne_mag:'Ant. Magnificat', magnificat:'Magnificat',
+  antienne_symeon:'Ant. Syméon', cantique_symeon:'Cantique de Syméon',
+  intercessions:'Intercessions', notre_pere:'Notre Père',
+  oraison:'Oraison', benediction:'Bénédiction', hymne_mariale:'Hymne mariale',
+};
+
+function fieldText(val: unknown): string {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') {
+    const o = val as Record<string, unknown>;
+    return String(o.texte ?? o.text ?? o.contenu ?? '');
+  }
+  return '';
+}
+function fieldMeta(val: unknown): { titre: string; ref: string } {
+  if (!val || typeof val !== 'object') return { titre: '', ref: '' };
+  const o = val as Record<string, unknown>;
+  return { titre: String(o.titre ?? o.title ?? ''), ref: String(o.reference ?? o.ref ?? '') };
+}
+
 function extractParts(data: unknown, tab: TabId, mi: number, lec: Record<string, string>): Part[] {
   const d = data as Record<string, unknown>;
+
+  // ── Messe: array of AelfLecture ──────────────────────────────────────────
   if (tab === 'messes') {
     const messes = (d?.messes as AelfMesse[]) || [];
     if (!messes.length) return [];
@@ -224,6 +262,8 @@ function extractParts(data: unknown, tab: TabId, mi: number, lec: Record<string,
         data: l,
       }));
   }
+
+  // ── Office: find the office object in the response ────────────────────────
   let office = d?.[tab] as Record<string, unknown> | undefined;
   if (!office || typeof office !== 'object') {
     const fallback = Object.keys(d || {}).find(
@@ -232,25 +272,39 @@ function extractParts(data: unknown, tab: TabId, mi: number, lec: Record<string,
     if (fallback) office = d[fallback] as Record<string, unknown>;
   }
   if (!office) return [];
+
+  // If the office uses array structure (lectures/parties)
+  if (Array.isArray(office.lectures) || Array.isArray(office.parties)) {
+    const parts: Part[] = [];
+    ((office.lectures ?? []) as AelfLecture[]).forEach((l, i) => {
+      if (l.contenu || l.verset_evangile)
+        parts.push({ id: `lec_${i}`, label: lec[l.type ?? ''] || (l.type ?? '').replace(/_/g, ' ') || String(i + 1), kind: 'lecture', data: l });
+    });
+    ((office.parties ?? []) as Record<string, unknown>[]).forEach((p, i) => {
+      if (p.contenu)
+        parts.push({ id: `part_${i}`, label: (p.titre as string) || ((p.type as string) || '').replace(/_/g, ' ') || String(i + 1), kind: 'partie', data: p });
+    });
+    return parts;
+  }
+
+  // Flat structure: each key is a section (Complies, Laudes, Vêpres, etc.)
+  const allKeys = Object.keys(office);
+  const orderedKeys = [
+    ...OFFICE_FIELD_ORDER.filter(k => allKeys.includes(k)),
+    ...allKeys.filter(k => !OFFICE_FIELD_ORDER.includes(k)),
+  ];
   const parts: Part[] = [];
-  const lecs = ((office.lectures ?? office.lecture ?? []) as AelfLecture[]);
-  lecs.forEach((l, i) => {
-    if (l.contenu || l.verset_evangile)
-      parts.push({
-        id: `lec_${i}`,
-        label: lec[l.type ?? ''] || (l.type ?? '').replace(/_/g, ' ') || String(i + 1),
-        kind: 'lecture', data: l,
-      });
-  });
-  const pars = ((office.parties ?? office.partie ?? []) as Record<string, unknown>[]);
-  pars.forEach((p, i) => {
-    if (p.contenu)
-      parts.push({
-        id: `part_${i}`,
-        label: (p.titre as string) || ((p.type as string) || '').replace(/_/g, ' ') || String(i + 1),
-        kind: 'partie', data: p,
-      });
-  });
+  for (const key of orderedKeys) {
+    const contenu = fieldText(office[key]);
+    if (!contenu) continue;
+    const { titre, ref } = fieldMeta(office[key]);
+    parts.push({
+      id: `${tab}_${key}`,
+      label: OFFICE_LABELS[key] || key.replace(/_/g, ' '),
+      kind: 'partie',
+      data: { contenu, titre, ref } as Record<string, unknown>,
+    });
+  }
   return parts;
 }
 
@@ -500,6 +554,28 @@ export default function MesseOffice() {
         </button>
       </div>
     );
+    if (!parts.length) return (
+      <div className="py-16 text-center">
+        <p className="text-sm text-white/35">{L.ui.noText}</p>
+      </div>
+    );
+    // Offices: show all sections as continuous scroll
+    if (tab !== 'messes') {
+      return (
+        <div>
+          {parts.map((p, i) => (
+            <div key={p.id}>
+              {i > 0 && <div className="h-px bg-white/[0.06] my-5" />}
+              {p.kind === 'lecture'
+                ? <Lecture lec={p.data as AelfLecture} label={p.label} />
+                : <OfficeBlock partie={p.data as Record<string, unknown>} />
+              }
+            </div>
+          ))}
+        </div>
+      );
+    }
+    // Mass: show selected part only (tab navigation)
     if (!selPart) return (
       <div className="py-16 text-center">
         <p className="text-sm text-white/35">{L.ui.noText}</p>
@@ -637,8 +713,8 @@ export default function MesseOffice() {
                     </Select>
                   )}
 
-                  {/* Part tabs */}
-                  {!loading && !error && !offline && groups.length > 0 && (
+                  {/* Part tabs — only for Mass (offices scroll continuously) */}
+                  {tab === 'messes' && !loading && !error && !offline && groups.length > 0 && (
                     <div ref={scrollRef}
                       className="flex gap-1.5 overflow-x-auto pb-2 -mx-3 px-3 sm:-mx-4 sm:px-4"
                       style={{ scrollbarWidth: 'none' }}>
@@ -688,7 +764,7 @@ export default function MesseOffice() {
                   )}
 
                   {/* Divider */}
-                  {!loading && !error && !offline && groups.length > 0 && (
+                  {tab === 'messes' && !loading && !error && !offline && groups.length > 0 && (
                     <div className="h-px bg-white/[0.07]" />
                   )}
                 </div>
