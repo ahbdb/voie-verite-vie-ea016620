@@ -1,8 +1,3 @@
-// VAPID configuration for Web Push notifications
-// These keys are used for push subscription and server-side sending
-
-export const VAPID_KEY = "BFqOJNkwbF-xB98adrB-YyuLJ6RwOigIeS4utLQtEowrsxHZqE9GG_-5fxYOhdB117YU_dPSuO9Izx9m8iJAu0w";
-
-export const FIREBASE_CONFIG = {
-  projectId: "voie-verite-vie-92cd3",
-};
+// VAPID public key for Web Push notifications (pair with VAPID_PRIVATE_KEY secret in Supabase)
+export const VAPID_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
+export const VAPID_KEY_VERSION = "v2"; // bump when rotating keys so browsers re-subscribe

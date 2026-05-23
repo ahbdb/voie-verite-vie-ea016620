@@ -454,7 +454,7 @@ const AIChat = () => {
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-white mb-1">
-                      {user ? `Bonjour, ${user.email?.split('@')[0]} 👋` : 'Bienvenue'}
+                      {user ? `Bonjour, ${user.name || user.email?.split('@')[0]} 👋` : 'Bienvenue'}
                     </h2>
                     <p className="text-sm text-white/40 max-w-xs mx-auto">
                       Je suis l'assistant spirituel de Voie-Vérité-Vie. Posez-moi vos questions bibliques, théologiques ou de vie chrétienne.

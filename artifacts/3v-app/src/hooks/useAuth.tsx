@@ -23,6 +23,22 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+async function buildAuthUser(session: Session): Promise<AuthUser> {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, avatar_url')
+    .eq('id', session.user.id)
+    .single();
+
+  return {
+    id: session.user.id,
+    name: profile?.full_name || session.user.user_metadata?.full_name || null,
+    email: session.user.email || null,
+    profileImage: profile?.avatar_url || session.user.user_metadata?.avatar_url || null,
+    roles: [],
+  };
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [supabaseUser, setSupabaseUser] = useState<User | null>(null);
@@ -30,21 +46,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Setup auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_event, session) => {
         setSession(session);
         setSupabaseUser(session?.user ?? null);
 
         if (session?.user) {
-          // Map Supabase user to AuthUser
-          setUser({
-            id: session.user.id,
-            name: session.user.user_metadata?.full_name || null,
-            email: session.user.email || null,
-            profileImage: session.user.user_metadata?.avatar_url || null,
-            roles: [],
-          });
+          const authUser = await buildAuthUser(session);
+          setUser(authUser);
         } else {
           setUser(null);
         }
@@ -52,18 +61,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setSupabaseUser(session?.user ?? null);
       if (session?.user) {
-        setUser({
-          id: session.user.id,
-          name: session.user.user_metadata?.full_name || null,
-          email: session.user.email || null,
-          profileImage: session.user.user_metadata?.avatar_url || null,
-          roles: [],
-        });
+        const authUser = await buildAuthUser(session);
+        setUser(authUser);
       }
       setLoading(false);
     });
@@ -72,29 +75,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
   };
 
-  const signUp = async (
-    email: string,
-    password: string,
-    fullName: string
-  ) => {
+  const signUp = async (email: string, password: string, fullName: string) => {
     const { error, data } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-      },
+      options: { data: { full_name: fullName } },
     });
-
-    // Ensure user is logged in immediately after signup
     if (!error && !data.session) {
       await supabase.auth.signInWithPassword({ email, password });
     }
@@ -110,13 +100,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(session);
     setSupabaseUser(session?.user ?? null);
     if (session?.user) {
-      setUser({
-        id: session.user.id,
-        name: session.user.user_metadata?.full_name || null,
-        email: session.user.email || null,
-        profileImage: session.user.user_metadata?.avatar_url || null,
-        roles: [],
-      });
+      const authUser = await buildAuthUser(session);
+      setUser(authUser);
     } else {
       setUser(null);
     }

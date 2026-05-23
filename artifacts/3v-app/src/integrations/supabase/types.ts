@@ -904,6 +904,99 @@ export type Database = {
           },
         ]
       }
+      broadcast_notifications: {
+        Row: {
+          id: string
+          title: string
+          body: string | null
+          icon: string | null
+          type: string | null
+          target_role: string | null
+          created_by: string
+          scheduled_at: string | null
+          sent_at: string | null
+          is_sent: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          body?: string | null
+          icon?: string | null
+          type?: string | null
+          target_role?: string | null
+          created_by: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          is_sent?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          body?: string | null
+          icon?: string | null
+          type?: string | null
+          target_role?: string | null
+          created_by?: string
+          scheduled_at?: string | null
+          sent_at?: string | null
+          is_sent?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_notifications: {
+        Row: {
+          id: string
+          user_id: string
+          broadcast_notification_id: string | null
+          title: string
+          body: string | null
+          icon: string | null
+          type: string | null
+          message: string
+          data: Record<string, unknown> | null
+          link: string | null
+          viewed_at: string | null
+          is_read: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          broadcast_notification_id?: string | null
+          title: string
+          body?: string | null
+          icon?: string | null
+          type?: string | null
+          message?: string
+          data?: Record<string, unknown> | null
+          link?: string | null
+          viewed_at?: string | null
+          is_read?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          broadcast_notification_id?: string | null
+          title?: string
+          body?: string | null
+          icon?: string | null
+          type?: string | null
+          message?: string
+          data?: Record<string, unknown> | null
+          link?: string | null
+          viewed_at?: string | null
+          is_read?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string

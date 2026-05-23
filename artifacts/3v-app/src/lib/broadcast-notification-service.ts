@@ -162,19 +162,42 @@ export const createBroadcastNotification = async (
   } = {}
 ): Promise<BroadcastNotification | null> => {
   try {
-    const now = new Date().toISOString();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from('broadcast_notifications')
+      .insert({
+        title,
+        body,
+        icon: options.icon,
+        type: options.type ?? 'announcement',
+        target_role: options.target_role ?? 'all',
+        created_by: user.id,
+        scheduled_at: options.scheduled_at || null,
+        is_sent: false,
+      })
+      .select()
+      .single();
+
+    if (error || !data) {
+      console.error('createBroadcastNotification error:', error);
+      return null;
+    }
+
     return {
-      id: crypto.randomUUID(),
-      title,
-      body,
-      icon: options.icon,
-      type: options.type ?? 'announcement',
-      target_role: options.target_role ?? 'all',
-      created_by: '',
-      scheduled_at: options.scheduled_at,
-      is_sent: false,
-      created_at: now,
-      updated_at: now,
+      id: data.id,
+      title: data.title,
+      body: data.body ?? undefined,
+      icon: data.icon ?? undefined,
+      type: normalizeBroadcastType(data.type ?? undefined),
+      target_role: (data.target_role as BroadcastTargetRole) ?? 'all',
+      created_by: data.created_by,
+      scheduled_at: data.scheduled_at ?? undefined,
+      sent_at: data.sent_at ?? undefined,
+      is_sent: data.is_sent,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
     };
   } catch {
     return null;
@@ -182,7 +205,45 @@ export const createBroadcastNotification = async (
 };
 
 export const sendBroadcastNotification = async (broadcastId: string): Promise<boolean> => {
-  return false;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return false;
+
+    // 1. Save broadcast to DB and fan-out to user_notifications
+    const { data: broadcast } = await supabase
+      .from('broadcast_notifications')
+      .select('*')
+      .eq('id', broadcastId)
+      .single();
+
+    if (!broadcast) return false;
+
+    // Fan-out via stored procedure (creates user_notifications rows)
+    await supabase.rpc('send_broadcast_notification', { p_broadcast_id: broadcastId });
+
+    // 2. Send real Web Push to all subscribed devices
+    const { error } = await supabase.functions.invoke('send-push-notification', {
+      body: {
+        title: broadcast.title,
+        body: broadcast.body || '',
+        icon: broadcast.icon || '/icon-192x192.png',
+        badge: '/badge-72x72.png',
+        url: '/',
+        action: broadcast.type || 'announcement',
+        tag: `broadcast-${broadcastId}`,
+        requireInteraction: false,
+      },
+    });
+
+    if (error) {
+      console.error('Push send error:', error);
+    }
+
+    return true;
+  } catch (err) {
+    console.error('sendBroadcastNotification error:', err);
+    return false;
+  }
 };
 
 export const getBroadcastNotifications = async (limit = 50): Promise<BroadcastNotification[]> => {
