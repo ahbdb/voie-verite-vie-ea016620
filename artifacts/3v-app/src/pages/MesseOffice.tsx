@@ -19,7 +19,7 @@ interface AelfLecture {
 }
 interface AelfMesse { nom?: string; lectures: AelfLecture[]; }
 interface AelfInfo  { jour_liturgique_nom?: string; couleur?: string; }
-interface Part      { id: string; label: string; kind: 'lecture'|'partie'; data: AelfLecture|Record<string,unknown>; }
+interface Part      { id: string; label: string; kind: 'lecture'|'partie'; data: AelfLecture|Record<string,unknown>; antienne?: string; }
 interface PartGroup { id: string; label: string; options: Part[]; }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -230,6 +230,16 @@ const OFFICE_LABELS: Record<string, string> = {
   oraison:'Oraison', benediction:'Bénédiction', hymne_mariale:'Hymne mariale',
 };
 
+// Antienne ↔ psalm pairings (antienne always precedes its psalm in AELF flat responses)
+const ANTIENNE_PAIR: Record<string, string> = {
+  antienne_1: 'psaume_1', antienne_2: 'psaume_2', antienne_3: 'psaume_3',
+  antienne_ben: 'benedictus', antienne_mag: 'magnificat', antienne_symeon: 'cantique_symeon',
+};
+const ANTIENNE_KEYS = new Set(Object.keys(ANTIENNE_PAIR));
+const PSALM_TO_ANT: Record<string, string> = Object.fromEntries(
+  Object.entries(ANTIENNE_PAIR).map(([a, p]) => [p, a])
+);
+
 function fieldText(val: unknown): string {
   if (!val) return '';
   if (typeof val === 'string') return val;
@@ -295,13 +305,19 @@ function extractParts(data: unknown, tab: TabId, mi: number, lec: Record<string,
   ];
   const parts: Part[] = [];
   for (const key of orderedKeys) {
+    // Antienne keys are embedded into their psalm — skip as standalone
+    if (ANTIENNE_KEYS.has(key)) continue;
     const contenu = fieldText(office[key]);
     if (!contenu) continue;
     const { titre, ref } = fieldMeta(office[key]);
+    // Look up the paired antienne for this psalm/canticle
+    const antKey = PSALM_TO_ANT[key];
+    const antienne = antKey ? fieldText(office[antKey]) || undefined : undefined;
     parts.push({
       id: `${tab}_${key}`,
       label: OFFICE_LABELS[key] || key.replace(/_/g, ' '),
       kind: 'partie',
+      antienne,
       data: { contenu, titre, ref } as Record<string, unknown>,
     });
   }
@@ -376,7 +392,7 @@ function Lecture({ lec, label }: { lec: AelfLecture; label: string }) {
   );
 }
 
-function OfficeBlock({ partie }: { partie: Record<string, unknown> }) {
+function OfficeBlock({ partie, antienne }: { partie: Record<string, unknown>; antienne?: string }) {
   const label = (partie.titre as string) || (partie.type as string) || '';
   if (!partie.contenu) return null;
   return (
@@ -384,17 +400,25 @@ function OfficeBlock({ partie }: { partie: Record<string, unknown> }) {
       {label && (
         <div className="flex items-baseline gap-3 mb-3">
           <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">{label}</span>
-          {(partie.ref as string) && <span className="text-xs text-white/30 italic">{partie.ref as string}</span>}
+          {String(partie.ref || '') && <span className="text-xs text-white/30 italic">{String(partie.ref || '')}</span>}
         </div>
       )}
-      {partie.antienne && (
-        <div className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 mb-4">
-          <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/35 block mb-1.5">Ant.</span>
-          <p className="text-[14px] italic text-white/80 leading-[1.75]">{String(partie.antienne)}</p>
+      {/* Antienne before — styled like psalm refrain */}
+      {antienne && (
+        <div className="bg-blue-950/50 border border-blue-500/20 rounded-xl px-4 py-3 mb-4">
+          <span className="text-[9px] font-black uppercase tracking-[0.3em] text-blue-400/70 block mb-1.5">Ant.</span>
+          <p className="text-[15px] italic text-blue-100/95 leading-[1.75] font-medium">{antienne}</p>
         </div>
       )}
       <div className="reading-text text-[15px] leading-[1.9] text-white/82"
         dangerouslySetInnerHTML={{ __html: partie.contenu as string }} />
+      {/* Antienne repeat after */}
+      {antienne && (
+        <div className="flex items-start gap-1 text-[12px] text-blue-300/40 italic mt-3 pl-3 border-l border-blue-500/20">
+          <span className="flex-shrink-0">Ant.</span>
+          <span>{antienne}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -559,30 +583,14 @@ export default function MesseOffice() {
         <p className="text-sm text-white/35">{L.ui.noText}</p>
       </div>
     );
-    // Offices: show all sections as continuous scroll
-    if (tab !== 'messes') {
-      return (
-        <div>
-          {parts.map((p, i) => (
-            <div key={p.id}>
-              {i > 0 && <div className="h-px bg-white/[0.06] my-5" />}
-              {p.kind === 'lecture'
-                ? <Lecture lec={p.data as AelfLecture} label={p.label} />
-                : <OfficeBlock partie={p.data as Record<string, unknown>} />
-              }
-            </div>
-          ))}
-        </div>
-      );
-    }
-    // Mass: show selected part only (tab navigation)
+    // All tabs: show the selected part (tab navigation)
     if (!selPart) return (
       <div className="py-16 text-center">
         <p className="text-sm text-white/35">{L.ui.noText}</p>
       </div>
     );
     if (selPart.kind === 'lecture') return <Lecture lec={selPart.data as AelfLecture} label={selPart.label} />;
-    return <OfficeBlock partie={selPart.data as Record<string,unknown>} />;
+    return <OfficeBlock partie={selPart.data as Record<string,unknown>} antienne={selPart.antienne} />;
   }
 
   return (
@@ -713,8 +721,8 @@ export default function MesseOffice() {
                     </Select>
                   )}
 
-                  {/* Part tabs — only for Mass (offices scroll continuously) */}
-                  {tab === 'messes' && !loading && !error && !offline && groups.length > 0 && (
+                  {/* Part tabs — all offices and Mass */}
+                  {!loading && !error && !offline && groups.length > 0 && (
                     <div ref={scrollRef}
                       className="flex gap-1.5 overflow-x-auto pb-2 -mx-3 px-3 sm:-mx-4 sm:px-4"
                       style={{ scrollbarWidth: 'none' }}>
@@ -764,7 +772,7 @@ export default function MesseOffice() {
                   )}
 
                   {/* Divider */}
-                  {tab === 'messes' && !loading && !error && !offline && groups.length > 0 && (
+                  {!loading && !error && !offline && groups.length > 0 && (
                     <div className="h-px bg-white/[0.07]" />
                   )}
                 </div>
