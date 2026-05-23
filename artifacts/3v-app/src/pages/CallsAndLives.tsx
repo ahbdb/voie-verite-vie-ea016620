@@ -26,17 +26,12 @@ import { fr, enUS, it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { sendCallJoinNotification } from '@/lib/notification-service';
 
-/** Build the public share URL pointing to the production app. */
+/** Build the public share URL pointing to the invitation page on this app. */
 const buildShareUrl = (session: ScheduledSession) => {
-  const base = 'https://voie-verite-vie.netlify.app/calls-lives';
-  const params = new URLSearchParams({
-    session: session.id,
-    title: session.title,
-    date: session.scheduled_date,
-    time: session.scheduled_time,
-    type: session.session_type,
-  });
-  return `${base}?${params.toString()}`;
+  const origin = typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : 'https://voie-verite-vie.netlify.app';
+  return `${origin}/invite/${session.id}`;
 };
 
 /** Format a scheduled date/time as "HH:mm GMT" (treated as UTC). */
