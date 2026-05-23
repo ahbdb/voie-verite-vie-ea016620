@@ -50,7 +50,8 @@ import {
   Radio, Video, Mic, Calendar as CalendarIcon, Clock, Users, Play,
   Bell, Share2, Download, Settings, Trash2, Edit2, Plus, Eye,
   PhoneCall, VideoIcon, Loader2, QrCode, Link2, Copy, ExternalLink,
-  Heart, ThumbsUp, Flame, Laugh, Bird, HandMetal, Sparkles, Crown, X
+  Heart, ThumbsUp, Flame, Laugh, Bird, HandMetal, Sparkles, Crown, X,
+  BookOpen, ChevronDown, ChevronUp,
 } from 'lucide-react';
 
 const EMOJI_REACTIONS = ['👏', '🙏', '❤️', '🔥', '😂', '🕊️'];
@@ -731,6 +732,24 @@ const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopy
                     )}
                   </div>
 
+                  {/* Associated text badge */}
+                  {(() => {
+                    const assocText = (session.agenda as any[])?.find((a: any) => a.__type === 'associated_text');
+                    if (!assocText) return null;
+                    const src = ASSOCIATED_TEXT_SOURCES.find(s => s.value === assocText.source);
+                    return (
+                      <div className="mt-2">
+                        <a
+                          href={assocText.href || src?.href || '/messe-office'}
+                          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+                        >
+                          <BookOpen className="h-3 w-3" />
+                          {src?.label?.replace(/^.{2}\s/, '') || 'Texte associé'}
+                        </a>
+                      </div>
+                    );
+                  })()}
+
                   {/* Tags */}
                   {session.tags && session.tags.length > 0 && (
                     <div className="flex gap-1 mt-2 flex-wrap">
@@ -972,6 +991,13 @@ const AdminControlTab = ({ sessions, onRefresh, t }: any) => {
 };
 
 /* ─── SCHEDULE DIALOG ─── */
+const ASSOCIATED_TEXT_SOURCES = [
+  { value: 'liturgy', label: '📖 Textes liturgiques du jour (Messe et Office AELF)', href: '/messe-office' },
+  { value: 'biblical', label: '📚 Lecture biblique du programme annuel', href: '/biblical-reading' },
+  { value: 'novena', label: '🕯️ Neuvaine du moment', href: '/neuvaines' },
+  { value: 'careme', label: '✝️ Réflexion du Carême', href: '/careme' },
+];
+
 const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }: any) => {
   const { user } = useAuth();
   const [title, setTitle] = useState('');
@@ -984,10 +1010,16 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
   const [recurrence, setRecurrence] = useState('once');
   const [tags, setTags] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showTextOption, setShowTextOption] = useState(false);
+  const [associatedTextSource, setAssociatedTextSource] = useState<string>('');
 
   const handleCreate = async () => {
     if (!title || !date || !user) return;
     setSaving(true);
+
+    const agendaData = associatedTextSource
+      ? [{ __type: 'associated_text', source: associatedTextSource, href: ASSOCIATED_TEXT_SOURCES.find(s => s.value === associatedTextSource)?.href || '' }]
+      : null;
 
     const { data: inserted, error } = await (supabase as any).from('scheduled_sessions' as any).insert({
       title,
@@ -1001,6 +1033,7 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
       tags: tags ? tags.split(',').map(t => t.trim()) : [],
       created_by: user.id,
       status: 'scheduled',
+      agenda: agendaData,
     } as any).select('id').maybeSingle();
 
     setSaving(false);
@@ -1116,6 +1149,51 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
           <div>
             <label className="text-sm font-medium text-foreground">{t('calls.form.tags')}</label>
             <Input value={tags} onChange={e => setTags(e.target.value)} placeholder={t('calls.form.tagsPlaceholder')} />
+          </div>
+
+          {/* ── Associer un texte ── */}
+          <div className="border border-border/60 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowTextOption(!showTextOption)}
+              className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium hover:bg-muted/50 transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-primary" />
+                Associer un texte à cet appel
+                {associatedTextSource && (
+                  <span className="text-xs text-primary/70 font-normal">
+                    — {ASSOCIATED_TEXT_SOURCES.find(s => s.value === associatedTextSource)?.label?.slice(3, 30)}…
+                  </span>
+                )}
+              </span>
+              {showTextOption ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+            </button>
+
+            {showTextOption && (
+              <div className="px-3 pb-3 pt-1 space-y-1.5 bg-muted/20 border-t border-border/40">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Un bouton apparaîtra dans l'interface de l'appel pour que les participants puissent ouvrir ce texte sans quitter la session.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setAssociatedTextSource('')}
+                  className={`w-full text-left text-xs px-3 py-2 rounded-md transition-colors ${!associatedTextSource ? 'bg-primary/15 text-primary font-medium' : 'hover:bg-muted/50 text-muted-foreground'}`}
+                >
+                  Aucun texte associé
+                </button>
+                {ASSOCIATED_TEXT_SOURCES.map((src) => (
+                  <button
+                    key={src.value}
+                    type="button"
+                    onClick={() => setAssociatedTextSource(src.value)}
+                    className={`w-full text-left text-xs px-3 py-2 rounded-md transition-colors ${associatedTextSource === src.value ? 'bg-primary/15 text-primary font-medium' : 'hover:bg-muted/50 text-foreground'}`}
+                  >
+                    {src.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <Button onClick={handleCreate} disabled={!title || !date || saving} className="w-full">

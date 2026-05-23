@@ -31,6 +31,7 @@ export const siteLinks: SiteCategory[] = [
       { nameKey: 'common.lent', href: '/careme', icon: 'Cross' },
       { nameKey: 'common.stationsOfCross', href: '/chemin-de-croix', icon: 'Cross' },
       { nameKey: 'common.novenas', href: '/neuvaines', icon: 'BookOpen' },
+      { nameKey: 'common.masseOffice', href: '/messe-office', icon: 'BookOpen' },
     ],
   },
   {

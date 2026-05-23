@@ -34,6 +34,7 @@ import ActivityReports from "./pages/ActivityReports";
 import CallsAndLives from "./pages/CallsAndLives";
 import Neuvaines from "./pages/Neuvaines";
 import NeuvaineDayView from "./pages/NeuvaineDayView";
+import MesseOffice from "./pages/MesseOffice";
 import Admin from "./pages/Admin";
 import AdminReadings from "./pages/admin/AdminReadings";
 import AdminPrayers from "./pages/admin/AdminPrayers";
@@ -138,6 +139,7 @@ const App = () => {
                       <Route path="/calls-lives" element={<CallsAndLives />} />
                       <Route path="/neuvaines" element={<Neuvaines />} />
                       <Route path="/neuvaines/:id" element={<NeuvaineDayView />} />
+                      <Route path="/messe-office" element={<MesseOffice />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/createur" element={<Creator />} />
                       <Route path="/admin-repair" element={<AdminRepair />} />

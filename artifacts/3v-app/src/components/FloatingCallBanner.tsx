@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Mic, MicOff, PhoneOff, PhoneCall } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, PhoneCall, BookOpen } from 'lucide-react';
 import { useCallSession } from '@/contexts/CallSessionContext';
 import { cn } from '@/lib/utils';
 
@@ -82,6 +82,14 @@ export const FloatingCallBanner = () => {
         <span className="flex-shrink-0 text-xs font-bold text-green-100 animate-pulse">
           Appuyer pour revenir
         </span>
+      </button>
+
+      <button
+        onClick={() => { primeAudioPlayback(); navigate('/messe-office'); }}
+        className="flex-shrink-0 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+        title="Texte liturgique du jour"
+      >
+        <BookOpen className="w-4 h-4" />
       </button>
 
       <button
