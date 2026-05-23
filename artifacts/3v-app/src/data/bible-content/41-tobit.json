@@ -1,0 +1,1579 @@
+{
+  "id": 41,
+  "abbreviation": "Sap",
+  "name": "Tobit",
+  "chapters": [
+    {
+      "chapter": 1,
+      "name": "Tobit 1",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 1,
+          "name": "Tobit 1:1",
+          "text": "Tobie, de la tribu et d’une ville de Nephthali, qui est dans la Galilée supérieure, au-dessus de Naasson, derrière le chemin qui va au couchant, ayant à gauche la ville de Séphet, "
+        },
+        {
+          "verse": 2,
+          "chapter": 1,
+          "name": "Tobit 1:2",
+          "text": "fut emmené captif au temps de Salmanasar, roi des Assyriens ; et, dans sa captivité même, il n’abandonna pas le chemin de la vérité. "
+        },
+        {
+          "verse": 3,
+          "chapter": 1,
+          "name": "Tobit 1:3",
+          "text": "Tous les jours, il distribuait à ses frères, ceux de sa nation, captifs comme lui, tout ce dont il pouvait disposer."
+        },
+        {
+          "verse": 4,
+          "chapter": 1,
+          "name": "Tobit 1:4",
+          "text": " Et alors même qu’il était le plus jeune de ceux de la tribu de Nephthali, il n’y avait rien de juvénile en sa conduite., "
+        },
+        {
+          "verse": 5,
+          "chapter": 1,
+          "name": "Tobit 1:5",
+          "text": "Aussi, tandis que tout le monde allait adorer les veaux d’or que Jéroboam, roi d’Israël, avait faits, lui seul fuyait la compagnie de tous, "
+        },
+        {
+          "verse": 6,
+          "chapter": 1,
+          "name": "Tobit 1:6",
+          "text": "et il se rendait à Jérusalem, au temple du Seigneur où il adorait le Seigneur, Dieu d’Israël, offrant fidèlement les prémices et les dîmes de ses biens. "
+        },
+        {
+          "verse": 7,
+          "chapter": 1,
+          "name": "Tobit 1:7",
+          "text": "Tous les trois ans, il distribuait aux prosélytes et aux étrangers toute sa dîme. "
+        },
+        {
+          "verse": 8,
+          "chapter": 1,
+          "name": "Tobit 1:8",
+          "text": "Il observait ces choses et d’autres semblables, selon la loi de Dieu, dès son jeune âge. "
+        },
+        {
+          "verse": 9,
+          "chapter": 1,
+          "name": "Tobit 1:9",
+          "text": "Parvenu à l’âge d’homme, il épousa une femme de sa tribu, nommée Anne ; et il en eut un fils auquel il donna son nom, "
+        },
+        {
+          "verse": 10,
+          "chapter": 1,
+          "name": "Tobit 1:10",
+          "text": "et qu’il instruisit dès l’enfance à craindre Dieu et à s’abstenir de tout péché."
+        },
+        {
+          "verse": 11,
+          "chapter": 1,
+          "name": "Tobit 1:11",
+          "text": " Lors donc qu’il fut arrivé comme captif, avec sa femme et son fils, en la ville de Ninive, où était toute sa tribu, "
+        },
+        {
+          "verse": 12,
+          "chapter": 1,
+          "name": "Tobit 1:12",
+          "text": "bien que tous les autres mangeassent des mets des païens, il garda son âme pure, et jamais il ne se souilla par leurs viandes. "
+        },
+        {
+          "verse": 13,
+          "chapter": 1,
+          "name": "Tobit 1:13",
+          "text": "Et parce qu’il se souvenait fidèlement du Seigneur, Dieu lui concilia la faveur du roi Salmanasar, "
+        },
+        {
+          "verse": 14,
+          "chapter": 1,
+          "name": "Tobit 1:14",
+          "text": "qui lui donna pouvoir d’aller partout où il voudrait, avec liberté de faire ce qu’il lui plairait. "
+        },
+        {
+          "verse": 15,
+          "chapter": 1,
+          "name": "Tobit 1:15",
+          "text": "Il allait donc visiter tous ceux qui étaient captifs et leur donnait des conseils salutaires."
+        },
+        {
+          "verse": 16,
+          "chapter": 1,
+          "name": "Tobit 1:16",
+          "text": " Etant une fois allé à Ragès, ville des Mèdes, avec dix talents, provenant des largesses dont le roi l’avait enrichi, "
+        },
+        {
+          "verse": 17,
+          "chapter": 1,
+          "name": "Tobit 1:17",
+          "text": "il vit, parmi le grand nombre de ses compatriotes, un homme de sa tribu, nommé Gabélus, qui était dans le besoin, et il lui donna contre un reçu cette somme d’argent."
+        },
+        {
+          "verse": 18,
+          "chapter": 1,
+          "name": "Tobit 1:18",
+          "text": " Longtemps après, le roi Salmanasar étant mort, Sennachérib, son fils, régna à sa place. Comme ce prince avait une grande haine contre les enfants d’Israël, "
+        },
+        {
+          "verse": 19,
+          "chapter": 1,
+          "name": "Tobit 1:19",
+          "text": "Tobie allait visiter chaque jour tous ceux de sa parenté ; il les consolait et distribuait de ses biens à chacun, selon son pouvoir ; "
+        },
+        {
+          "verse": 20,
+          "chapter": 1,
+          "name": "Tobit 1:20",
+          "text": "il donnait à manger à ceux qui avaient faim, procurait des vêtements à ceux qui étaient nus et mettait un grand zèle à donner la sépulture à ceux qui étaient morts ou qui avaient été tués. "
+        },
+        {
+          "verse": 21,
+          "chapter": 1,
+          "name": "Tobit 1:21",
+          "text": "Lorsque le roi Sennachérib, revenu de Judée en fugitif, après la défaite dont Dieu l’avait frappé pour ses blasphèmes, faisait mettre à mort, dans sa fureur, un grand nombre des enfants d’Israël, Tobie enterrait les cadavres. "
+        },
+        {
+          "verse": 22,
+          "chapter": 1,
+          "name": "Tobit 1:22",
+          "text": "La nouvelle en ayant été apportée au roi, il ordonna de le mettre à mort et lui ôta tous ses biens. Mais Tobie prit la fuite avec son fils et sa femme, et, dépouillé de tout, il réussit à se cacher, parce qu’il avait beaucoup d’amis. Quarante-cinq jours après, le roi fut tué par ses propres fils. Alors Tobie revint dans sa maison, et tous ses biens lui furent rendus.  "
+        }
+      ]
+    },
+    {
+      "chapter": 2,
+      "name": "Tobit 2",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 2,
+          "name": "Tobit 2:1",
+          "text": "Après cela, une fête du Seigneur étant venue, et un grand repas ayant été préparé dans la maison de Tobie, "
+        },
+        {
+          "verse": 2,
+          "chapter": 2,
+          "name": "Tobit 2:2",
+          "text": "il dit à son fils : « Va et amène quelques hommes de notre tribu, craignant Dieu, afin qu’ils mangent avec nous. » "
+        },
+        {
+          "verse": 3,
+          "chapter": 2,
+          "name": "Tobit 2:3",
+          "text": "Son fils partit ; à son retour, il lui annonça qu’un des enfants d’Israël, qu’on avait assassiné, gisait dans la rue. À l’instant, Tobie se leva de table et, laissant là le repas sans avoir rien mangé, arriva au cadavre, "
+        },
+        {
+          "verse": 4,
+          "chapter": 2,
+          "name": "Tobit 2:4",
+          "text": "le prit et le rapporta secrètement à sa maison, afin de l’inhumer avec précaution après le coucher du soleil. "
+        },
+        {
+          "verse": 5,
+          "chapter": 2,
+          "name": "Tobit 2:5",
+          "text": "Lorsqu’il l’eut caché, il prit son repas avec larmes et tremblement, "
+        },
+        {
+          "verse": 6,
+          "chapter": 2,
+          "name": "Tobit 2:6",
+          "text": "au souvenir de cette parole que le Seigneur avait dite par le prophète Amos : « Vos jours de fêtes seront changés en gémissements et en deuil. » "
+        },
+        {
+          "verse": 7,
+          "chapter": 2,
+          "name": "Tobit 2:7",
+          "text": "Puis, quand le soleil fut couché, il sortit et mit le corps en terre. "
+        },
+        {
+          "verse": 8,
+          "chapter": 2,
+          "name": "Tobit 2:8",
+          "text": "Tous ses voisins le blâmaient en disant : « On a déjà ordonné de te faire mourir pour ce sujet, et à peine as-tu échappé à cet arrêt de mort, que tu recommences à donner aux morts la sépulture ! » "
+        },
+        {
+          "verse": 9,
+          "chapter": 2,
+          "name": "Tobit 2:9",
+          "text": "Mais Tobie, craignant plus Dieu que le roi, enlevait les corps de ceux qui avaient été tués, les cachait dans sa maison et les inhumait pendant la nuit.  "
+        },
+        {
+          "verse": 10,
+          "chapter": 2,
+          "name": "Tobit 2:10",
+          "text": " Un jour qu’il s’était fatigué à donner la sépulture aux morts, étant rentré à sa maison, il se jeta au pied de la muraille et s’endormit. "
+        },
+        {
+          "verse": 11,
+          "chapter": 2,
+          "name": "Tobit 2:11",
+          "text": "Pendant qu’il dormait, il tomba d’un nid d’hirondelles de la fiente chaude sur ses yeux, et il devint aveugle. "
+        },
+        {
+          "verse": 12,
+          "chapter": 2,
+          "name": "Tobit 2:12",
+          "text": "Dieu permit que cette épreuve lui arrivât, afin que sa patience, comme celle du saint homme Job, fût donnée en exemple à la postérité. "
+        },
+        {
+          "verse": 13,
+          "chapter": 2,
+          "name": "Tobit 2:13",
+          "text": "Car, ayant toujours craint Dieu dès son enfance et observé ses commandements, il ne s’attrista pas contre Dieu de ce que le malheur de la cécité l’avait atteint. "
+        },
+        {
+          "verse": 14,
+          "chapter": 2,
+          "name": "Tobit 2:14",
+          "text": "Mais il resta inébranlable dans la crainte de Dieu, lui rendant grâces tous les jours de sa vie.  De même que les chefs de tribu insultaient au bienheureux Job, ainsi les parents et les amis de Tobie raillaient sa conduite, en disant : « Qu’est devenue ton espérance, pour laquelle tu faisais des aumônes et donnais la sépulture aux morts ? » Tobie les reprenait en disant : « Ne parlez pas ainsi ; car nous sommes enfants des saints, et nous attendons cette vie que Dieu doit donner à ceux qui ne lui retirent jamais leur fidélité. »  Anne, sa femme, allait tous les jours tisser de la toile et, par le travail de ses mains, elle rapportait, pour leur entretien, ce qu’elle pouvait gagner. Il arriva ainsi qu’ayant reçu un chevreau, elle l’apporta à la maison. Son mari, ayant entendu le bêlement du chevreau dit : « Voyez si ce chevreau n’aurait pas été dérobé, et rendez-le à son maître, car il ne nous est pas permis de rien manger qui provienne d’un vol, ni même d’y toucher. » Alors sa femme répondit avec colère : « Il est manifeste que ton espérance est devenue vaine ; voilà ce que t’ont rapporté tes aumônes ! » C’est par ces discours et d’autres semblables qu’elle l’injuriait."
+        }
+      ]
+    },
+    {
+      "chapter": 3,
+      "name": "Tobit 3",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 3,
+          "name": "Tobit 3:1",
+          "text": "Alors Tobie, ayant poussé un soupir, commença à prier avec larmes, "
+        },
+        {
+          "verse": 2,
+          "chapter": 3,
+          "name": "Tobit 3:2",
+          "text": "en disant : « Vous êtes juste, Seigneur ; justes sont tous vos jugements, et toutes vos voies sont miséricorde, vérité et justice. "
+        },
+        {
+          "verse": 3,
+          "chapter": 3,
+          "name": "Tobit 3:3",
+          "text": "Et maintenant, Seigneur, souvenez-vous de moi ; ne tirez pas vengeance de mes péchés, et ne rappelez pas en votre mémoire mes offenses, ou celles de mes ancêtres. "
+        },
+        {
+          "verse": 4,
+          "chapter": 3,
+          "name": "Tobit 3:4",
+          "text": "Car nous n’avons pas obéi à vos préceptes ; c’est pourquoi nous avons été livrés au pillage, à la captivité, à la mort, à la risée et à l’opprobre parmi toutes les nations au sein desquelles vous nous avez dispersés. "
+        },
+        {
+          "verse": 5,
+          "chapter": 3,
+          "name": "Tobit 3:5",
+          "text": "Et maintenant, Seigneur, vos châtiments sont grands, parce que nous n’avons pas agi selon vos préceptes et que nous n’avons pas marché sincèrement devant vous. "
+        },
+        {
+          "verse": 6,
+          "chapter": 3,
+          "name": "Tobit 3:6",
+          "text": "Et maintenant, Seigneur, traitez-moi selon votre volonté, et commandez que mon esprit soit reçu en paix, car il est meilleur pour moi de mourir que de vivre. »     "
+        },
+        {
+          "verse": 7,
+          "chapter": 3,
+          "name": "Tobit 3:7",
+          "text": " Il arriva en ce même jour, à Ecbatane, ville des Mèdes, que Sara, fille de Raguel, entendit, elle aussi, les injures d’une des servantes de son père. "
+        },
+        {
+          "verse": 8,
+          "chapter": 3,
+          "name": "Tobit 3:8",
+          "text": "Car elle avait été successivement donnée en mariage à sept maris, et un démon, nommé Asmodée, les avait fait mourir aussitôt qu’ils étaient venus auprès d’elle. "
+        },
+        {
+          "verse": 9,
+          "chapter": 3,
+          "name": "Tobit 3:9",
+          "text": "Comme elle reprenait donc cette servante pour quelque faute, celle-ci lui répondit en disant : « Que jamais nous ne voyions sur la terre ni fils ni fille de toi, meurtrière de tes maris. ! "
+        },
+        {
+          "verse": 10,
+          "chapter": 3,
+          "name": "Tobit 3:10",
+          "text": "Veux-tu donc me donner aussi la mort, comme tu as déjà fait mourir sept maris ? « À cette parole, Sara monta dans la chambre haute de sa maison et y resta trois jours et trois nuits, sans boire ni manger. "
+        },
+        {
+          "verse": 11,
+          "chapter": 3,
+          "name": "Tobit 3:11",
+          "text": "Mais, persévérant dans la prière, elle suppliait Dieu avec larmes de la délivrer de cet opprobre.  "
+        },
+        {
+          "verse": 12,
+          "chapter": 3,
+          "name": "Tobit 3:12",
+          "text": " Le troisième jour, elle acheva sa prière et bénit le Seigneur, "
+        },
+        {
+          "verse": 13,
+          "chapter": 3,
+          "name": "Tobit 3:13",
+          "text": "en disant : « Béni soit votre nom, ô Dieu de nos pères, qui, lors même que vous êtes irrité, faites miséricorde, et qui, au temps de la tribulation, pardonnez les péchés à ceux qui vous invoquent. "
+        },
+        {
+          "verse": 14,
+          "chapter": 3,
+          "name": "Tobit 3:14",
+          "text": "Vers vous, Seigneur, je tourne mon visage, vers vous j’élève mes yeux. "
+        },
+        {
+          "verse": 15,
+          "chapter": 3,
+          "name": "Tobit 3:15",
+          "text": "Je vous demande, Seigneur, de me délivrer des liens de cet opprobre ; sinon, de me retirer de cette terre. "
+        },
+        {
+          "verse": 16,
+          "chapter": 3,
+          "name": "Tobit 3:16",
+          "text": "Vous savez, Seigneur, que je n’ai jamais désiré un mari, et que j’ai conservé mon âme pure de toute concupiscence. "
+        },
+        {
+          "verse": 17,
+          "chapter": 3,
+          "name": "Tobit 3:17",
+          "text": "Jamais je n’ai fréquenté les jeux folâtres et n’ai eu de commerce avec les hommes de conduite légère. C’est dans votre crainte, et non pour suivre ma passion, que j’ai consenti à prendre un mari. Ou bien je n’étais pas digne d’eux, ou bien peut-être n’étaient-ils pas dignes de moi, car il se pourrait que vous m’ayez conservée pour un autre époux. Il n’est pas au pouvoir de l’homme de pénétrer vos desseins. Mais quiconque vous honore tient pour assuré que sa vie, si elle a été dans l’épreuve, sera couronnée, que s’il a été dans la tribulation, il sera délivré, et que si le châtiment est venu sur lui, il pourra obtenir votre miséricorde. Car vous ne prenez point plaisir à notre perte, mais après la tempête vous ramenez le calme, et après les pleurs et les larmes vous répandez la joie. Que votre nom, Dieu d’Israël, soit béni dans tous les siècles ! »        Ces deux supplications furent exaucées en même temps devant la gloire du Dieu souverain ; et le saint ange du Seigneur, Raphaël, fut envoyé pour guérir Tobie et Sara, dont les prières avaient été prononcées en même temps en présence du Seigneur.  "
+        }
+      ]
+    },
+    {
+      "chapter": 4,
+      "name": "Tobit 4",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 4,
+          "name": "Tobit 4:1",
+          "text": "Tobie croyant que sa prière était exaucée et qu’il allait mourir, appela auprès de lui Tobie, son fils, "
+        },
+        {
+          "verse": 2,
+          "chapter": 4,
+          "name": "Tobit 4:2",
+          "text": "et lui dit : « Écoute, mon fils, les paroles de ma bouche et pose-les comme un solide fondement dans ton cœur. "
+        },
+        {
+          "verse": 3,
+          "chapter": 4,
+          "name": "Tobit 4:3",
+          "text": "Lorsque Dieu aura reçu mon âme, mets mon corps en terre. Tu honoreras ta mère tous les jours de sa vie ; "
+        },
+        {
+          "verse": 4,
+          "chapter": 4,
+          "name": "Tobit 4:4",
+          "text": "car tu dois te souvenir de ce qu’elle a souffert et des grands dangers qu’elle a courus à cause de toi, lorsqu’elle te portait dans son sein. "
+        },
+        {
+          "verse": 5,
+          "chapter": 4,
+          "name": "Tobit 4:5",
+          "text": "Et quand elle-même aura aussi achevé le temps de sa vie, tu lui donneras la sépulture auprès de moi. "
+        },
+        {
+          "verse": 6,
+          "chapter": 4,
+          "name": "Tobit 4:6",
+          "text": "Tous les jours de ta vie aie Dieu présent à ta pensée, et garde-toi de consentir jamais au péché et de transgresser les préceptes du Seigneur, ton Dieu. "
+        },
+        {
+          "verse": 7,
+          "chapter": 4,
+          "name": "Tobit 4:7",
+          "text": "Fais l’aumône de ton bien, et ne détourne point ton visage d’aucun pauvre ; car il arrivera ainsi que le visage de Dieu ne se détournera point de toi. "
+        },
+        {
+          "verse": 8,
+          "chapter": 4,
+          "name": "Tobit 4:8",
+          "text": "De la manière que tu le pourras, sois miséricordieux. "
+        },
+        {
+          "verse": 9,
+          "chapter": 4,
+          "name": "Tobit 4:9",
+          "text": "Si tu as beaucoup de bien, donne largement ; si tu en as peu, aie soin de partager même ce peu de bon cœur. "
+        },
+        {
+          "verse": 10,
+          "chapter": 4,
+          "name": "Tobit 4:10",
+          "text": "Tu t’amasseras ainsi un grand trésor pour le jour du besoin. "
+        },
+        {
+          "verse": 11,
+          "chapter": 4,
+          "name": "Tobit 4:11",
+          "text": "Car l’aumône délivre de tout péché et de la mort, et elle ne laissera point l’âme descendre dans les ténèbres. "
+        },
+        {
+          "verse": 12,
+          "chapter": 4,
+          "name": "Tobit 4:12",
+          "text": "L’aumône sera, pour tous ceux qui l’auront faite, un grand sujet de confiance devant le Dieu souverain. "
+        },
+        {
+          "verse": 13,
+          "chapter": 4,
+          "name": "Tobit 4:13",
+          "text": "Garde-toi, mon fils, de toute impureté, et qu’en dehors de ton épouse ta conscience ne te reproche jamais une action criminelle. "
+        },
+        {
+          "verse": 14,
+          "chapter": 4,
+          "name": "Tobit 4:14",
+          "text": "Ne laisse jamais l’orgueil dominer dans ton cœur ou dans tes paroles, car c’est par lui que tous les maux ont pris commencement. "
+        },
+        {
+          "verse": 15,
+          "chapter": 4,
+          "name": "Tobit 4:15",
+          "text": "Quand un homme aura fait pour toi un travail, paye-lui aussitôt son salaire, et que le salaire du mercenaire ne reste pas un instant chez toi. "
+        },
+        {
+          "verse": 16,
+          "chapter": 4,
+          "name": "Tobit 4:16",
+          "text": "Ce que tu serais fâché qu’on te fît, aie soin de ne le faire jamais à un autre. "
+        },
+        {
+          "verse": 17,
+          "chapter": 4,
+          "name": "Tobit 4:17",
+          "text": "Mange ton pain avec ceux qui ont faim et avec les indigents, et couvre de tes vêtements ceux qui sont nus. "
+        },
+        {
+          "verse": 18,
+          "chapter": 4,
+          "name": "Tobit 4:18",
+          "text": "Fais servir ton pain et ton vin à célébrer la sépulture des justes, mais ne le mange ni ne le bois avec les pécheurs. "
+        },
+        {
+          "verse": 19,
+          "chapter": 4,
+          "name": "Tobit 4:19",
+          "text": "Cherche toujours conseil auprès d’un homme sage. "
+        },
+        {
+          "verse": 20,
+          "chapter": 4,
+          "name": "Tobit 4:20",
+          "text": "Bénis Dieu en tout temps ; demande-lui qu’il dirige tes voies, et que tous tes desseins réussissent par lui. "
+        },
+        {
+          "verse": 21,
+          "chapter": 4,
+          "name": "Tobit 4:21",
+          "text": "Je t’informe, aussi, mon fils, que, lorsque tu étais encore petit enfant, j’ai donné dix talents d’argent à Gabélus de Ragès, ville des Mèdes, et que j’ai son reçu entre les mains. C’est pourquoi fais tes diligences pour l’aller trouver et retirer cette somme d’argent, et tu lui rendras son obligation. N’aie point de crainte, mon fils. Il est vrai que nous menons une vie pauvre, mais nous aurons beaucoup de biens si nous craignons Dieu, si nous évitons tout péché et faisons de bonnes œuvres."
+        }
+      ]
+    },
+    {
+      "chapter": 5,
+      "name": "Tobit 5",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 5,
+          "name": "Tobit 5:1",
+          "text": "Alors Tobie répondit à son père, en disant : « Tout ce que tu m’as ordonné, je le ferai mon père. "
+        },
+        {
+          "verse": 2,
+          "chapter": 5,
+          "name": "Tobit 5:2",
+          "text": "Mais je ne sais comment je pourrai retirer cet argent. Cet homme ne me connaît pas, et il m’est également inconnu ; quel signe lui donnerai-je ? Je ne sais pas même le chemin qui conduit en ce pays-là. » "
+        },
+        {
+          "verse": 3,
+          "chapter": 5,
+          "name": "Tobit 5:3",
+          "text": "Son père lui répondit en disant : « J’ai son écrit entre les mains ; aussitôt que tu le lui auras montré, il te remboursera. "
+        },
+        {
+          "verse": 4,
+          "chapter": 5,
+          "name": "Tobit 5:4",
+          "text": "Mais va maintenant chercher un homme fidèle qui aille avec toi, moyennant salaire, afin que tu rentres en possession de cet argent, pendant que je vis encore. »"
+        },
+        {
+          "verse": 5,
+          "chapter": 5,
+          "name": "Tobit 5:5",
+          "text": " Tobie, étant sorti, trouva un beau jeune homme, debout et ceint, comme disposé à se mettre en route. "
+        },
+        {
+          "verse": 6,
+          "chapter": 5,
+          "name": "Tobit 5:6",
+          "text": "Ignorant que ce fût un ange de Dieu, il le salua et lui dit : « D’où es-tu, bon jeune homme ? » "
+        },
+        {
+          "verse": 7,
+          "chapter": 5,
+          "name": "Tobit 5:7",
+          "text": "L’ange répondit : « Je suis un des enfants d’Israël. » Et Tobie lui dit : « Connais-tu la route qui conduit au pays des Mèdes ? » "
+        },
+        {
+          "verse": 8,
+          "chapter": 5,
+          "name": "Tobit 5:8",
+          "text": "Il lui répondit : « Je la connais, j’ai souvent parcouru tous ces chemins et j’ai logé chez Gabélus, notre frère, qui demeure à Ragès, ville des Mèdes, laquelle est située dans les montagnes d’Ecbatane. » "
+        },
+        {
+          "verse": 9,
+          "chapter": 5,
+          "name": "Tobit 5:9",
+          "text": "Tobie lui dit : « Attends-moi, je te prie, jusqu’à ce que j’aie annoncé cela à mon père. »"
+        },
+        {
+          "verse": 10,
+          "chapter": 5,
+          "name": "Tobit 5:10",
+          "text": " Alors Tobie étant rentré raconta tout à son père. Sur quoi le père émerveillé demanda qu’on fît entrer le jeune homme. "
+        },
+        {
+          "verse": 11,
+          "chapter": 5,
+          "name": "Tobit 5:11",
+          "text": "Celui-ci entra et salua, en disant : « Que la joie soit toujours avec toi ! » — "
+        },
+        {
+          "verse": 12,
+          "chapter": 5,
+          "name": "Tobit 5:12",
+          "text": "« Quelle joie puis-je avoir, répondit Tobie, moi qui suis assis dans les ténèbres et qui ne vois pas la lumière du ciel ? » "
+        },
+        {
+          "verse": 13,
+          "chapter": 5,
+          "name": "Tobit 5:13",
+          "text": "Le jeune homme lui dit : « Aie bon courage ! Il est facile à Dieu de te guérir. » "
+        },
+        {
+          "verse": 14,
+          "chapter": 5,
+          "name": "Tobit 5:14",
+          "text": "Ensuite Tobie lui dit : « Pourrais-tu bien conduire mon fils chez Gabélus, à Ragès, ville des Mèdes ? À ton retour, je te donnerai ton salaire. » — "
+        },
+        {
+          "verse": 15,
+          "chapter": 5,
+          "name": "Tobit 5:15",
+          "text": "« Je le conduirai, répondit l’ange, et je le ramènerai auprès de toi. » "
+        },
+        {
+          "verse": 16,
+          "chapter": 5,
+          "name": "Tobit 5:16",
+          "text": "Tobie lui dit : « Dis-moi, je t’en prie, de quelle famille et de quelle tribu es-tu ? » "
+        },
+        {
+          "verse": 17,
+          "chapter": 5,
+          "name": "Tobit 5:17",
+          "text": "L’ange Raphaël lui répondit : « Est-ce la famille du mercenaire que tu cherches, ou le mercenaire lui-même, qui doit accompagner ton fils ? "
+        },
+        {
+          "verse": 18,
+          "chapter": 5,
+          "name": "Tobit 5:18",
+          "text": "Mais pour ne pas te rendre inquiet, je suis Azarias, fils du grand Ananie. » "
+        },
+        {
+          "verse": 19,
+          "chapter": 5,
+          "name": "Tobit 5:19",
+          "text": "« Tu es d’une noble race, lui dit Tobie. Mais ne te fâche pas, je te prie, de ce que j’ai désiré connaître ta famille. » "
+        },
+        {
+          "verse": 20,
+          "chapter": 5,
+          "name": "Tobit 5:20",
+          "text": "Et l’ange lui dit : « Je conduirai ton fils sain et sauf, et je te le ramènerai sain et sauf. » "
+        },
+        {
+          "verse": 21,
+          "chapter": 5,
+          "name": "Tobit 5:21",
+          "text": "Tobie ajouta : « Fais un heureux voyage ! Que Dieu soit sur votre chemin, et que son ange vous accompagne ! »  "
+        },
+        {
+          "verse": 22,
+          "chapter": 5,
+          "name": "Tobit 5:22",
+          "text": " Quand on eut préparé tout ce qu’ils devaient emporter en voyage, Tobie dit adieu à son père et à sa mère, et il se mit en route avec l’ange."
+        },
+        {
+          "verse": 23,
+          "chapter": 5,
+          "name": "Tobit 5:23",
+          "text": " Lorsqu’ils furent partis, la mère se mit à pleurer, en disant : « Tu nous as ôté le bâton de notre vieillesse, et tu l’as éloigné de nous. Plût à Dieu que cet argent pour lequel tu l’as envoyé, n’eût jamais existé ! Car notre pauvreté nous suffisait, et c’était pour nous une richesse que de voir notre fils. » Tobie lui répondit : « Ne pleure point ; notre fils arrivera sain et sauf, et il reviendra vers nous sain et sauf, et tes yeux le reverront. Car je crois qu’un bon ange de Dieu l’accompagne, et qu’il dispose heureusement tout ce qui lui arrive, en sorte qu’il reviendra vers nous avec joie. » À cette parole, sa mère cessa de pleurer et elle se tut."
+        }
+      ]
+    },
+    {
+      "chapter": 6,
+      "name": "Tobit 6",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 6,
+          "name": "Tobit 6:1",
+          "text": "Tobie partit, suivi du chien, et il fit sa première halte près du fleuve du Tigre. "
+        },
+        {
+          "verse": 2,
+          "chapter": 6,
+          "name": "Tobit 6:2",
+          "text": "Comme il descendait sur la rive pour se laver les pieds, voici qu’un énorme poisson s’élança pour le dévorer. "
+        },
+        {
+          "verse": 3,
+          "chapter": 6,
+          "name": "Tobit 6:3",
+          "text": "Effrayé, Tobie poussa un grand cri, en disant : « Seigneur, il se jette sur moi ! » "
+        },
+        {
+          "verse": 4,
+          "chapter": 6,
+          "name": "Tobit 6:4",
+          "text": "L’ange lui dit : « Prends-le par les ouïes et tire-le à toi. » Ce qu’ayant fait, il le tira sur la terre sèche, et le poisson se débattit à ses pieds. "
+        },
+        {
+          "verse": 5,
+          "chapter": 6,
+          "name": "Tobit 6:5",
+          "text": "L’ange lui dit : « Vide ce poisson, et conserves-en le cœur, le fiel et le foie, car ils sont employés comme d’utiles remèdes. » "
+        },
+        {
+          "verse": 6,
+          "chapter": 6,
+          "name": "Tobit 6:6",
+          "text": "Il obéit ; puis il fit rôtir une partie de la chair, qu’ils emportèrent avec eux pour la route ; ils salèrent le reste, qui devait leur suffire jusqu’à ce qu’ils arrivassent à Ragès, ville des Mèdes. "
+        },
+        {
+          "verse": 7,
+          "chapter": 6,
+          "name": "Tobit 6:7",
+          "text": "Et Tobie interrogea l’ange, en disant : « Je te prie, Azarias mon frère, de me dire quelle vertu curative possèdent les parties de ce poisson que tu m’as commandé de garder. » "
+        },
+        {
+          "verse": 8,
+          "chapter": 6,
+          "name": "Tobit 6:8",
+          "text": "L’ange lui répondit : « Si tu poses sur des charbons une petite partie du cœur, la fumée qui s’en exhale chasse toute espèce de démons, soit d’un homme, soit d’une femme, en sorte qu’ils ne peuvent plus s’en approcher. "
+        },
+        {
+          "verse": 9,
+          "chapter": 6,
+          "name": "Tobit 6:9",
+          "text": "Et le fiel sert à oindre les yeux couverts d’une taie, et il les guérit. »    "
+        },
+        {
+          "verse": 10,
+          "chapter": 6,
+          "name": "Tobit 6:10",
+          "text": " Tobie lui dit : « Où veux-tu que nous prenions du repos ? » "
+        },
+        {
+          "verse": 11,
+          "chapter": 6,
+          "name": "Tobit 6:11",
+          "text": "L’ange lui répondit : « Il y a ici un homme appelé Raguel, de ta tribu et de ta famille ; il a une fille nommée Sara, mais, en dehors d’elle, il n’a aucun autre enfant, fils ou fille. "
+        },
+        {
+          "verse": 12,
+          "chapter": 6,
+          "name": "Tobit 6:12",
+          "text": "Tout son bien doit te revenir, et il faut que tu la prennes pour épouse. "
+        },
+        {
+          "verse": 13,
+          "chapter": 6,
+          "name": "Tobit 6:13",
+          "text": "Demande-la donc à son père, et il te la donnera pour femme. » "
+        },
+        {
+          "verse": 14,
+          "chapter": 6,
+          "name": "Tobit 6:14",
+          "text": "Alors Tobie répondit : « J’ai ouï dire qu’elle avait déjà épousé sept maris, et qu’ils sont tous morts et l’on m’a dit encore qu’un démon les avait tués. "
+        },
+        {
+          "verse": 15,
+          "chapter": 6,
+          "name": "Tobit 6:15",
+          "text": "Je crains donc que le même chose ne m’arrive à moi-même, et que, étant fils unique de mes parents, je ne fasse descendre avec tristesse leur vieillesse dans le tombeau. » "
+        },
+        {
+          "verse": 16,
+          "chapter": 6,
+          "name": "Tobit 6:16",
+          "text": "Et l’ange Raphaël lui dit : « Écoute-moi, et je t’apprendrai qui sont ceux sur lesquels le démon a du pouvoir. "
+        },
+        {
+          "verse": 17,
+          "chapter": 6,
+          "name": "Tobit 6:17",
+          "text": "Ce sont ceux qui entrent dans le mariage en bannissant Dieu de leur cœur et de leur pensée, pour se livrer à leur passion, comme le cheval et le mulet qui n’ont pas de raison : sur ceux-là le démon a pouvoir. "
+        },
+        {
+          "verse": 18,
+          "chapter": 6,
+          "name": "Tobit 6:18",
+          "text": "Mais toi, lorsque tu l’auras épousée, étant entré dans la chambre, vis avec elle en continence pendant trois jours, et ne songe à autre chose qu’à prier Dieu avec elle. "
+        },
+        {
+          "verse": 19,
+          "chapter": 6,
+          "name": "Tobit 6:19",
+          "text": "La première nuit, livre au feu le foie du poisson, et le démon s’enfuira. La seconde nuit, tu seras admis dans la société des saints patriarches. La troisième nuit, tu recevras la bénédiction promise à leur postérité, afin qu’il naisse de vous des enfants pleins de vigueur. La troisième nuit passée, tu prendras la jeune fille dans la crainte du Seigneur, guidé bien plus par le désir d’avoir des enfants que par la passion, afin que tu obtiennes dans tes enfants la bénédiction promise à la race d’Abraham. »"
+        }
+      ]
+    },
+    {
+      "chapter": 7,
+      "name": "Tobit 7",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 7,
+          "name": "Tobit 7:1",
+          "text": "Ils entrèrent chez Raguel, qui les reçut avec joie. "
+        },
+        {
+          "verse": 2,
+          "chapter": 7,
+          "name": "Tobit 7:2",
+          "text": "À la vue de Tobie, Raguel dit à Anne, sa femme : « Comme ce jeune homme ressemble à mon cousin ! » "
+        },
+        {
+          "verse": 3,
+          "chapter": 7,
+          "name": "Tobit 7:3",
+          "text": "Ayant ainsi parlé, il dit aux voyageurs : « D’où êtes-vous, jeunes gens, nos frères ? » Ils répondirent : « Nous sommes de la tribu de Nephthali, du nombre des captifs de Ninive. » "
+        },
+        {
+          "verse": 4,
+          "chapter": 7,
+          "name": "Tobit 7:4",
+          "text": "Raguel leur dit : « Connaissez-vous Tobie, mon frère ? » — « Nous le connaissons », répondirent-ils. "
+        },
+        {
+          "verse": 5,
+          "chapter": 7,
+          "name": "Tobit 7:5",
+          "text": "Et comme Raguel disait beaucoup de bien de Tobie, l’ange lui dit : « Tobie, dont tu nous parles, est le père de ce jeune homme. » "
+        },
+        {
+          "verse": 6,
+          "chapter": 7,
+          "name": "Tobit 7:6",
+          "text": "Aussitôt Raguel courut à lui et l’embrassa avec larmes, pleurant à son cou. "
+        },
+        {
+          "verse": 7,
+          "chapter": 7,
+          "name": "Tobit 7:7",
+          "text": "« Sois béni, mon fils, dit-il, car tu es fils d’un homme de bien, du meilleur des hommes ! » "
+        },
+        {
+          "verse": 8,
+          "chapter": 7,
+          "name": "Tobit 7:8",
+          "text": "Et Anne, sa femme, et Sara, leur fille, versaient des larmes."
+        },
+        {
+          "verse": 9,
+          "chapter": 7,
+          "name": "Tobit 7:9",
+          "text": " Après qu’ils se furent ainsi parlés, Raguel fit tuer un bélier et préparer un festin ; et, comme il les engageait à s’asseoir pour le repas, "
+        },
+        {
+          "verse": 10,
+          "chapter": 7,
+          "name": "Tobit 7:10",
+          "text": "Tobie dit : « Je ne mangerai ni ne boirai ici aujourd’hui, que tu ne m’aies d’abord accordé ma demande, et que tu ne me promettes de me donner Sara, ta fille. » "
+        },
+        {
+          "verse": 11,
+          "chapter": 7,
+          "name": "Tobit 7:11",
+          "text": "En entendant ces mots, Raguel fut saisi de frayeur, sachant ce qui était arrivé aux sept maris qui s’étaient approchés d’elle, et il commença à craindre que pareil malheur n’arrivât encore à celui-ci. Comme il était dans cette incertitude et ne donnait aucune réponse à la demande de Tobie, "
+        },
+        {
+          "verse": 12,
+          "chapter": 7,
+          "name": "Tobit 7:12",
+          "text": "l’ange lui dit : « N’appréhende point de donner ta fille à ce jeune homme ; car c’est à lui, qui craint Dieu, qu’elle doit appartenir comme épouse ; voilà pourquoi aucun autre n’a pu la posséder. » "
+        },
+        {
+          "verse": 13,
+          "chapter": 7,
+          "name": "Tobit 7:13",
+          "text": "Alors Raguel dit : « Je ne doute pas que Dieu n’ait admis en sa présence mes prières et mes larmes. "
+        },
+        {
+          "verse": 14,
+          "chapter": 7,
+          "name": "Tobit 7:14",
+          "text": "Et je crois qu’il vous a fait venir vers moi, afin que ma fille épousât son parent, selon la loi de Moïse. N’aie donc plus de doute que je te la donne. » "
+        },
+        {
+          "verse": 15,
+          "chapter": 7,
+          "name": "Tobit 7:15",
+          "text": "Et prenant la main droite de sa fille, il la mit dans la main droite de Tobie, en disant : « Que le Dieu d’Abraham, le Dieu d’Isaac et le Dieu de Jacob soit avec vous, que lui-même vous unisse et qu’il répande sur vous sa pleine bénédiction ! » "
+        },
+        {
+          "verse": 16,
+          "chapter": 7,
+          "name": "Tobit 7:16",
+          "text": "Puis ayant pris du papier, ils rédigèrent l’acte du mariage. "
+        },
+        {
+          "verse": 17,
+          "chapter": 7,
+          "name": "Tobit 7:17",
+          "text": "Après quoi, ils prirent part au festin, en bénissant Dieu.  Raguel appela Anne, sa femme, et lui ordonna de préparer une autre chambre. Elle y conduisit Sara, sa fille, qui se prit à pleurer. Et elle lui dit : « Aie bon courage, ma fille. Que le Seigneur du ciel te donne la joie à la place du chagrin que tu as éprouvé ! »"
+        }
+      ]
+    },
+    {
+      "chapter": 8,
+      "name": "Tobit 8",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 8,
+          "name": "Tobit 8:1",
+          "text": "Le repas achevé, ils conduisirent le jeune homme auprès de Sara. "
+        },
+        {
+          "verse": 2,
+          "chapter": 8,
+          "name": "Tobit 8:2",
+          "text": "Tobie, se ressouvenant des paroles de l’ange, tira de son sac une partie du foie et la posa sur des charbons ardents. "
+        },
+        {
+          "verse": 3,
+          "chapter": 8,
+          "name": "Tobit 8:3",
+          "text": "Alors l’ange Raphaël saisit le démon et l’enchaîna dans le désert de la Haute-Égypte.  "
+        },
+        {
+          "verse": 4,
+          "chapter": 8,
+          "name": "Tobit 8:4",
+          "text": " Et Tobie exhorta la jeune fille, en lui disant : « Sara, lève-toi, et prions Dieu aujourd’hui, demain et après-demain ; durant ces trois nuits nous serons unis à Dieu, et, après la troisième nuit, nous vivrons dans notre mariage. "
+        },
+        {
+          "verse": 5,
+          "chapter": 8,
+          "name": "Tobit 8:5",
+          "text": "Car nous sommes enfants des saints, et nous ne pouvons pas nous unir comme les nations qui ne connaissent pas Dieu. » "
+        },
+        {
+          "verse": 6,
+          "chapter": 8,
+          "name": "Tobit 8:6",
+          "text": "S’étant donc levés ensemble, tous deux prièrent instamment Dieu de leur accorder la santé. "
+        },
+        {
+          "verse": 7,
+          "chapter": 8,
+          "name": "Tobit 8:7",
+          "text": "Tobie dit : « Seigneur, Dieu de nos pères, que le ciel et la terre, que la mer, les fontaines et les fleuves, avec toutes vos créatures qu’ils renferment, vous bénissent ! "
+        },
+        {
+          "verse": 8,
+          "chapter": 8,
+          "name": "Tobit 8:8",
+          "text": "Vous avez fait Adam du limon de la terre, et vous lui avez donné Eve pour compagne. "
+        },
+        {
+          "verse": 9,
+          "chapter": 8,
+          "name": "Tobit 8:9",
+          "text": "Et maintenant, Seigneur, vous savez que ce n’est point pour satisfaire ma passion que je prends ma sœur pour épouse, mais dans le seul désir de laisser des enfants qui bénissent votre nom dans tous les siècles. » "
+        },
+        {
+          "verse": 10,
+          "chapter": 8,
+          "name": "Tobit 8:10",
+          "text": "Sara dit aussi : « Ayez pitié de nous, Seigneur, ayez pitié de nous, et puissions-nous tous deux ensemble arriver à la vieillesse dans une parfaite santé ! »  "
+        },
+        {
+          "verse": 11,
+          "chapter": 8,
+          "name": "Tobit 8:11",
+          "text": " À l’heure du chant du coq, Raguel commanda qu’on fît venir ses serviteurs, et ils s’en allèrent avec lui pour creuser une fosse. "
+        },
+        {
+          "verse": 12,
+          "chapter": 8,
+          "name": "Tobit 8:12",
+          "text": "Car il disait : « Il pourrait bien lui être arrivé la même chose qu’aux sept autres maris qui sont allés auprès d’elle. » "
+        },
+        {
+          "verse": 13,
+          "chapter": 8,
+          "name": "Tobit 8:13",
+          "text": "Lorsqu’ils eurent préparé la fosse, Raguel revint vers sa femme et lui dit : "
+        },
+        {
+          "verse": 14,
+          "chapter": 8,
+          "name": "Tobit 8:14",
+          "text": "« Envoie une de tes servantes pour voir s’il est mort afin que je le mette en terre avant qu’il fasse jour. » "
+        },
+        {
+          "verse": 15,
+          "chapter": 8,
+          "name": "Tobit 8:15",
+          "text": "Anne envoya une de ses servantes. Celle-ci étant entrée dans la chambre, les trouva sains et saufs, pareillement endormis. "
+        },
+        {
+          "verse": 16,
+          "chapter": 8,
+          "name": "Tobit 8:16",
+          "text": "Etant retournée, elle annonça cette bonne nouvelle ; et Raguel et Anne, sa femme, bénirent le Seigneur, "
+        },
+        {
+          "verse": 17,
+          "chapter": 8,
+          "name": "Tobit 8:17",
+          "text": "en disant : « Nous vous bénissons Seigneur, Dieu d’Israël, car le malheur que nous redoutions n’est pas arrivé. "
+        },
+        {
+          "verse": 18,
+          "chapter": 8,
+          "name": "Tobit 8:18",
+          "text": "Vous avez usé envers nous de miséricorde, et vous avez éloigné de nous l’ennemi qui nous persécutait. "
+        },
+        {
+          "verse": 19,
+          "chapter": 8,
+          "name": "Tobit 8:19",
+          "text": "Vous avez eu pitié de deux enfants uniques. Faites, Seigneur, qu’ils vous bénissent de plus en plus, et qu’ils vous offrent un sacrifice de louange pour leur préservation, afin que toutes les nations reconnaissent que vous seul êtes Dieu sur toute la terre. »"
+        },
+        {
+          "verse": 20,
+          "chapter": 8,
+          "name": "Tobit 8:20",
+          "text": " Aussitôt Raguel commanda à ses serviteurs de combler avant le jour la fosse qu’ils avaient faite. "
+        },
+        {
+          "verse": 21,
+          "chapter": 8,
+          "name": "Tobit 8:21",
+          "text": "Et il dit à sa femme d’apprêter un festin et de disposer toutes les choses nécessaires à des voyageurs pour leur entretien. Il fit aussi tuer deux vaches grasses et quatre béliers, pour préparer un repas à tous ses voisins et à tous ses amis. Et Raguel conjura Tobie de rester chez lui pendant deux semaines. Raguel donna à Tobie, la moitié de tout ce qu’il possédait, et il rédigea un écrit afin que la moitié qui restait devînt la propriété de Tobie, après leur mort."
+        }
+      ]
+    },
+    {
+      "chapter": 9,
+      "name": "Tobit 9",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 9,
+          "name": "Tobit 9:1",
+          "text": "Alors Tobie appela auprès de lui l’ange, qu’il croyait un homme et lui dit : « Azarias, mon frère, je te prie d’écouter mes paroles. "
+        },
+        {
+          "verse": 2,
+          "chapter": 9,
+          "name": "Tobit 9:2",
+          "text": "Quand je me donnerais à toi comme esclave, je ne reconnaîtrais pas encore assez tous tes soins. "
+        },
+        {
+          "verse": 3,
+          "chapter": 9,
+          "name": "Tobit 9:3",
+          "text": "Néanmoins je t’adresse encore cette prière : Prends avec toi des bêtes de somme et des serviteurs, et va trouver Gabélus, à Ragès, ville des Mèdes ; tu lui rendras son écrit, tu recevras de lui l’argent et tu le prieras de venir à mes noces. "
+        },
+        {
+          "verse": 4,
+          "chapter": 9,
+          "name": "Tobit 9:4",
+          "text": "Car tu sais toi-même que mon père compte les jours, et que, si je tarde un jour de plus, son âme sera dans la tristesse. "
+        },
+        {
+          "verse": 5,
+          "chapter": 9,
+          "name": "Tobit 9:5",
+          "text": "Tu vois aussi de quelle manière Raguel m’a conjuré de rester ici, et que je ne puis résister à ses instances. »"
+        },
+        {
+          "verse": 6,
+          "chapter": 9,
+          "name": "Tobit 9:6",
+          "text": " Alors Raphaël, prenant quatre des serviteurs de Raguel et deux chameaux, se rendit à Ragès, ville des Mèdes. Ayant trouvé Gabélus, il lui rendit son billet et en reçut tout l’argent ; et, après lui avoir raconté tout ce qui était arrivé à Tobie, fils de Tobie, il le fit venir avec lui aux noces. Lorsque Gabélus entra dans la maison de Raguel, il trouva Tobie à table ; celui-ci se leva aussitôt ; ils se baisèrent mutuellement, et Gabélus pleura et bénit Dieu, en disant : « Que le Dieu d’Israël te bénisse, car tu es le fils d’un homme excellent, juste et craignant Dieu, et faisant beaucoup d’aumônes ! Que la bénédiction se répande aussi sur ta femme et sur vos parents ! Puissiez-vous voir vos fils et les fils de vos fils, jusqu’à la troisième et à la quatrième génération ! Que votre postérité soit bénie du Dieu d’Israël, qui règne dans les siècles des siècles ! » Tous ayant dit : Amen ! ils se mirent à table, et c’est dans la crainte de Dieu qu’ils firent le festin des noces."
+        }
+      ]
+    },
+    {
+      "chapter": 10,
+      "name": "Tobit 10",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 10,
+          "name": "Tobit 10:1",
+          "text": "Pendant que Tobie différait son départ à cause de ses noces, son père Tobie était rempli d’inquiétude : « D’où vient, se disait-il, le retard de mon fils ? Quelle raison peut le retenir dans ce pays ? "
+        },
+        {
+          "verse": 2,
+          "chapter": 10,
+          "name": "Tobit 10:2",
+          "text": "Gabélus serait-il mort, et n’y aurait-il plus personne pour lui rendre cet argent ? » "
+        },
+        {
+          "verse": 3,
+          "chapter": 10,
+          "name": "Tobit 10:3",
+          "text": "Il commença donc à s’attrister beaucoup, lui et Anne, sa femme, et ils se mirent ensemble à pleurer de ce que leur fils n’était pas revenu près d’eux au jour marqué. "
+        },
+        {
+          "verse": 4,
+          "chapter": 10,
+          "name": "Tobit 10:4",
+          "text": "Sa mère surtout répandait des larmes intarissables : « Hélas ! hélas ! mon fils, disait-elle, pourquoi t’avons-nous envoyé si loin, toi qui étais la lumière de nos yeux, le bâton de notre vieillesse, la consolation de notre vie et l’espérance de notre postérité ? "
+        },
+        {
+          "verse": 5,
+          "chapter": 10,
+          "name": "Tobit 10:5",
+          "text": "Nous qui avions tout en toi seul, nous n’aurions pas dû t’éloigner de nous. » "
+        },
+        {
+          "verse": 6,
+          "chapter": 10,
+          "name": "Tobit 10:6",
+          "text": "Tobie lui disait : « Cesse tes plaintes et ne te trouble pas ; notre fils se porte bien et l’homme avec qui nous l’avons fait partir est très fidèle. » "
+        },
+        {
+          "verse": 7,
+          "chapter": 10,
+          "name": "Tobit 10:7",
+          "text": "Mais rien ne pouvait la consoler ; sortant chaque jour de sa maison, elle regardait de tous côtés, et allait sur tous les chemins par lesquels il y avait espoir qu’il reviendrait, afin, s’il était possible, de l’apercevoir de loin."
+        },
+        {
+          "verse": 8,
+          "chapter": 10,
+          "name": "Tobit 10:8",
+          "text": " Cependant Raguel disait à son gendre : « Reste ici, et j’enverrai des nouvelles de ta santé à Tobie, ton père. » "
+        },
+        {
+          "verse": 9,
+          "chapter": 10,
+          "name": "Tobit 10:9",
+          "text": "Tobie lui répondit : « Je sais que mon père et ma mère comptent les jours et que leur esprit se tourmente au-dedans d’eux. » "
+        },
+        {
+          "verse": 10,
+          "chapter": 10,
+          "name": "Tobit 10:10",
+          "text": "Après avoir fait encore de grandes instances à Tobie, sans que celui-ci voulût rien entendre à ses raisons, Raguel lui remit Sara avec la moitié de tout ce qu’il possédait, en serviteurs et en servantes, en troupeaux, en chameaux, en vaches, en argent, dont il avait beaucoup, et il le laissa partir, plein de santé et de joie, "
+        },
+        {
+          "verse": 11,
+          "chapter": 10,
+          "name": "Tobit 10:11",
+          "text": "en disant : « Que le saint ange du Seigneur soit en votre chemin, qu’il vous conduise jusque chez vous sains et saufs ; puissiez-vous trouver toute chose prospère chez vos parents, et puissent mes yeux voir vos enfants avant que je meure ! » "
+        },
+        {
+          "verse": 12,
+          "chapter": 10,
+          "name": "Tobit 10:12",
+          "text": "Et le père et la mère, prenant leur fille, l’embrassèrent et la laissèrent aller, "
+        },
+        {
+          "verse": 13,
+          "chapter": 10,
+          "name": "Tobit 10:13",
+          "text": "après lui avoir recommandé d’honorer ses beaux-parents, d’aimer son mari, de bien conduire sa famille, de gouverner sa maison et de se conserver elle-même sans reproche.  "
+        },
+        {
+          "verse": 14,
+          "chapter": 10,
+          "name": "Tobit 10:14",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "chapter": 11,
+      "name": "Tobit 11",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 11,
+          "name": "Tobit 11:1",
+          "text": "Comme ils s’en retournaient, ils arrivèrent le onzième jour à Charan, ville située à moitié chemin vers Ninive. "
+        },
+        {
+          "verse": 2,
+          "chapter": 11,
+          "name": "Tobit 11:2",
+          "text": "Et l’ange dit : « Tobie, mon frère, tu sais en quel état tu as laissé ton père. "
+        },
+        {
+          "verse": 3,
+          "chapter": 11,
+          "name": "Tobit 11:3",
+          "text": "Si donc tu le trouves bon, prenons les devants, et que tes serviteurs suivent à petites journées, avec ta femme et tes troupeaux. » "
+        },
+        {
+          "verse": 4,
+          "chapter": 11,
+          "name": "Tobit 11:4",
+          "text": "Tobie ayant approuvé ce dessein, Raphaël lui dit : « Prends avec toi du fiel du poisson, car tu en auras besoin. » Tobie prit de ce fiel, et ils partirent."
+        },
+        {
+          "verse": 5,
+          "chapter": 11,
+          "name": "Tobit 11:5",
+          "text": " Anne cependant allait tous les jours s’asseoir près du chemin, au sommet d’une éminence, d’où elle pouvait découvrir de loin. "
+        },
+        {
+          "verse": 6,
+          "chapter": 11,
+          "name": "Tobit 11:6",
+          "text": "Et comme elle épiait de là l’arrivée de son fils, elle l’aperçut dans le lointain qui revenait et, l’ayant reconnu, elle courut l’annoncer à son mari, en disant : « Voici ton fils qui arrive. »"
+        },
+        {
+          "verse": 7,
+          "chapter": 11,
+          "name": "Tobit 11:7",
+          "text": "  En même temps, Raphaël dit à Tobie : « Lorsque tu seras entré dans ta maison, adore aussitôt le Seigneur, ton Dieu, et lui rends grâces ; puis, t’approchant de ton père, tu le baiseras, "
+        },
+        {
+          "verse": 8,
+          "chapter": 11,
+          "name": "Tobit 11:8",
+          "text": "et tu étendras tout de suite sur ses yeux de ce fiel de poisson que tu portes avec toi ; car sache que ses yeux s’ouvriront à l’instant, et que ton père verra la lumière du ciel, et que ta vue le comblera de joie. »"
+        },
+        {
+          "verse": 9,
+          "chapter": 11,
+          "name": "Tobit 11:9",
+          "text": " Alors le chien qui les avait accompagnés dans le voyage courut devant eux, comme pour apporter la nouvelle, caressant de la queue et tout joyeux. "
+        },
+        {
+          "verse": 10,
+          "chapter": 11,
+          "name": "Tobit 11:10",
+          "text": "Et le père aveugle se leva et se mit à courir, et, comme il heurtait des pieds, il donna la main à un serviteur pour aller au-devant de son fils. "
+        },
+        {
+          "verse": 11,
+          "chapter": 11,
+          "name": "Tobit 11:11",
+          "text": "Le prenant dans ses bras, il le baisa, ce que fit aussi sa femme, et tous deux versaient des larmes de joie."
+        },
+        {
+          "verse": 12,
+          "chapter": 11,
+          "name": "Tobit 11:12",
+          "text": " Après qu’ils eurent adoré Dieu et lui eurent rendu grâces, il s’assirent. "
+        },
+        {
+          "verse": 13,
+          "chapter": 11,
+          "name": "Tobit 11:13",
+          "text": "Aussitôt Tobie, prenant du fiel du poisson, l’étendit sur les yeux de son père. "
+        },
+        {
+          "verse": 14,
+          "chapter": 11,
+          "name": "Tobit 11:14",
+          "text": "Au bout d’une demi-heure environ d’attente, une taie blanche, comme la pellicule d’un œuf, commença à sortir de ses yeux. "
+        },
+        {
+          "verse": 15,
+          "chapter": 11,
+          "name": "Tobit 11:15",
+          "text": "Tobie la saisit, et l’arracha des yeux de son père, et à l’instant celui-ci recouvra la vue. "
+        },
+        {
+          "verse": 16,
+          "chapter": 11,
+          "name": "Tobit 11:16",
+          "text": "Et ils rendaient gloire à Dieu, lui et sa femme et tous ceux qui le connaissaient. "
+        },
+        {
+          "verse": 17,
+          "chapter": 11,
+          "name": "Tobit 11:17",
+          "text": "Tobie disait : « Je vous bénis, Seigneur, Dieu d’Israël, parce que vous m’avez châtié et que vous m’avez guéri ; et voici que je vois mon fils Tobie ! »"
+        },
+        {
+          "verse": 18,
+          "chapter": 11,
+          "name": "Tobit 11:18",
+          "text": " Sept jours après arriva aussi Sara, la femme de son fils, avec tous ses serviteurs en bonne santé, avec les troupeaux et les chameaux, et tout l’argent de son mariage et celui qu’avait rendu Gabélus. "
+        },
+        {
+          "verse": 19,
+          "chapter": 11,
+          "name": "Tobit 11:19",
+          "text": "Et Tobie raconta à ses parents tous les bienfaits dont Dieu l’avait comblé par l’homme qui l’avait conduit. Achior et Nabath, parents de Tobie, vinrent le trouver, pleins de joie, et le félicitèrent de tous les biens que Dieu lui avait faits. Et pendant sept jours, mangeant ensemble, ils se livrèrent à de grandes réjouissances."
+        }
+      ]
+    },
+    {
+      "chapter": 12,
+      "name": "Tobit 12",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 12,
+          "name": "Tobit 12:1",
+          "text": "Alors Tobie appela auprès de lui son fils et lui dit : « Que donnerons-nous à ce saint homme qui t’a accompagné dans ton voyage ? » "
+        },
+        {
+          "verse": 2,
+          "chapter": 12,
+          "name": "Tobit 12:2",
+          "text": "Tobie répondit à son père : « Mon père, quelle récompense pouvons-nous lui offrir ? Y a-t-il quelque chose qui soit en rapport avec ses services ? "
+        },
+        {
+          "verse": 3,
+          "chapter": 12,
+          "name": "Tobit 12:3",
+          "text": "Il m’a conduit et ramené sain et sauf ; il a été lui-même recevoir l’argent de Gabélus ; il m’a fait avoir une femme, dont il a éloigné le démon, et il a rempli de joie ses parents ; il m’a sauvé moi-même du poisson qui allait me dévorer ; il t’a fait voir la lumière du ciel, et par lui nous avons été comblés de toutes sortes de biens. Que pouvons-nous lui donner qui égale ce qu’il a fait pour nous ? "
+        },
+        {
+          "verse": 4,
+          "chapter": 12,
+          "name": "Tobit 12:4",
+          "text": "Mais je te prie, mon père, de lui demander s’il ne daignerait pas accepter la moitié de tout le bien que nous avons apporté. » "
+        },
+        {
+          "verse": 5,
+          "chapter": 12,
+          "name": "Tobit 12:5",
+          "text": "L’ayant donc appelé, Tobie et son fils le prirent à part, et le prièrent de vouloir bien accepter la moitié de tout ce qu’ils avaient rapporté."
+        },
+        {
+          "verse": 6,
+          "chapter": 12,
+          "name": "Tobit 12:6",
+          "text": " Alors l’ange, seul avec eux, leur dit : « Bénissez le Dieu du ciel et rendez-lui gloire devant tout être qui a vie, parce qu’il a exercé envers vous sa miséricorde. "
+        },
+        {
+          "verse": 7,
+          "chapter": 12,
+          "name": "Tobit 12:7",
+          "text": "Il est bon de tenir caché le secret du roi, mais il est honorable de révéler et de publier les œuvres de Dieu. "
+        },
+        {
+          "verse": 8,
+          "chapter": 12,
+          "name": "Tobit 12:8",
+          "text": "La prière est bonne avec le jeûne, et l’aumône vaut mieux que l’or et les trésors. "
+        },
+        {
+          "verse": 9,
+          "chapter": 12,
+          "name": "Tobit 12:9",
+          "text": "Car l’aumône délivre de la mort, et c’est elle qui efface les péchés, et qui fait trouver la miséricorde et la vie éternelle. "
+        },
+        {
+          "verse": 10,
+          "chapter": 12,
+          "name": "Tobit 12:10",
+          "text": "Mais ceux qui commettent le péché et l’iniquité sont leurs propres ennemis. "
+        },
+        {
+          "verse": 11,
+          "chapter": 12,
+          "name": "Tobit 12:11",
+          "text": "Je vais donc vous découvrir la vérité, et je ne veux vous rien cacher. "
+        },
+        {
+          "verse": 12,
+          "chapter": 12,
+          "name": "Tobit 12:12",
+          "text": "Lorsque tu priais avec larmes et que tu donnais la sépulture aux morts ; lorsque, quittant ton repas, tu cachais les morts dans ta maison pendant le jour, et que tu les mettais en terre pendant la nuit, je présentais ta prière au Seigneur. "
+        },
+        {
+          "verse": 13,
+          "chapter": 12,
+          "name": "Tobit 12:13",
+          "text": "Et parce que tu étais agréable à Dieu, il a fallu que la tentation t’éprouvât. "
+        },
+        {
+          "verse": 14,
+          "chapter": 12,
+          "name": "Tobit 12:14",
+          "text": "Maintenant, le Seigneur m’a envoyé pour te guérir, et pour délivrer du démon Sara, la femme de ton fils. "
+        },
+        {
+          "verse": 15,
+          "chapter": 12,
+          "name": "Tobit 12:15",
+          "text": "Je suis l’ange Raphaël, un des sept qui nous tenons en présence du Seigneur. »  "
+        },
+        {
+          "verse": 16,
+          "chapter": 12,
+          "name": "Tobit 12:16",
+          "text": " En entendant ces paroles, ils furent hors d’eux-mêmes, et, tout tremblant, ils tombèrent la face contre terre. "
+        },
+        {
+          "verse": 17,
+          "chapter": 12,
+          "name": "Tobit 12:17",
+          "text": "Et l’ange leur dit : « Que la paix soit avec vous ! Ne craignez point. "
+        },
+        {
+          "verse": 18,
+          "chapter": 12,
+          "name": "Tobit 12:18",
+          "text": "Car, lorsque j’étais avec vous, j’y étais par la volonté de Dieu ; bénissez-le donc et chantez ses louanges. "
+        },
+        {
+          "verse": 19,
+          "chapter": 12,
+          "name": "Tobit 12:19",
+          "text": "Il vous a paru que je mangeais et buvais avec vous ; mais je me nourrissais d’un aliment invisible et d’une boisson que l’œil de l’homme ne peut atteindre. "
+        },
+        {
+          "verse": 20,
+          "chapter": 12,
+          "name": "Tobit 12:20",
+          "text": "Il est donc temps que je retourne vers celui qui m’a envoyé ; mais vous, bénissez Dieu et publiez toutes ses merveilles. »  "
+        },
+        {
+          "verse": 21,
+          "chapter": 12,
+          "name": "Tobit 12:21",
+          "text": " Après avoir ainsi parlé, il fut dérobé à leurs regards, et ils ne purent plus le voir. "
+        },
+        {
+          "verse": 22,
+          "chapter": 12,
+          "name": "Tobit 12:22",
+          "text": "Alors, s’étant prosternés pendant trois heures le visage contre terre, ils bénirent Dieu, et, s’étant levés, ils racontèrent toutes ses merveilles."
+        }
+      ]
+    },
+    {
+      "chapter": 13,
+      "name": "Tobit 13",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 13,
+          "name": "Tobit 13:1",
+          "text": "Le vieux Tobie, ouvrant la bouche, bénit le Seigneur en disant :  « Vous êtes grand, Seigneur, dans l’éternité, et votre règne s’étend à tous les siècles.  "
+        },
+        {
+          "verse": 2,
+          "chapter": 13,
+          "name": "Tobit 13:2",
+          "text": "Car vous châtiez et vous sauvez, vous conduisez au tombeau et vous en ramenez, et il n’est personne qui puisse échapper à votre main. "
+        },
+        {
+          "verse": 3,
+          "chapter": 13,
+          "name": "Tobit 13:3",
+          "text": " Célébrez le Seigneur, enfants d’Israël, et louez-le devant les nations.  "
+        },
+        {
+          "verse": 4,
+          "chapter": 13,
+          "name": "Tobit 13:4",
+          "text": "Car il vous a dispersés parmi les nations qui l’ignorent, afin que vous racontiez ses merveilles, et que vous leur fassiez connaître qu’il n’y a point d’autre Dieu tout-puissant que lui seul.   "
+        },
+        {
+          "verse": 5,
+          "chapter": 13,
+          "name": "Tobit 13:5",
+          "text": "Il nous a châtiés à cause de nos iniquités, et il nous sauvera à cause de sa miséricorde.  "
+        },
+        {
+          "verse": 6,
+          "chapter": 13,
+          "name": "Tobit 13:6",
+          "text": "Considérez comment il a agi envers nous, et bénissez-le avec crainte et tremblement, et glorifiez par vos œuvres le Roi des siècles.   "
+        },
+        {
+          "verse": 7,
+          "chapter": 13,
+          "name": "Tobit 13:7",
+          "text": "Pour moi, je veux le bénir dans ce pays où je suis captif, parce qu’il a fait éclater sa gloire sur une nation criminelle.  "
+        },
+        {
+          "verse": 8,
+          "chapter": 13,
+          "name": "Tobit 13:8",
+          "text": "Convertissez-vous donc, pécheurs, et pratiquez la justice devant Dieu, dans la confiance qu’il vous fera miséricorde !  "
+        },
+        {
+          "verse": 9,
+          "chapter": 13,
+          "name": "Tobit 13:9",
+          "text": "Pour moi, je me réjouirai en lui de toute mon âme.   "
+        },
+        {
+          "verse": 10,
+          "chapter": 13,
+          "name": "Tobit 13:10",
+          "text": "Bénissez le Seigneur, vous tous qui êtes le peuple choisi ; célébrez des jours de joie et chantez ses louanges !   "
+        },
+        {
+          "verse": 11,
+          "chapter": 13,
+          "name": "Tobit 13:11",
+          "text": "Jérusalem, cité de Dieu, le Seigneur t’a châtiée à cause des œuvres de tes mains.  "
+        },
+        {
+          "verse": 12,
+          "chapter": 13,
+          "name": "Tobit 13:12",
+          "text": "Glorifie le Seigneur par tes bonnes œuvres, et bénis le Dieu des siècles, afin qu’il rebâtisse en toi son sanctuaire, qu’il rappelle à toi tous les captifs et que tu te réjouisses dans tous les siècles des siècles.   "
+        },
+        {
+          "verse": 13,
+          "chapter": 13,
+          "name": "Tobit 13:13",
+          "text": "Tu brilleras d’une éclatante lumière, et tous les pays de la terre se prosterneront devant toi.  "
+        },
+        {
+          "verse": 14,
+          "chapter": 13,
+          "name": "Tobit 13:14",
+          "text": "Les nations viendront à toi des contrées lointaines, apportant des présents, elles adoreront dans tes murs le Seigneur, et considéreront ta terre comme un sanctuaire ;  "
+        },
+        {
+          "verse": 15,
+          "chapter": 13,
+          "name": "Tobit 13:15",
+          "text": "car elles invoqueront le grand Nom au milieu de toi.   "
+        },
+        {
+          "verse": 16,
+          "chapter": 13,
+          "name": "Tobit 13:16",
+          "text": "Seront maudits ceux qui te mépriseront, condamnés ceux qui te blasphémeront, bénis ceux qui t’édifieront.  "
+        },
+        {
+          "verse": 17,
+          "chapter": 13,
+          "name": "Tobit 13:17",
+          "text": "Et toi, tu te réjouiras dans tes enfants, parce qu’ils seront tous bénis et se rassembleront auprès du Seigneur.  "
+        },
+        {
+          "verse": 18,
+          "chapter": 13,
+          "name": "Tobit 13:18",
+          "text": "Heureux tous ceux qui t’aiment et qui se réjouissent de ta paix !   Mon âme, bénis le Seigneur, parce qu’il a délivré Jérusalem, sa ville, de toutes ses tribulations, lui, le Seigneur, notre Dieu !  Heureux serai-je, s’il reste des rejetons de ma race pour voir la splendeur de Jérusalem !   Les portes de Jérusalem seront bâties de saphirs et d’émeraudes, et toute l’enceinte de ses murailles de pierres précieuses.  Des pierres d’une blancheur immaculée formeront le pavé de ses places, et l’on chantera dans ses rues : Alléluia !  Béni soit le Seigneur qui a donné cette gloire à Jérusalem, et qu’il règne sur elle aux siècles des siècles ! Amen ! »"
+        }
+      ]
+    },
+    {
+      "chapter": 14,
+      "name": "Tobit 14",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 14,
+          "name": "Tobit 14:1",
+          "text": "Ainsi finirent les paroles de Tobie. Après qu’il eut recouvré la vue, Tobie vécut encore quarante-deux ans, et il vit les enfants de ses petits-enfants. "
+        },
+        {
+          "verse": 2,
+          "chapter": 14,
+          "name": "Tobit 14:2",
+          "text": "Il vécut en tout cent deux ans, et il fut inhumé honorablement à Ninive. "
+        },
+        {
+          "verse": 3,
+          "chapter": 14,
+          "name": "Tobit 14:3",
+          "text": "Car il avait cinquante-six ans lorsqu’il perdit la vue, et il la recouvra à soixante. "
+        },
+        {
+          "verse": 4,
+          "chapter": 14,
+          "name": "Tobit 14:4",
+          "text": "Tout le reste de sa vie se passa dans la joie, et plus il faisait de progrès dans la crainte de Dieu, plus il goûtait de paix."
+        },
+        {
+          "verse": 5,
+          "chapter": 14,
+          "name": "Tobit 14:5",
+          "text": " À l’heure de sa mort, il appela auprès de lui Tobie, son fils, et les sept jeunes fils de ce dernier, ses petits-fils, et il leur dit :"
+        },
+        {
+          "verse": 6,
+          "chapter": 14,
+          "name": "Tobit 14:6",
+          "text": " « La ruine de Ninive est proche, car la parole de Dieu doit avoir son accomplissement ; et nos frères qui y sont dispersés loin du pays d’Israël y retourneront. "
+        },
+        {
+          "verse": 7,
+          "chapter": 14,
+          "name": "Tobit 14:7",
+          "text": "Tout le pays d’Israël, après avoir été désert, sera repeuplé, et la maison de Dieu, après avoir été brûlée, sera rebâtie, et tous ceux qui craignent Dieu y reviendront. "
+        },
+        {
+          "verse": 8,
+          "chapter": 14,
+          "name": "Tobit 14:8",
+          "text": "Les nations abandonneront leurs idoles ; elles viendront à Jérusalem et y habiteront ; "
+        },
+        {
+          "verse": 9,
+          "chapter": 14,
+          "name": "Tobit 14:9",
+          "text": "et tous les rois de la terre s’y réjouiront en adorant le Roi d’Israël."
+        },
+        {
+          "verse": 10,
+          "chapter": 14,
+          "name": "Tobit 14:10",
+          "text": " « Écoutez donc, mes enfants, votre père, servez le Seigneur dans la vérité, et efforcez-vous de faire ce qui lui est agréable. "
+        },
+        {
+          "verse": 11,
+          "chapter": 14,
+          "name": "Tobit 14:11",
+          "text": "Recommandez à vos enfants de pratiquer la justice et de faire des aumônes, de se souvenir de Dieu et de le bénir en tout temps dans la vérité et de toute leur force."
+        },
+        {
+          "verse": 12,
+          "chapter": 14,
+          "name": "Tobit 14:12",
+          "text": " « Écoutez-moi donc maintenant, mes enfants, et ne demeurez point dans cette ville ; mais le jour même où vous aurez inhumé votre mère auprès de moi dans un même sépulcre, mettez-vous en route pour sortir d’ici ; "
+        },
+        {
+          "verse": 13,
+          "chapter": 14,
+          "name": "Tobit 14:13",
+          "text": "car je vois que l’iniquité de Ninive amènera sa ruine. »  "
+        },
+        {
+          "verse": 14,
+          "chapter": 14,
+          "name": "Tobit 14:14",
+          "text": " Après la mort de sa mère, le jeune Tobie sortit de Ninive avec sa femme, ses enfants et les enfants de ses enfants, et il retourna chez ses beaux-parents. "
+        },
+        {
+          "verse": 15,
+          "chapter": 14,
+          "name": "Tobit 14:15",
+          "text": "Il les trouva bien portants dans une heureuse vieillesse ; il eut soin d’eux et il leur ferma les yeux ; il recueillit tout l’héritage de la maison de Raguel, et il vit les enfants de ses enfants jusqu’à la cinquième génération. Après qu’il eut vécu quatre-vingt-dix-neuf ans dans la crainte du Seigneur, ses enfants l’inhumèrent avec joie. Tous ceux de sa parenté et tous ses descendants persévérèrent dans une bonne vie et une sainte conduite, en sorte qu’ils furent aimés de Dieu et des hommes, et de tous ceux qui habitaient le pays.   "
+        }
+      ]
+    }
+  ]
+}

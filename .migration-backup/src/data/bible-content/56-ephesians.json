@@ -1,0 +1,973 @@
+{
+  "id": 56,
+  "abbreviation": "Ep",
+  "name": "Éphésiens",
+  "chapters": [
+    {
+      "chapter": 1,
+      "name": "Ephesians 1",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 1,
+          "name": "Ephesians 1:1",
+          "text": "Paul, apôtre de Jésus-Christ par la volonté de Dieu, aux saints qui sont [à Éphèse], et aux fidèles en Jésus-Christ : "
+        },
+        {
+          "verse": 2,
+          "chapter": 1,
+          "name": "Ephesians 1:2",
+          "text": "grâce et paix vous soient données de la part de Dieu, notre Père, et du Seigneur Jésus-Christ.      "
+        },
+        {
+          "verse": 3,
+          "chapter": 1,
+          "name": "Ephesians 1:3",
+          "text": " Béni soit Dieu, le Père de notre Seigneur Jésus-Christ, qui nous a bénis dans le Christ de toutes sortes de bénédictions spirituelles dans les cieux ! "
+        },
+        {
+          "verse": 4,
+          "chapter": 1,
+          "name": "Ephesians 1:4",
+          "text": "C’est en lui qu’il nous a choisis dès avant la création du monde, pour que nous soyons saints et irrépréhensibles devant lui, "
+        },
+        {
+          "verse": 5,
+          "chapter": 1,
+          "name": "Ephesians 1:5",
+          "text": "nous ayant, dans son amour, prédestinés à être ses fils adoptifs par Jésus-Christ, selon sa libre volonté, "
+        },
+        {
+          "verse": 6,
+          "chapter": 1,
+          "name": "Ephesians 1:6",
+          "text": "en faisant ainsi éclater la gloire de sa grâce, par laquelle il nous a rendus agréables à ses yeux en son [Fils] bien-aimé. "
+        },
+        {
+          "verse": 7,
+          "chapter": 1,
+          "name": "Ephesians 1:7",
+          "text": "C’est en lui que nous avons la rédemption acquise par son sang, la rémission des péchés, selon la richesse de sa grâce, "
+        },
+        {
+          "verse": 8,
+          "chapter": 1,
+          "name": "Ephesians 1:8",
+          "text": "que Dieu a répandue abondamment sur nous en toute sagesse et intelligence, "
+        },
+        {
+          "verse": 9,
+          "chapter": 1,
+          "name": "Ephesians 1:9",
+          "text": "en nous faisant connaître le mystère de sa volonté, selon le libre dessein que s’était proposé sa bonté, "
+        },
+        {
+          "verse": 10,
+          "chapter": 1,
+          "name": "Ephesians 1:10",
+          "text": "pour le réaliser lorsque la plénitude des temps serait accomplie, à savoir, de réunir toutes choses en Jésus-Christ, celles qui sont dans les cieux et celles qui sont sur la terre. "
+        },
+        {
+          "verse": 11,
+          "chapter": 1,
+          "name": "Ephesians 1:11",
+          "text": "C’est aussi en lui que nous avons été élus, ayant été prédestinés suivant la résolution de celui qui opère toutes choses d’après le conseil de sa volonté, "
+        },
+        {
+          "verse": 12,
+          "chapter": 1,
+          "name": "Ephesians 1:12",
+          "text": "pour que nous servions à la louange de sa gloire, nous qui d’avance avons espéré dans le Christ. "
+        },
+        {
+          "verse": 13,
+          "chapter": 1,
+          "name": "Ephesians 1:13",
+          "text": "C’est en lui que vous-mêmes, après avoir entendu la parole de la vérité, L’Évangile de votre salut, c’est en lui, que vous avez cru et que vous avez été marqués du sceau du Saint-Esprit, qui avait été promis, "
+        },
+        {
+          "verse": 14,
+          "chapter": 1,
+          "name": "Ephesians 1:14",
+          "text": "et qui est une arrhe de notre héritage, en attendant la pleine rédemption de ceux que Dieu s’est acquis, à la louange de sa gloire.     "
+        },
+        {
+          "verse": 15,
+          "chapter": 1,
+          "name": "Ephesians 1:15",
+          "text": " C’est pourquoi, ayant entendu parler de votre foi dans le Seigneur Jésus et de votre charité pour tous les saints, "
+        },
+        {
+          "verse": 16,
+          "chapter": 1,
+          "name": "Ephesians 1:16",
+          "text": "je ne cesse, moi aussi, de rendre grâces pour vous, et de faire mémoire de vous dans mes prières, "
+        },
+        {
+          "verse": 17,
+          "chapter": 1,
+          "name": "Ephesians 1:17",
+          "text": "afin que le Dieu de Notre-Seigneur Jésus-Christ, le Père de la gloire, vous donne un esprit de sagesse qui vous révèle sa connaissance, "
+        },
+        {
+          "verse": 18,
+          "chapter": 1,
+          "name": "Ephesians 1:18",
+          "text": "et qu’il éclaire les yeux de votre cœur, pour que vous sachiez quelle est l’espérance à laquelle il vous a appelés, quelles sont les richesses de la gloire de son héritage réservé aux saints, "
+        },
+        {
+          "verse": 19,
+          "chapter": 1,
+          "name": "Ephesians 1:19",
+          "text": "et quelle est, envers nous qui croyons, la suréminente grandeur de sa puissance, attestée par l’efficacité de sa force victorieuse. "
+        },
+        {
+          "verse": 20,
+          "chapter": 1,
+          "name": "Ephesians 1:20",
+          "text": "Cette force, il l’a déployée dans le Christ, lorsqu’il l’a ressuscité des morts et l’a fait asseoir à sa droite dans les cieux, "
+        },
+        {
+          "verse": 21,
+          "chapter": 1,
+          "name": "Ephesians 1:21",
+          "text": "au-dessus de toute principauté, de toute autorité, de toute puissance, de toute domination et de tout ce qui se peut nommer, non seulement dans le siècle présent, mais encore dans le siècle à venir. "
+        },
+        {
+          "verse": 22,
+          "chapter": 1,
+          "name": "Ephesians 1:22",
+          "text": "Il a tout mis sous ses pieds et il l’a donné pour chef suprême à l’Église, "
+        },
+        {
+          "verse": 23,
+          "chapter": 1,
+          "name": "Ephesians 1:23",
+          "text": "qui est son corps, la plénitude de celui qui remplit tout en tous."
+        }
+      ]
+    },
+    {
+      "chapter": 2,
+      "name": "Ephesians 2",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 2,
+          "name": "Ephesians 2:1",
+          "text": "Et vous, vous étiez morts par vos offenses et vos péchés, "
+        },
+        {
+          "verse": 2,
+          "chapter": 2,
+          "name": "Ephesians 2:2",
+          "text": "dans lesquels vous marchiez autrefois selon le train de ce monde, selon le prince de la puissance de l’air, de l’esprit qui agit maintenant dans les fils de la désobéissance. "
+        },
+        {
+          "verse": 3,
+          "chapter": 2,
+          "name": "Ephesians 2:3",
+          "text": "Nous tous aussi, nous vivions autrefois comme eux selon les convoitises de notre chair, accomplissant les volontés de la chair et de nos pensées, et nous étions par nature enfants de colère, comme les autres. "
+        },
+        {
+          "verse": 4,
+          "chapter": 2,
+          "name": "Ephesians 2:4",
+          "text": "Mais Dieu, qui est riche en miséricorde, à cause du grand amour dont il nous a aimés, "
+        },
+        {
+          "verse": 5,
+          "chapter": 2,
+          "name": "Ephesians 2:5",
+          "text": "et alors que nous étions morts par nos offenses, nous a rendus vivants avec le Christ (c’est par grâce que vous êtes sauvés) ; "
+        },
+        {
+          "verse": 6,
+          "chapter": 2,
+          "name": "Ephesians 2:6",
+          "text": "il nous a ressuscités ensemble et nous a fait asseoir ensemble dans les cieux en Jésus-Christ, "
+        },
+        {
+          "verse": 7,
+          "chapter": 2,
+          "name": "Ephesians 2:7",
+          "text": "afin de montrer dans les siècles à venir l’infinie richesse de sa grâce par sa bonté envers nous en Jésus-Christ. "
+        },
+        {
+          "verse": 8,
+          "chapter": 2,
+          "name": "Ephesians 2:8",
+          "text": "Car c’est par la grâce que vous êtes sauvés, par le moyen de la foi ; et cela ne vient pas de vous, c’est le don de Dieu ; "
+        },
+        {
+          "verse": 9,
+          "chapter": 2,
+          "name": "Ephesians 2:9",
+          "text": "ce n’est point par les œuvres, afin que nul ne se glorifie. "
+        },
+        {
+          "verse": 10,
+          "chapter": 2,
+          "name": "Ephesians 2:10",
+          "text": "Car nous sommes son ouvrage, ayant été créés en Jésus-Christ pour faire de bonnes œuvres, que Dieu a préparées d’avance, afin que nous les pratiquions. "
+        },
+        {
+          "verse": 11,
+          "chapter": 2,
+          "name": "Ephesians 2:11",
+          "text": "C’est pourquoi souvenez-vous qu’autrefois, vous païens dans la chair, traités d’incirconcis par ceux qu’on appelle circoncis, et qui le sont en la chair par la main de l’homme, "
+        },
+        {
+          "verse": 12,
+          "chapter": 2,
+          "name": "Ephesians 2:12",
+          "text": "souvenez-vous que vous étiez en ce temps-là sans Christ, en dehors de la société d’Israël, étrangers aux alliances de la promesse, sans espérance et sans Dieu dans le monde. "
+        },
+        {
+          "verse": 13,
+          "chapter": 2,
+          "name": "Ephesians 2:13",
+          "text": "Mais maintenant, en Jésus-Christ, vous qui étiez jadis éloignés, vous êtes rapprochés par le sang du Christ. "
+        },
+        {
+          "verse": 14,
+          "chapter": 2,
+          "name": "Ephesians 2:14",
+          "text": "Car c’est lui qui est notre paix, lui qui des deux peuples n’en a fait qu’un : il a renversé le mur de séparation, l’inimitié, "
+        },
+        {
+          "verse": 15,
+          "chapter": 2,
+          "name": "Ephesians 2:15",
+          "text": "ayant abrogé par l’immolation de sa chair la loi des ordonnances avec ses rigoureuses prescriptions, afin de fondre en lui-même les deux dans un seul homme nouveau, en faisant la paix, "
+        },
+        {
+          "verse": 16,
+          "chapter": 2,
+          "name": "Ephesians 2:16",
+          "text": "et de les réconcilier, l’un et l’autre unis en un seul corps avec Dieu par la croix, en détruisant par elle l’inimitié. "
+        },
+        {
+          "verse": 17,
+          "chapter": 2,
+          "name": "Ephesians 2:17",
+          "text": "Et il est venu annoncer la paix à vous qui étiez loin, et la paix à ceux qui étaient proches ; "
+        },
+        {
+          "verse": 18,
+          "chapter": 2,
+          "name": "Ephesians 2:18",
+          "text": "car par lui nous avons accès les uns et les autres auprès du Père, dans un seul et même Esprit. "
+        },
+        {
+          "verse": 19,
+          "chapter": 2,
+          "name": "Ephesians 2:19",
+          "text": "Ainsi donc vous n’êtes plus des étrangers, ni des hôtes de passage ; mais vous êtes concitoyens des saints, et membres de la famille de Dieu, "
+        },
+        {
+          "verse": 20,
+          "chapter": 2,
+          "name": "Ephesians 2:20",
+          "text": "édifiés que vous êtes sur le fondement des apôtres et des prophètes, dont Jésus-Christ lui-même est la pierre angulaire. "
+        },
+        {
+          "verse": 21,
+          "chapter": 2,
+          "name": "Ephesians 2:21",
+          "text": "C’est en lui que tout l’édifice bien ordonné s’élève, pour former un temple saint dans le Seigneur ; "
+        },
+        {
+          "verse": 22,
+          "chapter": 2,
+          "name": "Ephesians 2:22",
+          "text": "c’est en lui que, vous aussi, vous êtes édifiés, pour être par l’Esprit-Saint, une demeure où Dieu habite.  "
+        }
+      ]
+    },
+    {
+      "chapter": 3,
+      "name": "Ephesians 3",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 3,
+          "name": "Ephesians 3:1",
+          "text": "À cause de cela, moi Paul, le prisonnier du Christ pour vous, païens… "
+        },
+        {
+          "verse": 2,
+          "chapter": 3,
+          "name": "Ephesians 3:2",
+          "text": "puisque vous avez appris la dispensation de la grâce de Dieu qui m’a été donnée pour vous, "
+        },
+        {
+          "verse": 3,
+          "chapter": 3,
+          "name": "Ephesians 3:3",
+          "text": "comment c’est par révélation que j’ai eu connaissance du mystère que je viens d’exposer en peu de mots. "
+        },
+        {
+          "verse": 4,
+          "chapter": 3,
+          "name": "Ephesians 3:4",
+          "text": "Vous pouvez, en les lisant, reconnaître l’intelligence que j’ai du mystère du Christ. "
+        },
+        {
+          "verse": 5,
+          "chapter": 3,
+          "name": "Ephesians 3:5",
+          "text": "Il n’a pas été manifesté aux hommes dans les âges antérieurs, comme il a été révélé de nos jours par l’Esprit aux saints apôtres et prophètes de Jésus-Christ. "
+        },
+        {
+          "verse": 6,
+          "chapter": 3,
+          "name": "Ephesians 3:6",
+          "text": "Ce mystère, c’est que les Gentils sont héritiers avec les Juifs, et membres du même corps et qu’ils participent à la promesse de Dieu en Jésus-Christ par l’Évangile, "
+        },
+        {
+          "verse": 7,
+          "chapter": 3,
+          "name": "Ephesians 3:7",
+          "text": "dont je suis devenu ministre selon le don de la grâce de Dieu qui m’a été accordée par son opération toute-puissante. "
+        },
+        {
+          "verse": 8,
+          "chapter": 3,
+          "name": "Ephesians 3:8",
+          "text": "C’est à moi, le moindre de tous les saints, qu’a été accordée cette grâce d’annoncer parmi les Gentils la richesse incompréhensible du Christ, "
+        },
+        {
+          "verse": 9,
+          "chapter": 3,
+          "name": "Ephesians 3:9",
+          "text": "et de mettre en lumière, aux yeux de tous, l’économie du mystère qui avait été caché depuis le commencement en Dieu, le Créateur de toutes choses, "
+        },
+        {
+          "verse": 10,
+          "chapter": 3,
+          "name": "Ephesians 3:10",
+          "text": "afin que les principautés et les puissances dans les cieux connaissent aujourd’hui, à la vue de l’Église, la sagesse infiniment variée de Dieu, "
+        },
+        {
+          "verse": 11,
+          "chapter": 3,
+          "name": "Ephesians 3:11",
+          "text": "selon le dessein éternel qu’il a réalisé par Jésus-Christ Notre-Seigneur, "
+        },
+        {
+          "verse": 12,
+          "chapter": 3,
+          "name": "Ephesians 3:12",
+          "text": "en qui nous avons, par la foi en lui, la hardiesse de nous approcher de Dieu avec confiance. "
+        },
+        {
+          "verse": 13,
+          "chapter": 3,
+          "name": "Ephesians 3:13",
+          "text": "C’est pourquoi je vous prie de ne pas vous laisser décourager à cause des afflictions que j’endure pour vous : elles sont votre gloire. "
+        },
+        {
+          "verse": 14,
+          "chapter": 3,
+          "name": "Ephesians 3:14",
+          "text": "À cause de cela, je fléchis le genou devant le Père, "
+        },
+        {
+          "verse": 15,
+          "chapter": 3,
+          "name": "Ephesians 3:15",
+          "text": "de qui tire son nom toute famille dans les cieux et sur le terre, "
+        },
+        {
+          "verse": 16,
+          "chapter": 3,
+          "name": "Ephesians 3:16",
+          "text": "afin qu’il vous donne, selon les trésors de sa gloire, d’être puissamment fortifiés par son Esprit en vue de l’homme intérieur, "
+        },
+        {
+          "verse": 17,
+          "chapter": 3,
+          "name": "Ephesians 3:17",
+          "text": "et que le Christ habite dans vos cœurs par la foi, de sorte que, étant enracinés et fondés dans la charité, "
+        },
+        {
+          "verse": 18,
+          "chapter": 3,
+          "name": "Ephesians 3:18",
+          "text": "vous deveniez capables de comprendre avec tous les saints quelle est la largeur et la longueur, la profondeur et la hauteur, "
+        },
+        {
+          "verse": 19,
+          "chapter": 3,
+          "name": "Ephesians 3:19",
+          "text": "même de connaître l’amour du Christ, qui surpasse toute connaissance, en sorte que vous soyez remplis de toute la plénitude de Dieu. "
+        },
+        {
+          "verse": 20,
+          "chapter": 3,
+          "name": "Ephesians 3:20",
+          "text": "À celui qui peut faire, par la puissance qui agit en nous, infiniment au delà de ce que nous demandons et concevons, "
+        },
+        {
+          "verse": 21,
+          "chapter": 3,
+          "name": "Ephesians 3:21",
+          "text": "à Lui soit la gloire dans l’Église et en Jésus-Christ, dans tous les âges, aux siècles des siècles ! Amen !"
+        }
+      ]
+    },
+    {
+      "chapter": 4,
+      "name": "Ephesians 4",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 4,
+          "name": "Ephesians 4:1",
+          "text": "Je vous prie donc instamment, moi qui suis prisonnier dans le Seigneur, d’avoir une conduite digne de la vocation à laquelle vous avez été appelés, "
+        },
+        {
+          "verse": 2,
+          "chapter": 4,
+          "name": "Ephesians 4:2",
+          "text": "en toute humilité et douceur, avec patience, vous supportant mutuellement avec charité, "
+        },
+        {
+          "verse": 3,
+          "chapter": 4,
+          "name": "Ephesians 4:3",
+          "text": "vous efforçant de conserver l’unité de l’esprit par le lien de la paix. "
+        },
+        {
+          "verse": 4,
+          "chapter": 4,
+          "name": "Ephesians 4:4",
+          "text": "Il n’y a qu’un seul corps et un seul Esprit, comme aussi vous avez été appelés par votre vocation à une même espérance. "
+        },
+        {
+          "verse": 5,
+          "chapter": 4,
+          "name": "Ephesians 4:5",
+          "text": "Il n’y a qu’un Seigneur, une foi, un baptême, "
+        },
+        {
+          "verse": 6,
+          "chapter": 4,
+          "name": "Ephesians 4:6",
+          "text": "un Dieu, Père de tous, qui est au-dessus de tous, qui agit par tous, qui est en tous. "
+        },
+        {
+          "verse": 7,
+          "chapter": 4,
+          "name": "Ephesians 4:7",
+          "text": "Mais à chacun de nous la grâce a été donnée selon la mesure du don du Christ. "
+        },
+        {
+          "verse": 8,
+          "chapter": 4,
+          "name": "Ephesians 4:8",
+          "text": "C’est pourquoi il est dit : « Il est monté dans les hauteurs, il a emmené des captifs, et il a fait des largesses aux hommes. » "
+        },
+        {
+          "verse": 9,
+          "chapter": 4,
+          "name": "Ephesians 4:9",
+          "text": "Or que signifie : « Il est monté », sinon qu’il était descendu [d’abord] dans les régions inférieures de la terre ? "
+        },
+        {
+          "verse": 10,
+          "chapter": 4,
+          "name": "Ephesians 4:10",
+          "text": "Celui qui est descendu est celui-là même qui est monté au-dessus de tous les cieux, afin de tout remplir. "
+        },
+        {
+          "verse": 11,
+          "chapter": 4,
+          "name": "Ephesians 4:11",
+          "text": "C’est lui aussi qui a fait les uns apôtres, d’autres prophètes, d’autres évangélistes, d’autres pasteurs et docteurs, "
+        },
+        {
+          "verse": 12,
+          "chapter": 4,
+          "name": "Ephesians 4:12",
+          "text": "en vue du perfectionnement des saints, pour l’œuvre du ministère, pour l’édification du corps du Christ, "
+        },
+        {
+          "verse": 13,
+          "chapter": 4,
+          "name": "Ephesians 4:13",
+          "text": "jusqu’à ce que nous soyons tous parvenus à l’unité de la foi et de la connaissance du Fils de Dieu, à l’état d’homme fait, à la mesure de la stature parfaite du Christ, "
+        },
+        {
+          "verse": 14,
+          "chapter": 4,
+          "name": "Ephesians 4:14",
+          "text": "afin que nous ne soyons plus des enfants, flottants et emportés à tout vent de doctrine, par la tromperie des hommes, par leur astuce pour induire en erreur ; "
+        },
+        {
+          "verse": 15,
+          "chapter": 4,
+          "name": "Ephesians 4:15",
+          "text": "mais que, confessant la vérité, nous continuions à croître à tous égards dans la charité en union avec celui qui est le chef, le Christ. "
+        },
+        {
+          "verse": 16,
+          "chapter": 4,
+          "name": "Ephesians 4:16",
+          "text": "C’est de lui que tout le corps, coordonné et uni par les liens des membres qui se prêtent un mutuel secours et dont chacun opère selon sa mesure d’activité, grandit et se perfectionne dans la charité.    "
+        },
+        {
+          "verse": 17,
+          "chapter": 4,
+          "name": "Ephesians 4:17",
+          "text": " Voici donc ce que je dis et ce que je déclare dans le Seigneur, c’est que vous ne vous conduisiez plus comme les païens, qui suivent la vanité de leurs pensées. "
+        },
+        {
+          "verse": 18,
+          "chapter": 4,
+          "name": "Ephesians 4:18",
+          "text": "Ils ont l’intelligence obscurcie, et sont éloignés de la vie de Dieu, par l’ignorance et l’aveuglement de leur cœur. "
+        },
+        {
+          "verse": 19,
+          "chapter": 4,
+          "name": "Ephesians 4:19",
+          "text": "Ayant perdu tout sens, ils se sont livrés aux désordres, à toute espèce d’impureté, avec une ardeur insatiable. "
+        },
+        {
+          "verse": 20,
+          "chapter": 4,
+          "name": "Ephesians 4:20",
+          "text": "Mais vous, ce n’est pas ainsi que vous avez appris à connaître le Christ, "
+        },
+        {
+          "verse": 21,
+          "chapter": 4,
+          "name": "Ephesians 4:21",
+          "text": "si cependant vous l’avez bien compris, et que vous ayez été instruits, suivant la vérité qui est en Jésus, "
+        },
+        {
+          "verse": 22,
+          "chapter": 4,
+          "name": "Ephesians 4:22",
+          "text": "à vous dépouiller, en ce qui concerne votre vie passée, du vieil homme corrompu par les convoitises trompeuses, "
+        },
+        {
+          "verse": 23,
+          "chapter": 4,
+          "name": "Ephesians 4:23",
+          "text": "à vous renouveler dans votre esprit et dans vos pensées, "
+        },
+        {
+          "verse": 24,
+          "chapter": 4,
+          "name": "Ephesians 4:24",
+          "text": "et à revêtir l’homme nouveau, créé selon Dieu dans une justice et une sainteté véritables. "
+        },
+        {
+          "verse": 25,
+          "chapter": 4,
+          "name": "Ephesians 4:25",
+          "text": "C’est pourquoi, renonçant au mensonge, parlez selon la vérité, chacun dans ses rapports avec son prochain, car nous sommes membres les uns des autres. "
+        },
+        {
+          "verse": 26,
+          "chapter": 4,
+          "name": "Ephesians 4:26",
+          "text": "« Êtes-vous en colère, ne péchez point ; » que le soleil ne se couche point sur votre irritation. "
+        },
+        {
+          "verse": 27,
+          "chapter": 4,
+          "name": "Ephesians 4:27",
+          "text": "Ne donnez pas non plus accès au diable. "
+        },
+        {
+          "verse": 28,
+          "chapter": 4,
+          "name": "Ephesians 4:28",
+          "text": "Que celui qui dérobait ne dérobe plus ; mais plutôt qu’il s’occupe en travaillant de ses mains à quelque honnête ouvrage, afin d’avoir de quoi donner à celui qui est dans le besoin. "
+        },
+        {
+          "verse": 29,
+          "chapter": 4,
+          "name": "Ephesians 4:29",
+          "text": "Qu’il ne sorte de votre bouche aucune parole mauvaise ; mais quelque bon discours propre à édifier, selon le besoin, afin qu’il fasse du bien à ceux qui l’entendent. "
+        },
+        {
+          "verse": 30,
+          "chapter": 4,
+          "name": "Ephesians 4:30",
+          "text": "N’attristez pas le Saint-Esprit de Dieu, par lequel vous avez été marqués d’un sceau pour le jour de la rédemption. "
+        },
+        {
+          "verse": 31,
+          "chapter": 4,
+          "name": "Ephesians 4:31",
+          "text": "Que toute aigreur, toute animosité, toute colère, toute clameur, toute médisance soient bannies du milieu de vous, ainsi que toute méchanceté. "
+        },
+        {
+          "verse": 32,
+          "chapter": 4,
+          "name": "Ephesians 4:32",
+          "text": "Soyez bons les uns envers les autres, miséricordieux, vous pardonnant mutuellement, comme Dieu vous a pardonné dans le Christ."
+        }
+      ]
+    },
+    {
+      "chapter": 5,
+      "name": "Ephesians 5",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 5,
+          "name": "Ephesians 5:1",
+          "text": "Soyez donc des imitateurs de Dieu, comme des enfants bien-aimés ; "
+        },
+        {
+          "verse": 2,
+          "chapter": 5,
+          "name": "Ephesians 5:2",
+          "text": "et marchez dans la charité, à l’exemple du Christ, qui nous a aimés et s’est livré lui-même à Dieu pour nous comme une oblation et un sacrifice d’agréable odeur. "
+        },
+        {
+          "verse": 3,
+          "chapter": 5,
+          "name": "Ephesians 5:3",
+          "text": "Qu’on n’entende même pas dire qu’il y ait parmi vous de fornication, d’impureté de quelque sorte, de convoitise, ainsi qu’il convient à des saints. "
+        },
+        {
+          "verse": 4,
+          "chapter": 5,
+          "name": "Ephesians 5:4",
+          "text": "Point de paroles déshonnêtes, ni de bouffonneries, ni de plaisanteries grossières, toutes choses qui sont malséantes ; mais plutôt des actions de grâces. "
+        },
+        {
+          "verse": 5,
+          "chapter": 5,
+          "name": "Ephesians 5:5",
+          "text": "Car, sachez-le bien, aucun impudique, aucun impur, aucun homme cupide (lequel est un idolâtre), n’a d’héritage dans le royaume du Christ et de Dieu. "
+        },
+        {
+          "verse": 6,
+          "chapter": 5,
+          "name": "Ephesians 5:6",
+          "text": "Que personne ne vous abuse par de vains discours ; car c’est à cause de ces vices que la colère de Dieu vient sur les fils de l’incrédulité. "
+        },
+        {
+          "verse": 7,
+          "chapter": 5,
+          "name": "Ephesians 5:7",
+          "text": "N’ayez donc aucune part avec eux. "
+        },
+        {
+          "verse": 8,
+          "chapter": 5,
+          "name": "Ephesians 5:8",
+          "text": "Autrefois vous étiez ténèbres, mais à présent vous êtes lumière dans le Seigneur : marchez comme des enfants de lumière. "
+        },
+        {
+          "verse": 9,
+          "chapter": 5,
+          "name": "Ephesians 5:9",
+          "text": "Car le fruit de la lumière consiste en tout ce qui est bon, juste et vrai. "
+        },
+        {
+          "verse": 10,
+          "chapter": 5,
+          "name": "Ephesians 5:10",
+          "text": "Examinez ce qui est agréable au Seigneur ; "
+        },
+        {
+          "verse": 11,
+          "chapter": 5,
+          "name": "Ephesians 5:11",
+          "text": "et ne prenez aucune part aux œuvres stériles des ténèbres, mais plutôt condamnez-les. "
+        },
+        {
+          "verse": 12,
+          "chapter": 5,
+          "name": "Ephesians 5:12",
+          "text": "Car, ce qu’ils font en secret, on a honte même de le dire ; "
+        },
+        {
+          "verse": 13,
+          "chapter": 5,
+          "name": "Ephesians 5:13",
+          "text": "mais toutes ces abominations, une fois condamnées, sont rendues manifestes par la lumière ; car tout ce qui est mis au jour, est lumière. "
+        },
+        {
+          "verse": 14,
+          "chapter": 5,
+          "name": "Ephesians 5:14",
+          "text": "C’est pourquoi il est dit : « Éveille-toi, toi qui dors ; lève-toi d’entre les morts, et le Christ t’illuminera. » "
+        },
+        {
+          "verse": 15,
+          "chapter": 5,
+          "name": "Ephesians 5:15",
+          "text": "Ayez donc soin, [mes frères], de vous conduire avec prudence, non en insensés, "
+        },
+        {
+          "verse": 16,
+          "chapter": 5,
+          "name": "Ephesians 5:16",
+          "text": "mais comme des hommes sages ; rachetez le temps, car les jours sont mauvais. "
+        },
+        {
+          "verse": 17,
+          "chapter": 5,
+          "name": "Ephesians 5:17",
+          "text": "C’est pourquoi ne soyez pas inconsidérés, mais comprenez bien quelle est la volonté du Seigneur. "
+        },
+        {
+          "verse": 18,
+          "chapter": 5,
+          "name": "Ephesians 5:18",
+          "text": "Ne vous enivrez pas de vin : c’est la source de la débauche ; mais remplissez-vous de l’Esprit-Saint. "
+        },
+        {
+          "verse": 19,
+          "chapter": 5,
+          "name": "Ephesians 5:19",
+          "text": "Entretenez-vous les uns les autres de psaumes, d’hymnes et de cantiques spirituels, chantant et psalmodiant du fond du cœur en l’honneur du Seigneur. "
+        },
+        {
+          "verse": 20,
+          "chapter": 5,
+          "name": "Ephesians 5:20",
+          "text": "Rendez continuellement grâces pour toutes choses à Dieu le Père, au nom de Notre-Seigneur Jésus-Christ.    "
+        },
+        {
+          "verse": 21,
+          "chapter": 5,
+          "name": "Ephesians 5:21",
+          "text": " Soyez soumis les uns aux autres dans le crainte du Christ. "
+        },
+        {
+          "verse": 22,
+          "chapter": 5,
+          "name": "Ephesians 5:22",
+          "text": "Que les femmes soient soumises à leurs maris, comme au Seigneur ; "
+        },
+        {
+          "verse": 23,
+          "chapter": 5,
+          "name": "Ephesians 5:23",
+          "text": "car le mari est le chef de la femme, comme le Christ est le chef de l’Église, son corps, dont il est le Sauveur. "
+        },
+        {
+          "verse": 24,
+          "chapter": 5,
+          "name": "Ephesians 5:24",
+          "text": "Or, de même que l’Église est soumise au Christ, les femmes doivent être soumises à leurs maris en toutes choses. "
+        },
+        {
+          "verse": 25,
+          "chapter": 5,
+          "name": "Ephesians 5:25",
+          "text": "Maris, aimez vos femmes, comme le Christ a aimé l’Église et s’est livré lui-même pour elle, "
+        },
+        {
+          "verse": 26,
+          "chapter": 5,
+          "name": "Ephesians 5:26",
+          "text": "afin de la sanctifier, après l’avoir purifiée dans l’eau baptismale, avec la parole, "
+        },
+        {
+          "verse": 27,
+          "chapter": 5,
+          "name": "Ephesians 5:27",
+          "text": "pour la faire paraître, devant lui, cette Église, glorieuse, sans tache, sans ride, ni rien de semblable, mais sainte et immaculée. "
+        },
+        {
+          "verse": 28,
+          "chapter": 5,
+          "name": "Ephesians 5:28",
+          "text": "C’est ainsi que les maris doivent aimer leurs femmes, comme leurs propres corps. Celui qui aime sa femme s’aime lui-même. "
+        },
+        {
+          "verse": 29,
+          "chapter": 5,
+          "name": "Ephesians 5:29",
+          "text": "Car jamais personne n’a haï sa propre chair ; mais il la nourrit et l’entoure de soins, comme fait le Christ pour l’Église, "
+        },
+        {
+          "verse": 30,
+          "chapter": 5,
+          "name": "Ephesians 5:30",
+          "text": "parce que nous sommes membres de son corps, [formés « de sa chair et de ses os. »] "
+        },
+        {
+          "verse": 31,
+          "chapter": 5,
+          "name": "Ephesians 5:31",
+          "text": "« C’est pourquoi l’homme quittera son père et sa mère pour s’attacher à sa femme, et de deux ils deviendront une seule chair. » "
+        },
+        {
+          "verse": 32,
+          "chapter": 5,
+          "name": "Ephesians 5:32",
+          "text": "Ce mystère est grand ; je veux dire, par rapport au Christ et à l’Église. "
+        },
+        {
+          "verse": 33,
+          "chapter": 5,
+          "name": "Ephesians 5:33",
+          "text": "Au reste, que chacun de vous, de la même manière, aime sa femme comme soi-même, et que la femme révère son mari."
+        }
+      ]
+    },
+    {
+      "chapter": 6,
+      "name": "Ephesians 6",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 6,
+          "name": "Ephesians 6:1",
+          "text": "Enfants, obéissez à vos parents dans le Seigneur, car cela est juste. "
+        },
+        {
+          "verse": 2,
+          "chapter": 6,
+          "name": "Ephesians 6:2",
+          "text": "« Honore ton père et ta mère — c’est le premier commandement, accompagné d’une promesse. — "
+        },
+        {
+          "verse": 3,
+          "chapter": 6,
+          "name": "Ephesians 6:3",
+          "text": "afin que tu sois heureux et que tu vives longtemps sur la terre. » "
+        },
+        {
+          "verse": 4,
+          "chapter": 6,
+          "name": "Ephesians 6:4",
+          "text": "Et vous, pères, n’exaspérez pas vos enfants, mais élevez-les en les corrigeant et en les avertissant selon le Seigneur. "
+        },
+        {
+          "verse": 5,
+          "chapter": 6,
+          "name": "Ephesians 6:5",
+          "text": "Serviteurs, obéissez à vos maîtres selon la chair avec respect et crainte et dans la simplicité de votre cœur, comme au Christ, "
+        },
+        {
+          "verse": 6,
+          "chapter": 6,
+          "name": "Ephesians 6:6",
+          "text": "ne faisant pas seulement le service sous leurs yeux, comme pour plaire aux hommes, mais en serviteurs du Christ, qui font de bon cœur la volonté de Dieu. "
+        },
+        {
+          "verse": 7,
+          "chapter": 6,
+          "name": "Ephesians 6:7",
+          "text": "Servez-les avec affection, comme servant le Seigneur, et non des hommes, "
+        },
+        {
+          "verse": 8,
+          "chapter": 6,
+          "name": "Ephesians 6:8",
+          "text": "assurés que chacun, soit esclave, soit libre, sera récompensé par le Seigneur de ce qu’il aura fait de bien. "
+        },
+        {
+          "verse": 9,
+          "chapter": 6,
+          "name": "Ephesians 6:9",
+          "text": "Et vous, maîtres, agissez de même à leur égard et laissez là les menaces, sachant que leur Seigneur et le vôtre est dans les cieux et qu’il ne fait pas acception de personne.        "
+        },
+        {
+          "verse": 10,
+          "chapter": 6,
+          "name": "Ephesians 6:10",
+          "text": " Au reste, frères, fortifiez-vous dans le Seigneur et dans sa vertu toute-puissante. "
+        },
+        {
+          "verse": 11,
+          "chapter": 6,
+          "name": "Ephesians 6:11",
+          "text": "Revêtez-vous de l’armure de Dieu, afin de pouvoir résister aux embûches du diable. "
+        },
+        {
+          "verse": 12,
+          "chapter": 6,
+          "name": "Ephesians 6:12",
+          "text": "Car nous n’avons pas à lutter contre la chair et le sang, mais contre les princes, contre les puissances, contre les dominateurs de ce monde de ténèbres, contre les esprits mauvais répandus dans l’air. "
+        },
+        {
+          "verse": 13,
+          "chapter": 6,
+          "name": "Ephesians 6:13",
+          "text": "C’est pourquoi prenez l’armure de Dieu, afin de pouvoir résister au jour mauvais, et après avoir tout surmonté, rester debout. "
+        },
+        {
+          "verse": 14,
+          "chapter": 6,
+          "name": "Ephesians 6:14",
+          "text": "Soyez donc fermes, les reins ceints de la vérité, revêtus de la cuirasse de justice, "
+        },
+        {
+          "verse": 15,
+          "chapter": 6,
+          "name": "Ephesians 6:15",
+          "text": "et les sandales aux pieds, prêts à annoncer l’Évangile de paix. "
+        },
+        {
+          "verse": 16,
+          "chapter": 6,
+          "name": "Ephesians 6:16",
+          "text": "Et surtout, prenez le bouclier de la foi, par lequel vous pourrez éteindre tous les traits enflammés du Malin. "
+        },
+        {
+          "verse": 17,
+          "chapter": 6,
+          "name": "Ephesians 6:17",
+          "text": "Prenez aussi le casque du salut, et le glaive de l’Esprit, qui est la parole de Dieu. "
+        },
+        {
+          "verse": 18,
+          "chapter": 6,
+          "name": "Ephesians 6:18",
+          "text": "Faites en tout temps par l’Esprit toutes sortes de prières et de supplications ; et pour cela, veillez avec une persévérance continuelle et priez pour tous les saints, "
+        },
+        {
+          "verse": 19,
+          "chapter": 6,
+          "name": "Ephesians 6:19",
+          "text": "et pour moi, afin qu’il me soit donné d’ouvrir les lèvres et de prêcher avec liberté le mystère de l’Évangile, "
+        },
+        {
+          "verse": 20,
+          "chapter": 6,
+          "name": "Ephesians 6:20",
+          "text": "à l’égard duquel je fais fonction d’ambassadeur dans les chaînes, et afin que j’en parle avec assurance comme il convient. "
+        },
+        {
+          "verse": 21,
+          "chapter": 6,
+          "name": "Ephesians 6:21",
+          "text": "Quant à savoir ce qui me concerne et ce que je fais, Tychique, le bien-aimé frère et fidèle ministre dans le Seigneur, vous fera tout connaître. "
+        },
+        {
+          "verse": 22,
+          "chapter": 6,
+          "name": "Ephesians 6:22",
+          "text": "Je vous l’envoie tout exprès, pour que vous connaissiez notre situation et pour qu’il console vos cœurs. "
+        },
+        {
+          "verse": 23,
+          "chapter": 6,
+          "name": "Ephesians 6:23",
+          "text": "Paix aux frères, charité et foi, de la part de Dieu le Père et du Seigneur Jésus-Christ ! "
+        },
+        {
+          "verse": 24,
+          "chapter": 6,
+          "name": "Ephesians 6:24",
+          "text": "Que la grâce soit avec tous ceux qui aiment Notre-Seigneur Jésus-Christ d’un amour incorruptible.   "
+        }
+      ]
+    }
+  ]
+}

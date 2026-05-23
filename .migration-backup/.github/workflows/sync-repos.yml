@@ -1,0 +1,43 @@
+name: Sync to ahbdb Repository
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add ahbdb remote
+        run: |
+          git remote add ahbdb https://${{ secrets.AHBDB_PAT }}@github.com/ahbdb/voie-verite-vie.git
+
+      - name: Push to ahbdb
+        run: |
+          git push ahbdb main --force
+        continue-on-error: true
+
+      - name: Sync ahbdb back to origin
+        run: |
+          git fetch ahbdb main
+          git merge ahbdb/main --allow-unrelated-histories -X ours || true
+          git push origin main
+        continue-on-error: true
+
+      - name: Notify on sync
+        if: always()
+        run: |
+          echo "✅ Sync completed - lannedjo and ahbdb repositories are synchronized"

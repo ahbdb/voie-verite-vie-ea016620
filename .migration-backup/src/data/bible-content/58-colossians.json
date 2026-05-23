@@ -1,0 +1,601 @@
+{
+  "id": 58,
+  "abbreviation": "Col",
+  "name": "Colossiens",
+  "chapters": [
+    {
+      "chapter": 1,
+      "name": "Colossians 1",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 1,
+          "name": "Colossians 1:1",
+          "text": "Paul, apôtre de Jésus-Christ par la volonté de Dieu, et son frère Timothée, "
+        },
+        {
+          "verse": 2,
+          "chapter": 1,
+          "name": "Colossians 1:2",
+          "text": "aux saints qui sont à Colosses, nos fidèles frères dans le Christ : "
+        },
+        {
+          "verse": 3,
+          "chapter": 1,
+          "name": "Colossians 1:3",
+          "text": "que la grâce et la paix soient sur vous de la part de Dieu notre Père [et du Seigneur Jésus-Christ] !  Nous ne cessons de rendre grâces à Dieu, le Père de notre Seigneur Jésus-Christ, dans nos prières pour vous, "
+        },
+        {
+          "verse": 4,
+          "chapter": 1,
+          "name": "Colossians 1:4",
+          "text": "depuis que nous avons entendu parler de votre foi en Jésus-Christ et de votre charité envers tous les saints, "
+        },
+        {
+          "verse": 5,
+          "chapter": 1,
+          "name": "Colossians 1:5",
+          "text": "en vue de l’espérance qui vous est réservée dans les cieux et dont vous avez eu connaissance par la prédication de la vérité évangélique. "
+        },
+        {
+          "verse": 6,
+          "chapter": 1,
+          "name": "Colossians 1:6",
+          "text": "Elle est parvenue à vous, ainsi qu’au monde entier ; elle porte des fruits et gagne du terrain, comme cela a eu lieu parmi vous, depuis le jour où vous l’avez entendue, et où vous avez connu la grâce de Dieu dans la vérité, "
+        },
+        {
+          "verse": 7,
+          "chapter": 1,
+          "name": "Colossians 1:7",
+          "text": "d’après les instructions que vous avez reçues d’Épaphras notre bien-aimé compagnon au service de Dieu, et près de vous le fidèle ministre du Christ ; "
+        },
+        {
+          "verse": 8,
+          "chapter": 1,
+          "name": "Colossians 1:8",
+          "text": "c’est lui qui nous a appris votre charité toute spirituelle. "
+        },
+        {
+          "verse": 9,
+          "chapter": 1,
+          "name": "Colossians 1:9",
+          "text": "C’est pourquoi, depuis le jour où nous en avons été informés, nous ne cessons de prier Dieu pour vous, et de demander que vous ayez la pleine connaissance de sa volonté en toute sagesse et intelligence spirituelle, "
+        },
+        {
+          "verse": 10,
+          "chapter": 1,
+          "name": "Colossians 1:10",
+          "text": "pour vous conduire d’une manière digne du Seigneur et lui plaire en toutes choses, produisant du fruit en toutes sortes de bonnes œuvres et faisant des progrès dans la connaissance de Dieu ; "
+        },
+        {
+          "verse": 11,
+          "chapter": 1,
+          "name": "Colossians 1:11",
+          "text": "fortifiés à tous égards par sa puissance glorieuse, pour tout supporter avec patience et avec joie ; — "
+        },
+        {
+          "verse": 12,
+          "chapter": 1,
+          "name": "Colossians 1:12",
+          "text": "rendant grâces à [Dieu] le Père, qui nous a rendus capables d’avoir part à l’héritage des saints dans la lumière, "
+        },
+        {
+          "verse": 13,
+          "chapter": 1,
+          "name": "Colossians 1:13",
+          "text": "en nous délivrant de la puissance des ténèbres, pour nous transporter dans le royaume de son Fils bien-aimé, "
+        },
+        {
+          "verse": 14,
+          "chapter": 1,
+          "name": "Colossians 1:14",
+          "text": "par le sang duquel nous avons la rédemption, la rémission des péchés.        "
+        },
+        {
+          "verse": 15,
+          "chapter": 1,
+          "name": "Colossians 1:15",
+          "text": " Il est l’image du Dieu invisible, né avant toute créature ; "
+        },
+        {
+          "verse": 16,
+          "chapter": 1,
+          "name": "Colossians 1:16",
+          "text": "car c’est en lui que toutes choses ont été créées, celles qui sont dans les cieux et celles qui sont sur la terre, les choses visibles et les choses invisibles, Trônes, Dominations, Principautés, Puissances ; tout a été créé par lui et pour lui. "
+        },
+        {
+          "verse": 17,
+          "chapter": 1,
+          "name": "Colossians 1:17",
+          "text": "Il est, lui, avant toutes choses, et toutes choses subsistent en lui. "
+        },
+        {
+          "verse": 18,
+          "chapter": 1,
+          "name": "Colossians 1:18",
+          "text": "Il est la tête du corps de l’Église, lui qui est le principe, le premier-né d’entre les morts, afin qu’en toutes choses, il tienne, lui, la première place. "
+        },
+        {
+          "verse": 19,
+          "chapter": 1,
+          "name": "Colossians 1:19",
+          "text": "Car Dieu a voulu que toute la plénitude habitât en lui ; "
+        },
+        {
+          "verse": 20,
+          "chapter": 1,
+          "name": "Colossians 1:20",
+          "text": "et il a voulu réconcilier par lui toutes choses avec lui-même, celles qui sont sur la terre, et celles qui sont dans les cieux, en faisant la paix par le sang de sa croix. "
+        },
+        {
+          "verse": 21,
+          "chapter": 1,
+          "name": "Colossians 1:21",
+          "text": "Vous aussi, qui étiez autrefois loin de lui et ennemis par vos pensées et par vos œuvres mauvaises, "
+        },
+        {
+          "verse": 22,
+          "chapter": 1,
+          "name": "Colossians 1:22",
+          "text": "il vous a maintenant réconciliés par la mort de son Fils en son corps charnel, pour vous faire paraître devant lui saints, sans tâche et sans reproche, "
+        },
+        {
+          "verse": 23,
+          "chapter": 1,
+          "name": "Colossians 1:23",
+          "text": "si du moins vous demeurez fondés et affermis dans la foi, et inébranlables dans l’espérance donnée par l’Évangile que vous avez entendu, qui a été prêché à toute créature sous le ciel, et dont moi, Paul, j’ai été fait ministre.    "
+        },
+        {
+          "verse": 24,
+          "chapter": 1,
+          "name": "Colossians 1:24",
+          "text": " Maintenant je suis plein de joie dans mes souffrances pour vous, et ce qui manque aux souffrances du Christ en ma propre chair, je l’achève pour son corps, qui est l’Église. "
+        },
+        {
+          "verse": 25,
+          "chapter": 1,
+          "name": "Colossians 1:25",
+          "text": "J’en ai été fait ministre, en vue de la charge que Dieu m’a donnée auprès de vous, afin d’annoncer pleinement la parole de Dieu, "
+        },
+        {
+          "verse": 26,
+          "chapter": 1,
+          "name": "Colossians 1:26",
+          "text": "le mystère caché aux siècles et aux générations passées, mais manifesté maintenant à ses saints, "
+        },
+        {
+          "verse": 27,
+          "chapter": 1,
+          "name": "Colossians 1:27",
+          "text": "à qui Dieu a voulu faire connaître combien est grande pour les Gentils la gloire de ce mystère qui est le Christ, en qui vous avez l’espérance de la gloire. "
+        },
+        {
+          "verse": 28,
+          "chapter": 1,
+          "name": "Colossians 1:28",
+          "text": "C’est lui que nous annonçons, avertissant tous les hommes, les instruisant en toute sagesse, afin que nous rendions tout homme parfait dans le Christ Jésus. "
+        },
+        {
+          "verse": 29,
+          "chapter": 1,
+          "name": "Colossians 1:29",
+          "text": "C’est pour cela que je travaille, et que je lutte selon la force qu’il me donne, et qui agit en moi avec puissance."
+        }
+      ]
+    },
+    {
+      "chapter": 2,
+      "name": "Colossians 2",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 2,
+          "name": "Colossians 2:1",
+          "text": "Je veux, en effet, que vous sachiez quels combats je soutiens pour vous et pour ceux de Laodicée, et pour tous ceux qui ne m’ont pas vu de leurs yeux, "
+        },
+        {
+          "verse": 2,
+          "chapter": 2,
+          "name": "Colossians 2:2",
+          "text": "afin que leurs cœurs soient réconfortés, et qu’étant étroitement unis dans la charité, ils soient enrichis d’une pleine conviction de l’intelligence, et connaissent le mystère de Dieu, du Christ, "
+        },
+        {
+          "verse": 3,
+          "chapter": 2,
+          "name": "Colossians 2:3",
+          "text": "en qui sont cachés tous les trésors de la sagesse et de la science. "
+        },
+        {
+          "verse": 4,
+          "chapter": 2,
+          "name": "Colossians 2:4",
+          "text": "Je dis cela, afin que personne ne vous trompe par des discours subtils. "
+        },
+        {
+          "verse": 5,
+          "chapter": 2,
+          "name": "Colossians 2:5",
+          "text": "Car, si je suis absent de corps, je suis avec vous en esprit, heureux de voir le bon ordre qui règne parmi vous et la solidité de votre foi dans le Christ. "
+        },
+        {
+          "verse": 6,
+          "chapter": 2,
+          "name": "Colossians 2:6",
+          "text": "Ainsi donc, comme vous avez reçu le Christ Jésus, le Seigneur, marchez en lui, "
+        },
+        {
+          "verse": 7,
+          "chapter": 2,
+          "name": "Colossians 2:7",
+          "text": "enracinés et édifiés en lui, affermis par la foi, telle qu’on vous l’a enseignée et y faisant des progrès, avec actions de grâces. "
+        },
+        {
+          "verse": 8,
+          "chapter": 2,
+          "name": "Colossians 2:8",
+          "text": "Prenez garde que personne ne vous surprenne par la philosophie et par des enseignements trompeurs, selon une tradition toute humaine et les rudiments du monde, et non selon le Christ. "
+        },
+        {
+          "verse": 9,
+          "chapter": 2,
+          "name": "Colossians 2:9",
+          "text": "Car en lui habite corporellement toute la plénitude de la divinité. "
+        },
+        {
+          "verse": 10,
+          "chapter": 2,
+          "name": "Colossians 2:10",
+          "text": "En lui vous avez tout pleinement, lui qui est le chef de toute principauté et de toute puissance. "
+        },
+        {
+          "verse": 11,
+          "chapter": 2,
+          "name": "Colossians 2:11",
+          "text": "En lui vous avez été circoncis d’une circoncision non faite de main d’homme, de la circoncision du Christ, par le dépouillement de ce corps de chair. "
+        },
+        {
+          "verse": 12,
+          "chapter": 2,
+          "name": "Colossians 2:12",
+          "text": "Ensevelis avec lui dans le baptême, vous avez été dans le même baptême ressuscités avec lui par votre foi à l’action de Dieu, qui l’a ressuscité d’entre les morts. "
+        },
+        {
+          "verse": 13,
+          "chapter": 2,
+          "name": "Colossians 2:13",
+          "text": "Vous qui étiez morts par vos péchés et par l’incirconcision de votre chair, il vous a rendus à la vie avec lui, après nous avoir pardonné toutes nos offenses. "
+        },
+        {
+          "verse": 14,
+          "chapter": 2,
+          "name": "Colossians 2:14",
+          "text": "Il a détruit l’acte qui était écrit contre nous et nous était contraire avec ses ordonnances, et il l’a fait disparaître en le clouant à la croix ; "
+        },
+        {
+          "verse": 15,
+          "chapter": 2,
+          "name": "Colossians 2:15",
+          "text": "il a dépouillé les principautés et les puissances, et les a livrées hardiment en spectacle, en triomphant d’elles par la croix. "
+        },
+        {
+          "verse": 16,
+          "chapter": 2,
+          "name": "Colossians 2:16",
+          "text": "Que personne donc ne vous condamne sur le manger et le boire, ou au sujet d’une fête, d’une nouvelle lune ou d’un sabbat : "
+        },
+        {
+          "verse": 17,
+          "chapter": 2,
+          "name": "Colossians 2:17",
+          "text": "ce n’est là que l’ombre des choses à venir, mais la réalité se trouve dans le Christ. "
+        },
+        {
+          "verse": 18,
+          "chapter": 2,
+          "name": "Colossians 2:18",
+          "text": "Qu’aucun homme ne vous fasse perdre la palme du combat, par affectation d’humilité et de culte des anges, tandis qu’il s’égare en des choses qu’il n’a pas vues, et qu’il s’enfle d’un vain orgueil par les pensées de la chair, "
+        },
+        {
+          "verse": 19,
+          "chapter": 2,
+          "name": "Colossians 2:19",
+          "text": "sans s’attacher au chef, duquel tout le corps, à l’aide des liens et des jointures, s’entretient et grandit par l’accroissement que Dieu lui donne. "
+        },
+        {
+          "verse": 20,
+          "chapter": 2,
+          "name": "Colossians 2:20",
+          "text": "Si vous êtes morts avec le Christ aux rudiments du monde, pourquoi, comme si vous viviez dans le monde, vous soumettez-vous à ces prescriptions : "
+        },
+        {
+          "verse": 21,
+          "chapter": 2,
+          "name": "Colossians 2:21",
+          "text": "« Ne prends pas ! Ne goûte pas ! Ne touche pas ? » "
+        },
+        {
+          "verse": 22,
+          "chapter": 2,
+          "name": "Colossians 2:22",
+          "text": "— Toutes ces choses vont à la corruption par l’usage même qu’on en fait. — Ces défenses ne sont que des préceptes et des enseignements humains. "
+        },
+        {
+          "verse": 23,
+          "chapter": 2,
+          "name": "Colossians 2:23",
+          "text": "Elles ont quelque apparence de sagesse avec leur culte volontaire, leur humilité, et leur mépris pour le corps, mais elles sont sans valeur réelle, et ne servent qu’à la satisfaction de la chair."
+        }
+      ]
+    },
+    {
+      "chapter": 3,
+      "name": "Colossians 3",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 3,
+          "name": "Colossians 3:1",
+          "text": "Si donc vous êtes ressuscités avec le Christ, recherchez les choses d’en haut, où le Christ demeure assis à la droite de Dieu ; "
+        },
+        {
+          "verse": 2,
+          "chapter": 3,
+          "name": "Colossians 3:2",
+          "text": "affectionnez-vous aux choses d’en haut, et non à celles de la terre : "
+        },
+        {
+          "verse": 3,
+          "chapter": 3,
+          "name": "Colossians 3:3",
+          "text": "car vous êtes morts, et votre vie est cachée avec le Christ en Dieu. "
+        },
+        {
+          "verse": 4,
+          "chapter": 3,
+          "name": "Colossians 3:4",
+          "text": "Quand le Christ, votre vie, apparaîtra, alors vous apparaîtrez, vous aussi, avec lui dans la gloire. "
+        },
+        {
+          "verse": 5,
+          "chapter": 3,
+          "name": "Colossians 3:5",
+          "text": "Faites donc mourir vos membres, les membres de l’homme terrestre, la fornication, l’impureté, la luxure, toute mauvaise convoitise et la cupidité qui est une idolâtrie : "
+        },
+        {
+          "verse": 6,
+          "chapter": 3,
+          "name": "Colossians 3:6",
+          "text": "toutes choses qui attirent la colère de Dieu sur les fils de l’incrédulité, "
+        },
+        {
+          "verse": 7,
+          "chapter": 3,
+          "name": "Colossians 3:7",
+          "text": "parmi lesquels vous aussi, vous marchiez autrefois, lorsque vous viviez dans ces désordres. "
+        },
+        {
+          "verse": 8,
+          "chapter": 3,
+          "name": "Colossians 3:8",
+          "text": "Mais maintenant, vous aussi, rejetez toutes ces choses, la colère, l’animosité, la méchanceté ; que les injures et les paroles déshonnêtes soient bannies de votre bouche. "
+        },
+        {
+          "verse": 9,
+          "chapter": 3,
+          "name": "Colossians 3:9",
+          "text": "N’usez point de mensonge les uns envers les autres, puisque vous avez dépouillé le vieil homme   avec ses œuvres, "
+        },
+        {
+          "verse": 10,
+          "chapter": 3,
+          "name": "Colossians 3:10",
+          "text": "et revêtu l’homme nouveau, qui se renouvelle sans cesse selon la science parfaite à l’image de celui qui l’a créé. "
+        },
+        {
+          "verse": 11,
+          "chapter": 3,
+          "name": "Colossians 3:11",
+          "text": "Dans ce renouvellement il n’y a plus ni Grec ou Juif, ni circoncis ou incirconcis, ni barbare ou Scythe, ni esclave ou homme libre ; mais le Christ est tout en tous. "
+        },
+        {
+          "verse": 12,
+          "chapter": 3,
+          "name": "Colossians 3:12",
+          "text": "Ainsi donc, comme élus de Dieu, saints et bien-aimés, revêtez-vous d’entrailles de miséricorde, de bonté, d’humilité, de douceur, de patience, "
+        },
+        {
+          "verse": 13,
+          "chapter": 3,
+          "name": "Colossians 3:13",
+          "text": "vous supportant les uns les autres et vous pardonnant réciproquement, si l’un a sujet de se plaindre de l’autre. Comme le Seigneur vous a pardonné, pardonnez-vous aussi. "
+        },
+        {
+          "verse": 14,
+          "chapter": 3,
+          "name": "Colossians 3:14",
+          "text": "Mais surtout revêtez-vous de la charité, qui est le lien de la perfection. "
+        },
+        {
+          "verse": 15,
+          "chapter": 3,
+          "name": "Colossians 3:15",
+          "text": "Et que la paix du Christ, à laquelle vous avez été appelés de manière à former un seul corps, règne dans vos cœurs ; soyez reconnaissants. "
+        },
+        {
+          "verse": 16,
+          "chapter": 3,
+          "name": "Colossians 3:16",
+          "text": "Que la parole du Christ demeure en vous avec abondance, de telle sorte que vous vous instruisiez et vous avertissiez les uns les autres en toute sagesse : sous l’inspiration de la grâce, que vos cœurs s’épanchent vers Dieu en chants, par des psaumes, par des hymnes, par des cantiques spirituels. "
+        },
+        {
+          "verse": 17,
+          "chapter": 3,
+          "name": "Colossians 3:17",
+          "text": "Et quoi que ce soit que vous fassiez, en parole ou en œuvre, faites tout au nom du Seigneur Jésus, en rendant par lui des actions de grâces à Dieu le Père. "
+        },
+        {
+          "verse": 18,
+          "chapter": 3,
+          "name": "Colossians 3:18",
+          "text": "Vous femmes, soyez soumises à vos maris, comme il convient dans le Seigneur. "
+        },
+        {
+          "verse": 19,
+          "chapter": 3,
+          "name": "Colossians 3:19",
+          "text": "Vous maris, aimez vos femmes et ne vous aigrissez pas contre elles. "
+        },
+        {
+          "verse": 20,
+          "chapter": 3,
+          "name": "Colossians 3:20",
+          "text": "Vous enfants, obéissez en toutes choses à vos parents, car cela est agréable dans le Seigneur. "
+        },
+        {
+          "verse": 21,
+          "chapter": 3,
+          "name": "Colossians 3:21",
+          "text": "Vous pères, n’irritez pas vos enfants, de peur qu’ils ne se découragent. "
+        },
+        {
+          "verse": 22,
+          "chapter": 3,
+          "name": "Colossians 3:22",
+          "text": "Vous serviteurs, obéissez en tout à vos maîtres selon la chair, non pas à l’œil et pour plaire aux hommes, mais avec simplicité de cœur, dans la crainte du Seigneur. "
+        },
+        {
+          "verse": 23,
+          "chapter": 3,
+          "name": "Colossians 3:23",
+          "text": "Quoi que vous fassiez, faites-le de bon cœur, comme pour le Seigneur, et non pour des hommes, "
+        },
+        {
+          "verse": 24,
+          "chapter": 3,
+          "name": "Colossians 3:24",
+          "text": "sachant que vous recevrez du Seigneur pour récompense l’héritage céleste. Servez le Seigneur Jésus-Christ. "
+        },
+        {
+          "verse": 25,
+          "chapter": 3,
+          "name": "Colossians 3:25",
+          "text": "Car celui qui commet l’injustice recevra selon son injustice, et il n’y a point d’acception de personnes.  "
+        }
+      ]
+    },
+    {
+      "chapter": 4,
+      "name": "Colossians 4",
+      "verses": [
+        {
+          "verse": 1,
+          "chapter": 4,
+          "name": "Colossians 4:1",
+          "text": "Vous maîtres, rendez à vos serviteurs ce que la justice et l’équité demandent, sachant que vous aussi vous avez un maître dans le ciel. "
+        },
+        {
+          "verse": 2,
+          "chapter": 4,
+          "name": "Colossians 4:2",
+          "text": "Persévérez dans la prière, apportez-y de la vigilance, avec des actions de grâces. "
+        },
+        {
+          "verse": 3,
+          "chapter": 4,
+          "name": "Colossians 4:3",
+          "text": "Priez en même temps pour nous, afin que Dieu nous ouvre une porte pour la parole, et qu’ainsi je puisse annoncer le mystère du Christ, pour lequel je suis aussi dans les chaînes, "
+        },
+        {
+          "verse": 4,
+          "chapter": 4,
+          "name": "Colossians 4:4",
+          "text": "et le faire connaître comme je dois en parler. "
+        },
+        {
+          "verse": 5,
+          "chapter": 4,
+          "name": "Colossians 4:5",
+          "text": "Conduisez-vous avec prudence envers ceux qui sont hors de l’Église, sachant profiter des circonstances. "
+        },
+        {
+          "verse": 6,
+          "chapter": 4,
+          "name": "Colossians 4:6",
+          "text": "Que votre parole soit toujours aimable, assaisonnée de sel en sorte que vous sachiez comment il faut répondre à chacun.        "
+        },
+        {
+          "verse": 7,
+          "chapter": 4,
+          "name": "Colossians 4:7",
+          "text": "Quant à ce qui me concerne, Tychique, le bien-aimé frère et le fidèle ministre, mon compagnon au service du Seigneur, vous fera tout connaître. "
+        },
+        {
+          "verse": 8,
+          "chapter": 4,
+          "name": "Colossians 4:8",
+          "text": "Je vous l’envoie tout exprès pour vous faire connaître notre situation, et pour qu’il console vos cœurs. "
+        },
+        {
+          "verse": 9,
+          "chapter": 4,
+          "name": "Colossians 4:9",
+          "text": "Il est accompagné d’Onésime, le fidèle et bien-aimé frère qui est des vôtres. Ils vous feront savoir tout ce qui se passe ici. "
+        },
+        {
+          "verse": 10,
+          "chapter": 4,
+          "name": "Colossians 4:10",
+          "text": "Aristarque, mon compagnon de captivité, vous salue, ainsi que Marc, le cousin de Barnabé, au sujet duquel vous avez reçu des ordres. S’il vient chez vous, accueillez-le. "
+        },
+        {
+          "verse": 11,
+          "chapter": 4,
+          "name": "Colossians 4:11",
+          "text": "Jésus aussi, appelé Justus, vous salue. Ce sont des circoncis et les seuls, parmi ceux de la circoncision, qui travaillent avec moi pour le royaume de Dieu ; ils ont été pour moi une consolation. "
+        },
+        {
+          "verse": 12,
+          "chapter": 4,
+          "name": "Colossians 4:12",
+          "text": "Epaphras, qui est des vôtres, vous salue ; serviteur du Christ, il ne cesse de combattre pour vous dans ses prières, afin que vous persévériez à accomplir exactement et avec pleine conviction tout ce que Dieu veut. "
+        },
+        {
+          "verse": 13,
+          "chapter": 4,
+          "name": "Colossians 4:13",
+          "text": "Car je lui rends le témoignage qu’il se donne bien de la peine pour vous, et pour ceux de Laodicée et d’Hiérapolis. "
+        },
+        {
+          "verse": 14,
+          "chapter": 4,
+          "name": "Colossians 4:14",
+          "text": "Luc, le médecin bien-aimé, vous salue, ainsi que Démas. "
+        },
+        {
+          "verse": 15,
+          "chapter": 4,
+          "name": "Colossians 4:15",
+          "text": "Saluez les frères qui sont à Laodicée, ainsi que Nymphas, et l’Église qui se réunit dans sa maison. "
+        },
+        {
+          "verse": 16,
+          "chapter": 4,
+          "name": "Colossians 4:16",
+          "text": "Lorsque cette lettre aura été lue chez vous, faites qu’on la lise aussi dans l’Église de Laodicée, et que vous lisiez à votre tour celle qui vous arrivera de Laodicée.  "
+        },
+        {
+          "verse": 17,
+          "chapter": 4,
+          "name": "Colossians 4:17",
+          "text": " Dites à Archippe : « Considère le ministère que tu as reçu dans le Seigneur, afin de le bien remplir. » "
+        },
+        {
+          "verse": 18,
+          "chapter": 4,
+          "name": "Colossians 4:18",
+          "text": "La salutation est de ma propre main : Moi, Paul. Souvenez-vous de mes liens. Que la grâce soit avec vous ! [Amen !]      "
+        }
+      ]
+    }
+  ]
+}

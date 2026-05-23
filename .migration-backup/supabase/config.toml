@@ -1,0 +1,22 @@
+project_id = "kaddsojhnkyfavaulrfc"
+
+[functions.evaluate-answer]
+verify_jwt = false
+
+[functions]
+enabled = true
+
+[functions.submit-contact]
+verify_jwt = false
+
+[functions.ai-chat]
+verify_jwt = true
+
+[functions.generate-quiz]
+verify_jwt = true
+
+[functions.session-share]
+verify_jwt = false
+
+[functions.notify-session]
+verify_jwt = true

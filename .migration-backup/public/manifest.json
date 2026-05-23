@@ -1,0 +1,56 @@
+{
+  "name": "Voie Vérité Vie",
+  "short_name": "Voie Vérité Vie",
+  "description": "Association chrétienne catholique au Cameroun - Sanctuaire spirituel offrant refuge, éducation morale et croissance spirituelle aux jeunes. Programme de lecture biblique, forum de prière et activités communautaires.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#5AB4DB",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/logo-3v.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "lifestyle", "social"],
+  "shortcuts": [
+    {
+      "name": "Lecture Biblique",
+      "short_name": "Lecture",
+      "description": "Accéder au programme de lecture biblique",
+      "url": "/biblical-reading",
+      "icons": [{ "src": "/logo-3v.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Nos Activités",
+      "short_name": "Activités",
+      "description": "Découvrir nos événements",
+      "url": "/activities",
+      "icons": [{ "src": "/logo-3v.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Contact",
+      "short_name": "Contact",
+      "description": "Nous contacter",
+      "url": "/contact",
+      "icons": [{ "src": "/logo-3v.png", "sizes": "96x96" }]
+    }
+  ]
+}

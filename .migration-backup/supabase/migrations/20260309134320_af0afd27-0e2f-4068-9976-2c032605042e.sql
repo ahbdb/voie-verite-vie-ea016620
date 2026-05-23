@@ -1,0 +1,1 @@
+ALTER TABLE public.neuvaines ADD COLUMN IF NOT EXISTS translations jsonb DEFAULT '{}'::jsonb;

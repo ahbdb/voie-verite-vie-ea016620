@@ -1,0 +1,26 @@
+[build]
+  base = "artifacts/3v-app"
+  command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/3v-app run build"
+  publish = "dist/public"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # BASE_PATH defaults to '/' in vite.config.ts — no need to set it here.
+  # Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in the Netlify UI
+  # under Site Settings → Environment Variables.
+
+[[redirects]]
+  from = "/neuvaines/*.pdf"
+  to = "/neuvaines/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/reports/*.pdf"
+  to = "/reports/:splat"
+  status = 200
+
+# SPA fallback — all routes go to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
