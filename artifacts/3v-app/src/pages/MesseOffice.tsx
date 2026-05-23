@@ -742,7 +742,7 @@ export default function MesseOffice() {
           .reading-text em, .reading-text i, .psalm-text em { color: rgba(255,255,255,.5); }
           .psalm-text p { padding-left: .4rem; border-left: 2px solid rgba(255,255,255,.06); }
           .psalm-text .verse_number { font-size: .7em; opacity: .35; vertical-align: super; margin-right: .2em; font-style: normal; }
-          .psalm-text u { text-decoration: none; font-style: italic; color: rgba(255,255,255,.5); }
+          .psalm-text u, .reading-text u { text-decoration: none; font-style: inherit; color: inherit; }
         `}</style>
       </Helmet>
 
