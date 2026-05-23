@@ -375,6 +375,7 @@ const AdminVideoRoom = () => {
   const displayName = user?.user_metadata?.full_name || user?.email || 'Participant';
 
   const callSession = useCallSession();
+  const { primeAudioPlayback } = callSession;
 
   const [draftMessage, setDraftMessage] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -461,8 +462,11 @@ const AdminVideoRoom = () => {
     // Wait until the room record is loaded, then auto-join
     if (!room && !loading) return;
     autoJoinedRef.current = true;
+    // Prime audio autoplay unlock — the page navigation itself counts as a
+    // user gesture on most browsers, so this succeeds and unlocks the audio.
+    primeAudioPlayback();
     void requestJoin();
-  }, [room, loading, roomId, user?.id, requestJoin]);
+  }, [room, loading, roomId, user?.id, requestJoin, primeAudioPlayback]);
 
   // ── Auto-eject all participants when admin ends the room ──────────────────
   // The hook's Supabase subscription updates `room.status` for everyone in real
@@ -706,7 +710,7 @@ const AdminVideoRoom = () => {
                 size="sm"
                 variant="outline"
                 className="h-7 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
-                onClick={() => { autoJoinedRef.current = false; void requestJoin(); }}
+                onClick={() => { primeAudioPlayback(); autoJoinedRef.current = false; void requestJoin(); }}
                 disabled={isJoining}
               >
                 <RotateCcw className="h-3 w-3 mr-1" /> Réessayer
@@ -1104,7 +1108,7 @@ const AdminVideoRoom = () => {
                 size="sm"
                 variant="outline"
                 className="ml-2 h-8 border-zinc-700 text-zinc-300"
-                onClick={() => { autoJoinedRef.current = false; void requestJoin(); }}
+                onClick={() => { primeAudioPlayback(); autoJoinedRef.current = false; void requestJoin(); }}
                 disabled={isJoining}
               >
                 <RotateCcw className="h-3.5 w-3.5 mr-1" /> Réessayer

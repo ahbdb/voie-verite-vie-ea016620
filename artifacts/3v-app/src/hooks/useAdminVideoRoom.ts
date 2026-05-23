@@ -151,8 +151,6 @@ export const useAdminVideoRoom = ({
   const [peerStats, setPeerStats] = useState<Map<string, PeerStat>>(new Map());
 
   const channelRef = useRef<any>(null);
-  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const silentBlobUrlRef = useRef<string | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const initiatedPeersRef = useRef<Set<string>>(new Set());
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -325,58 +323,6 @@ export const useAdminVideoRoom = ({
     const id = setInterval(() => void collectStats(), 3000);
     return () => clearInterval(id);
   }, [isConnected, collectStats]);
-
-  // ── Silent audio loop — prevents browser from throttling audio in background ──
-  // Mobile browsers (Android Chrome, iOS Safari) throttle or freeze the JS thread
-  // when the page becomes hidden. This kills ICE keepalive timers and drops WebRTC
-  // audio. Playing a looping silent <audio> element signals to the browser that
-  // this page is "media active", preventing aggressive throttling.
-  // This is the same technique used by web-based conferencing apps.
-
-  useEffect(() => {
-    if (!isConnected) return;
-
-    let audio: HTMLAudioElement | null = null;
-    let blobUrl: string | null = null;
-
-    try {
-      // Generate a 100ms silent WAV programmatically (no external file needed)
-      const sampleRate = 44100;
-      const numSamples = Math.ceil(sampleRate * 0.1); // 100ms
-      const dataSize = numSamples * 2; // 16-bit mono
-      const buf = new ArrayBuffer(44 + dataSize);
-      const v = new DataView(buf);
-      const ws = (offset: number, str: string) => {
-        for (let i = 0; i < str.length; i++) v.setUint8(offset + i, str.charCodeAt(i));
-      };
-      ws(0, 'RIFF'); v.setUint32(4, 36 + dataSize, true);
-      ws(8, 'WAVE'); ws(12, 'fmt '); v.setUint32(16, 16, true);
-      v.setUint16(20, 1, true); v.setUint16(22, 1, true);
-      v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true);
-      v.setUint16(32, 2, true); v.setUint16(34, 16, true);
-      ws(36, 'data'); v.setUint32(40, dataSize, true);
-      // Remaining bytes are 0 (silence)
-
-      blobUrl = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
-      silentBlobUrlRef.current = blobUrl;
-      audio = new Audio(blobUrl);
-      audio.loop = true;
-      audio.volume = 0.001; // inaudible
-      audio.play().catch(() => {}); // may fail without prior user gesture — safe to ignore
-      silentAudioRef.current = audio;
-    } catch { /* audio creation failed — not critical */ }
-
-    return () => {
-      if (silentAudioRef.current) {
-        silentAudioRef.current.pause();
-        silentAudioRef.current = null;
-      }
-      if (silentBlobUrlRef.current) {
-        URL.revokeObjectURL(silentBlobUrlRef.current);
-        silentBlobUrlRef.current = null;
-      }
-    };
-  }, [isConnected]);
 
   // ── MediaSession API — tells the OS to keep audio alive (like WhatsApp) ────
 
