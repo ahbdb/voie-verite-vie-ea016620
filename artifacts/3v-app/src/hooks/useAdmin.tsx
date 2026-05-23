@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
-import { supabase } from '@/integrations/supabase/client';
 
 export type AdminRole = 'admin_principal' | 'admin' | 'moderator' | null;
 
@@ -44,21 +43,16 @@ export const useAdmin = () => {
 
     setLoading(true);
 
-    // Use the dedicated RPC function that bypasses RLS and returns the
-    // current authenticated user's role directly.
-    supabase
-      .rpc('get_user_admin_role')
-      .then(({ data, error }) => {
-        let role: AdminRole = null;
-        if (!error && data) {
-          const r = data as string;
-          if (r === 'admin_principal') role = 'admin_principal';
-          else if (r === 'admin') role = 'admin';
-          else if (r === 'moderator') role = 'moderator';
-        }
-        roleCache.set(user.id, { role, timestamp: Date.now() });
-        setAdminRole(role);
-        setIsAdmin(role !== null);
+    fetch('/api/auth/admin-role', { credentials: 'include' })
+      .then((res) => res.json())
+      .then(({ role }) => {
+        let adminRole: AdminRole = null;
+        if (role === 'admin_principal') adminRole = 'admin_principal';
+        else if (role === 'admin') adminRole = 'admin';
+        else if (role === 'moderator') adminRole = 'moderator';
+        roleCache.set(user.id, { role: adminRole, timestamp: Date.now() });
+        setAdminRole(adminRole);
+        setIsAdmin(adminRole !== null);
       })
       .catch(() => {
         setAdminRole(null);
