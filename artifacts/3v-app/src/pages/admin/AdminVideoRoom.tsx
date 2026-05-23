@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   useAdminVideoRoom,
   type VideoMessageReactionRecord,
+  type PeerStat,
 } from '@/hooks/useAdminVideoRoom';
 import { useCallSession } from '@/contexts/CallSessionContext';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import {
+  Activity,
   ArrowLeft,
   Camera,
   Edit2,
@@ -183,6 +185,137 @@ const VideoPanel = ({
 const formatTime = (v: string) =>
   new Date(v).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
+// ── Diagnostic panel ─────────────────────────────────────────────────────────
+
+type ParticipantLike = { user_id: string; display_name: string | null };
+
+const CandidateBadge = ({ type }: { type: string }) => {
+  if (type === 'relay')
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-500/20 text-green-400">RELAY ✓</span>;
+  if (type === 'srflx')
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400">SRFLX</span>;
+  if (type === 'host')
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-600/40 text-zinc-300">LOCAL</span>;
+  return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">?</span>;
+};
+
+const DiagnosticPanel = ({
+  peerStats,
+  participants,
+}: {
+  peerStats: Map<string, PeerStat>;
+  participants: ParticipantLike[];
+}) => {
+  const getName = (uid: string) =>
+    participants.find((p) => p.user_id === uid)?.display_name || uid.slice(0, 8) + '…';
+
+  if (peerStats.size === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-14 gap-3 text-zinc-600">
+        <Activity className="h-6 w-6" />
+        <p className="text-xs text-center">Stats disponibles<br />après connexion à un pair</p>
+      </div>
+    );
+  }
+
+  return (
+    <ScrollArea className="flex-1 p-3">
+      <div className="space-y-3">
+        {Array.from(peerStats.values()).map((stat) => (
+          <div key={stat.userId} className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 space-y-2.5">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-white truncate">{getName(stat.userId)}</span>
+              <span className={cn(
+                'text-[10px] font-medium uppercase tracking-wide',
+                stat.iceState === 'connected' ? 'text-green-400' :
+                stat.iceState === 'failed' ? 'text-red-400' :
+                'text-yellow-400'
+              )}>
+                {stat.iceState}
+              </span>
+            </div>
+
+            {/* Candidate types */}
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div>
+                <p className="text-zinc-500 mb-1">Local</p>
+                <CandidateBadge type={stat.localCandidateType} />
+              </div>
+              <div>
+                <p className="text-zinc-500 mb-1">Distant</p>
+                <CandidateBadge type={stat.remoteCandidateType} />
+              </div>
+            </div>
+
+            {/* Metrics */}
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              {stat.rttMs !== null && (
+                <div>
+                  <p className="text-zinc-500 mb-0.5">Latence</p>
+                  <p className={cn(
+                    'font-mono font-semibold',
+                    stat.rttMs < 100 ? 'text-green-400' :
+                    stat.rttMs < 300 ? 'text-yellow-400' : 'text-red-400'
+                  )}>
+                    {stat.rttMs} ms
+                  </p>
+                </div>
+              )}
+              <div>
+                <p className="text-zinc-500 mb-0.5">Perte audio</p>
+                <p className={cn(
+                  'font-mono',
+                  stat.audioPacketsLost === 0 ? 'text-green-400' :
+                  stat.audioPacketsLost < 20 ? 'text-yellow-400' : 'text-red-400'
+                )}>
+                  {stat.audioPacketsLost} paquets
+                </p>
+              </div>
+              <div>
+                <p className="text-zinc-500 mb-0.5">Reçu</p>
+                <p className="font-mono text-zinc-300">
+                  {stat.bytesReceived > 1_048_576
+                    ? `${(stat.bytesReceived / 1_048_576).toFixed(1)} MB`
+                    : `${(stat.bytesReceived / 1024).toFixed(0)} KB`}
+                </p>
+              </div>
+              <div>
+                <p className="text-zinc-500 mb-0.5">Envoyé</p>
+                <p className="font-mono text-zinc-300">
+                  {stat.bytesSent > 1_048_576
+                    ? `${(stat.bytesSent / 1_048_576).toFixed(1)} MB`
+                    : `${(stat.bytesSent / 1024).toFixed(0)} KB`}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Legend */}
+        <div className="rounded-lg border border-zinc-800/50 bg-zinc-900/30 p-2.5 space-y-1">
+          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Légende</p>
+          <div className="space-y-1 text-[10px] text-zinc-500">
+            <div className="flex items-center gap-2">
+              <span className="text-green-400 font-bold">RELAY</span>
+              <span>= via serveur TURN (cross-continent ✓)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-blue-400 font-bold">SRFLX</span>
+              <span>= direct via STUN (même opérateur)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-zinc-300 font-bold">LOCAL</span>
+              <span>= direct sur le même réseau</span>
+            </div>
+          </div>
+          <p className="text-[10px] text-zinc-600 pt-1">Mis à jour toutes les 3 s</p>
+        </div>
+      </div>
+    </ScrollArea>
+  );
+};
+
 // ── Connection status badge ──────────────────────────────────────────────────
 
 const ConnectionBadge = ({
@@ -254,7 +387,7 @@ const AdminVideoRoom = () => {
     room, roomType, participants, remoteStreams, messages, reactions,
     localStream, loading, mediaError, micEnabled, cameraEnabled,
     isScreenSharing, isJoining, isConnected, canShareScreen,
-    mutedParticipants, activeSpeakers, connectionQuality,
+    mutedParticipants, activeSpeakers, connectionQuality, peerStats,
     requestJoin, toggleMicrophone, toggleCamera, flipCamera,
     startScreenShare, stopScreenShare,
     sendMessage, editMessage, deleteMessage, toggleReaction,
@@ -606,12 +739,15 @@ const AdminVideoRoom = () => {
             {/* Sidebar */}
             <aside className="border-l border-zinc-800 bg-zinc-900 flex flex-col overflow-hidden">
               <Tabs defaultValue="chat" className="flex flex-col flex-1 overflow-hidden">
-                <TabsList className="grid w-full grid-cols-2 rounded-none border-b border-zinc-800 bg-transparent h-10 shrink-0">
+                <TabsList className="grid w-full grid-cols-3 rounded-none border-b border-zinc-800 bg-transparent h-10 shrink-0">
                   <TabsTrigger value="chat" className="rounded-none text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-500">
                     💬 Chat
                   </TabsTrigger>
                   <TabsTrigger value="participants" className="rounded-none text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-500">
-                    👥 Participants ({participants.length})
+                    👥 ({participants.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="diagnostic" className="rounded-none text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-500">
+                    📶 Réseau
                   </TabsTrigger>
                 </TabsList>
 
@@ -807,6 +943,10 @@ const AdminVideoRoom = () => {
                       })
                     )}
                   </div>
+                </TabsContent>
+
+                <TabsContent value="diagnostic" className="flex-1 flex flex-col overflow-hidden m-0 data-[state=inactive]:hidden">
+                  <DiagnosticPanel peerStats={peerStats} participants={participants} />
                 </TabsContent>
               </Tabs>
             </aside>

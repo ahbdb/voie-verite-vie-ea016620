@@ -105,6 +105,17 @@ export interface VideoMessageReactionRecord {
   created_at: string;
 }
 
+export interface PeerStat {
+  userId: string;
+  iceState: string;
+  localCandidateType: 'host' | 'srflx' | 'relay' | 'unknown';
+  remoteCandidateType: 'host' | 'srflx' | 'relay' | 'unknown';
+  rttMs: number | null;
+  bytesSent: number;
+  bytesReceived: number;
+  audioPacketsLost: number;
+}
+
 interface UseAdminVideoRoomOptions {
   roomId?: string;
   userId?: string;
@@ -137,6 +148,7 @@ export const useAdminVideoRoom = ({
   const [mutedParticipants, setMutedParticipants] = useState<Set<string>>(new Set());
   const [activeSpeakers, setActiveSpeakers] = useState<Set<string>>(new Set());
   const [connectionQuality, setConnectionQuality] = useState<'good' | 'poor' | 'reconnecting'>('good');
+  const [peerStats, setPeerStats] = useState<Map<string, PeerStat>>(new Map());
 
   const channelRef = useRef<any>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -253,6 +265,64 @@ export const useAdminVideoRoom = ({
     const id = setInterval(pollSpeakers, SPEAKING_POLL_MS);
     return () => clearInterval(id);
   }, [isConnected, pollSpeakers]);
+
+  // ── WebRTC stats collection (candidate type, RTT, packet loss) ──────────────
+
+  const collectStats = useCallback(async () => {
+    const map = new Map<string, PeerStat>();
+    await Promise.all(
+      Array.from(peerConnectionsRef.current.entries()).map(async ([pid, pc]) => {
+        try {
+          const reports = await pc.getStats();
+          const candidateMap = new Map<string, string>();
+          let localCandidateType: PeerStat['localCandidateType'] = 'unknown';
+          let remoteCandidateType: PeerStat['remoteCandidateType'] = 'unknown';
+          let rttMs: number | null = null;
+          let bytesSent = 0;
+          let bytesReceived = 0;
+          let audioPacketsLost = 0;
+
+          reports.forEach((r: RTCStats & Record<string, unknown>) => {
+            if (r.type === 'local-candidate' || r.type === 'remote-candidate') {
+              candidateMap.set(r.id as string, (r.candidateType as string) || 'unknown');
+            }
+          });
+
+          reports.forEach((r: RTCStats & Record<string, unknown>) => {
+            if (r.type === 'candidate-pair' && r.nominated && r.state === 'succeeded') {
+              rttMs = r.currentRoundTripTime != null ? Math.round((r.currentRoundTripTime as number) * 1000) : null;
+              bytesSent = (r.bytesSent as number) || 0;
+              bytesReceived = (r.bytesReceived as number) || 0;
+              localCandidateType = (candidateMap.get(r.localCandidateId as string) || 'unknown') as PeerStat['localCandidateType'];
+              remoteCandidateType = (candidateMap.get(r.remoteCandidateId as string) || 'unknown') as PeerStat['remoteCandidateType'];
+            }
+            if (r.type === 'inbound-rtp' && r.kind === 'audio') {
+              audioPacketsLost = (r.packetsLost as number) || 0;
+            }
+          });
+
+          map.set(pid, {
+            userId: pid,
+            iceState: pc.iceConnectionState,
+            localCandidateType,
+            remoteCandidateType,
+            rttMs,
+            bytesSent,
+            bytesReceived,
+            audioPacketsLost,
+          });
+        } catch { /* peer may have closed */ }
+      })
+    );
+    if (map.size > 0) setPeerStats(map);
+  }, []);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    void collectStats();
+    const id = setInterval(() => void collectStats(), 3000);
+    return () => clearInterval(id);
+  }, [isConnected, collectStats]);
 
   // ── MediaSession API — tells the OS to keep audio alive (like WhatsApp) ────
 
@@ -1085,6 +1155,7 @@ export const useAdminVideoRoom = ({
     mutedParticipants,
     activeSpeakers,
     connectionQuality,
+    peerStats,
     requestJoin,
     toggleMicrophone,
     toggleCamera,
