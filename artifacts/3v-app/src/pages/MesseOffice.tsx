@@ -5,28 +5,22 @@ import { format, addDays, subDays, nextSunday, isToday } from 'date-fns';
 import { fr, enUS, it } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navigation from '@/components/Navigation';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  BookOpen, ChevronLeft, ChevronRight, CalendarIcon, MapPin,
-  RefreshCw, AlertCircle, Sun, Moon, Sunset, Stars,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, MapPin, RefreshCw, WifiOff, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 interface AelfInformations {
   jour_liturgique_nom?: string;
   couleur?: string;
   date?: string;
   annee?: string;
+  semaine?: string;
 }
-
 interface AelfLecture {
-  type: string;
+  type?: string;
   titre?: string;
   ref?: string;
   intro_lue?: string;
@@ -34,551 +28,507 @@ interface AelfLecture {
   refrain?: string;
   verset_evangile?: string;
 }
+interface AelfMesse { nom?: string; lectures: AelfLecture[]; }
 
-interface AelfMesse {
-  nom?: string;
-  lectures: AelfLecture[];
-}
-
-interface AelfOfficePartie {
-  type?: string;
-  titre?: string;
-  contenu?: string;
-  antienne?: string;
-  ref?: string;
-}
-
-interface AelfOffice {
-  nom?: string;
-  parties?: AelfOfficePartie[];
-  lectures?: AelfLecture[];
-}
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-const AELF_BASE = 'https://api.aelf.org/v1';
+// ─── Constants ────────────────────────────────────────────────────────────────
+const AELF = 'https://api.aelf.org/v1';
 
 const ZONES = [
-  { value: 'afrique',    label: 'Afrique (Cameroun, francophone)' },
+  { value: 'afrique',    label: 'Afrique (Cameroun…)' },
   { value: 'france',     label: 'France' },
   { value: 'belgique',   label: 'Belgique' },
   { value: 'canada',     label: 'Canada' },
   { value: 'luxembourg', label: 'Luxembourg' },
   { value: 'suisse',     label: 'Suisse' },
   { value: 'monaco',     label: 'Monaco' },
-  { value: 'romain',     label: 'Calendrier romain universel' },
+  { value: 'romain',     label: 'Romain universel' },
 ];
 
-const OFFICES = [
-  { id: 'messes',    label: 'Messe',        icon: Sun },
-  { id: 'laudes',    label: 'Laudes',       icon: Sun },
-  { id: 'vepres',    label: 'Vêpres',       icon: Sunset },
-  { id: 'complies',  label: 'Complies',     icon: Moon },
-  { id: 'lectures',  label: 'Office des Lectures', icon: BookOpen },
-  { id: 'tierce',    label: 'Tierce / Sexte / None', icon: Stars },
+const TABS = [
+  { id: 'messes',   label: 'Messe' },
+  { id: 'laudes',   label: 'Laudes' },
+  { id: 'vepres',   label: 'Vêpres' },
+  { id: 'complies', label: 'Complies' },
+  { id: 'lectures', label: 'Lectures' },
+  { id: 'tierce',   label: 'Tierce' },
+  { id: 'sexte',    label: 'Sexte' },
+  { id: 'none',     label: 'None' },
 ] as const;
+type TabId = typeof TABS[number]['id'];
 
-type OfficeId = typeof OFFICES[number]['id'];
-
-const LITURGY_COLORS: Record<string, string> = {
-  rouge:  'text-red-400',
-  vert:   'text-green-400',
-  violet: 'text-purple-400',
-  blanc:  'text-yellow-100',
-  noir:   'text-gray-300',
-  rose:   'text-pink-400',
-  or:     'text-yellow-400',
+const COULEUR_CLASSES: Record<string, { bg: string; text: string; border: string }> = {
+  rouge:  { bg: 'bg-red-600',    text: 'text-red-400',    border: 'border-red-500' },
+  vert:   { bg: 'bg-green-600',  text: 'text-green-400',  border: 'border-green-500' },
+  violet: { bg: 'bg-violet-600', text: 'text-violet-400', border: 'border-violet-500' },
+  blanc:  { bg: 'bg-amber-100',  text: 'text-amber-200',  border: 'border-amber-300' },
+  or:     { bg: 'bg-yellow-500', text: 'text-yellow-400', border: 'border-yellow-400' },
+  rose:   { bg: 'bg-pink-500',   text: 'text-pink-400',   border: 'border-pink-400' },
+  noir:   { bg: 'bg-gray-700',   text: 'text-gray-300',   border: 'border-gray-500' },
 };
 
-// ── Zone detection ────────────────────────────────────────────────────────────
-function detectZoneFromTimezone(): string {
+const LECTURE_LABELS: Record<string, string> = {
+  lecture_1:        'Première lecture',
+  lecture_2:        'Deuxième lecture',
+  psaume:           'Psaume',
+  sequence:         'Séquence',
+  evangile:         'Évangile',
+  verset_evangile:  'Verset avant l\'Évangile',
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function detectZone(): string {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    if (/^Africa\//i.test(tz)) return 'afrique';
-    if (tz === 'Europe/Paris') return 'france';
+    if (/^Africa\//i.test(tz))  return 'afrique';
+    if (tz === 'Europe/Paris')   return 'france';
     if (tz === 'Europe/Brussels') return 'belgique';
     if (/^America\/(Toronto|Montreal|Halifax|Vancouver|Winnipeg|Regina|Edmonton|St_Johns)/i.test(tz)) return 'canada';
     if (tz === 'Europe/Zurich' || tz === 'Europe/Bern') return 'suisse';
     if (tz === 'Europe/Luxembourg') return 'luxembourg';
-    if (tz === 'Europe/Monaco') return 'monaco';
+    if (tz === 'Europe/Monaco')  return 'monaco';
   } catch { /* ignore */ }
   return 'romain';
 }
 
-// ── AELF fetchers ─────────────────────────────────────────────────────────────
-async function fetchMesses(date: string, zone: string): Promise<{ informations: AelfInformations; messes: AelfMesse[] }> {
-  const res = await fetch(`${AELF_BASE}/messes/${date}/${zone}`, { signal: AbortSignal.timeout(12000) });
-  if (!res.ok) throw new Error(`AELF ${res.status}`);
-  return res.json();
+function toDateStr(d: Date) { return format(d, 'yyyy-MM-dd'); }
+
+// ─── Fetchers ─────────────────────────────────────────────────────────────────
+async function fetchTab(tab: TabId, date: string, zone: string): Promise<any> {
+  if (tab === 'messes') {
+    const r = await fetch(`${AELF}/messes/${date}/${zone}`, { signal: AbortSignal.timeout(14000) });
+    if (!r.ok) throw new Error(String(r.status));
+    return r.json();
+  }
+  const r = await fetch(`${AELF}/offices/${tab}/${date}/${zone}`, { signal: AbortSignal.timeout(14000) });
+  if (!r.ok) throw new Error(String(r.status));
+  return r.json();
 }
 
-async function fetchOffice(office: string, date: string, zone: string): Promise<{ informations: AelfInformations; [key: string]: any }> {
-  const res = await fetch(`${AELF_BASE}/offices/${office}/${date}/${zone}`, { signal: AbortSignal.timeout(12000) });
-  if (!res.ok) throw new Error(`AELF ${res.status}`);
-  return res.json();
-}
+// ─── Reading components ───────────────────────────────────────────────────────
 
-async function fetchTierceGroup(date: string, zone: string): Promise<any> {
-  const results = await Promise.allSettled([
-    fetchOffice('tierce', date, zone),
-    fetchOffice('sexte', date, zone),
-    fetchOffice('none', date, zone),
-  ]);
-  return results;
-}
+/** Renders a single AELF lecture (reading, psalm, gospel, etc.) in AELF style */
+const Lecture = ({ lecture, index }: { lecture: AelfLecture; index: number }) => {
+  const type   = lecture.type || '';
+  const label  = LECTURE_LABELS[type] || type.replace(/_/g, ' ');
+  const isEvangile = type.includes('evangile') && type !== 'verset_evangile';
+  const isPsaume  = type === 'psaume';
+  const isVerset  = type === 'verset_evangile';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function toDateStr(d: Date) {
-  return format(d, 'yyyy-MM-dd');
-}
+  if (isVerset && !lecture.contenu && !lecture.verset_evangile) return null;
 
-function cleanHtml(html: string = ''): string {
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-const LectureBlock = ({ lecture, lang }: { lecture: AelfLecture; lang: string }) => {
-  const isEvangile = lecture.type?.includes('evangile');
-  const isPsaume = lecture.type === 'psaume';
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
+    <motion.section
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className={cn(
-        'mb-8 rounded-lg p-5',
-        isEvangile
-          ? 'bg-yellow-900/20 border border-yellow-700/30'
-          : isPsaume
-          ? 'bg-purple-900/20 border border-purple-700/30'
-          : 'bg-white/5 border border-white/10',
-      )}
+      transition={{ delay: index * 0.05 }}
+      className="py-8 border-b border-white/8 last:border-0"
     >
-      {lecture.titre && (
-        <h3 className="font-cinzel text-sm font-semibold text-primary/80 mb-1 uppercase tracking-widest">
-          {lecture.titre}
-        </h3>
-      )}
-      {lecture.ref && (
-        <p className="text-xs italic text-muted-foreground mb-3">{lecture.ref}</p>
-      )}
-      {lecture.intro_lue && (
-        <p className="text-sm text-muted-foreground mb-3 italic">{lecture.intro_lue}</p>
-      )}
-      {lecture.verset_evangile && lecture.verset_evangile.trim() && (
-        <p className="text-sm italic text-yellow-400/80 mb-3 border-l-2 border-yellow-500/40 pl-3">
-          {cleanHtml(lecture.verset_evangile)}
+      {/* ── Section header ── */}
+      <header className="mb-5">
+        <p className={cn(
+          'text-[10px] font-bold uppercase tracking-[0.2em] mb-1',
+          isEvangile ? 'text-amber-400' : isPsaume ? 'text-blue-400' : 'text-primary/60'
+        )}>
+          {isEvangile && <span className="mr-1.5">✝</span>}
+          {label}
         </p>
+        {lecture.ref && (
+          <p className="text-sm italic text-muted-foreground/80 leading-snug">{lecture.ref}</p>
+        )}
+        {lecture.titre && lecture.titre !== lecture.ref && (
+          <p className="text-sm text-muted-foreground/60 mt-0.5 italic">{lecture.titre}</p>
+        )}
+      </header>
+
+      {/* ── Verset évangile ── */}
+      {isVerset && (
+        <blockquote className="border-l-2 border-amber-500/50 pl-4 italic text-sm text-amber-200/80 leading-relaxed">
+          {lecture.verset_evangile
+            ? <span dangerouslySetInnerHTML={{ __html: lecture.verset_evangile }} />
+            : lecture.contenu && <span dangerouslySetInnerHTML={{ __html: lecture.contenu }} />}
+        </blockquote>
       )}
-      {lecture.refrain && (
-        <p className="text-sm font-medium text-purple-300 mb-3 italic">R/ {cleanHtml(lecture.refrain)}</p>
+
+      {/* ── Psalm refrain + verses ── */}
+      {isPsaume && (
+        <div className="space-y-4">
+          {lecture.refrain && (
+            <div className="bg-blue-900/25 border border-blue-700/30 rounded-lg px-4 py-3">
+              <p className="text-[10px] uppercase tracking-widest text-blue-400/70 mb-1.5">Refrain</p>
+              <p className="text-sm font-medium text-blue-100/90 leading-relaxed italic">
+                {lecture.refrain}
+              </p>
+            </div>
+          )}
+          {lecture.contenu && (
+            <div
+              className="text-sm leading-[1.9] text-foreground/85 psalm-content"
+              dangerouslySetInnerHTML={{ __html: lecture.contenu }}
+            />
+          )}
+        </div>
       )}
-      {lecture.contenu && (
+
+      {/* ── Regular reading ── */}
+      {!isPsaume && !isVerset && lecture.intro_lue && (
+        <p className="text-xs italic text-muted-foreground/60 mb-4">{lecture.intro_lue}</p>
+      )}
+      {!isPsaume && !isVerset && lecture.contenu && (
         <div
-          className="text-sm leading-relaxed text-foreground/90 whitespace-pre-line liturgical-text"
+          className={cn(
+            'leading-[1.9] reading-content',
+            isEvangile
+              ? 'text-[0.9375rem] text-foreground/95'
+              : 'text-[0.875rem] text-foreground/85'
+          )}
           dangerouslySetInnerHTML={{ __html: lecture.contenu }}
         />
       )}
-    </motion.div>
+    </motion.section>
   );
 };
 
-const OfficeBlock = ({ partie }: { partie: AelfOfficePartie }) => {
-  if (!partie.contenu && !partie.titre) return null;
+/** Renders an office partie (hymn, antiphon, etc.) */
+const OfficePartie = ({ partie, index }: { partie: any; index: number }) => {
+  if (!partie?.contenu && !partie?.titre) return null;
+  const label = partie.titre || partie.type || '';
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
+    <motion.section
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mb-6 pb-6 border-b border-white/10 last:border-0"
+      transition={{ delay: index * 0.04 }}
+      className="py-7 border-b border-white/8 last:border-0"
     >
-      {partie.titre && (
-        <h4 className="font-cinzel text-xs font-semibold text-primary/70 uppercase tracking-widest mb-2">
-          {partie.titre}
-        </h4>
-      )}
-      {partie.ref && (
-        <p className="text-xs italic text-muted-foreground mb-2">{partie.ref}</p>
+      {label && (
+        <header className="mb-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/55 mb-0.5">{label}</p>
+          {partie.ref && <p className="text-sm italic text-muted-foreground/70">{partie.ref}</p>}
+        </header>
       )}
       {partie.antienne && (
-        <p className="text-sm italic text-yellow-400/80 mb-2 border-l-2 border-yellow-500/40 pl-3">
-          Ant. {cleanHtml(partie.antienne)}
-        </p>
+        <div className="bg-primary/8 border border-primary/20 rounded-lg px-4 py-3 mb-4">
+          <p className="text-[10px] uppercase tracking-widest text-primary/60 mb-1.5">Antienne</p>
+          <p className="text-sm italic text-primary/90 leading-relaxed">{partie.antienne}</p>
+        </div>
       )}
       {partie.contenu && (
         <div
-          className="text-sm leading-relaxed text-foreground/90 whitespace-pre-line liturgical-text"
+          className="text-sm leading-[1.9] text-foreground/85 reading-content"
           dangerouslySetInnerHTML={{ __html: partie.contenu }}
         />
       )}
-    </motion.div>
+    </motion.section>
   );
 };
 
-const LoadingSpinner = () => (
-  <div className="flex flex-col items-center justify-center py-24 gap-4">
-    <div className="w-10 h-10 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-    <p className="text-sm text-muted-foreground">Chargement des textes liturgiques…</p>
+// ─── Loading skeleton ─────────────────────────────────────────────────────────
+const Skeleton = () => (
+  <div className="space-y-8 pt-4 animate-pulse">
+    {[1, 2, 3].map(i => (
+      <div key={i} className="py-7 border-b border-white/8">
+        <div className="h-2.5 w-24 bg-white/10 rounded mb-2" />
+        <div className="h-3.5 w-40 bg-white/8 rounded mb-5" />
+        {Array.from({ length: 5 }).map((_, j) => (
+          <div key={j} className={`h-3 bg-white/${j % 3 === 2 ? '5' : '8'} rounded mb-2.5`} style={{ width: `${70 + (j * 7) % 30}%` }} />
+        ))}
+      </div>
+    ))}
   </div>
 );
 
-const ErrorMessage = ({ message, onRetry }: { message: string; onRetry: () => void }) => (
-  <div className="flex flex-col items-center justify-center py-24 gap-4 text-center px-4">
-    <AlertCircle className="w-10 h-10 text-destructive/60" />
+// ─── Error state ──────────────────────────────────────────────────────────────
+const ErrorState = ({ offline, onRetry }: { offline: boolean; onRetry: () => void }) => (
+  <div className="flex flex-col items-center gap-4 py-20 text-center px-6">
+    {offline
+      ? <WifiOff className="w-10 h-10 text-muted-foreground/40" />
+      : <AlertCircle className="w-10 h-10 text-muted-foreground/40" />}
     <div>
-      <p className="font-medium text-foreground/80">Textes indisponibles</p>
-      <p className="text-sm text-muted-foreground mt-1">{message}</p>
+      <p className="font-medium text-foreground/70">
+        {offline ? 'Vous êtes hors ligne' : 'Textes indisponibles'}
+      </p>
+      <p className="text-sm text-muted-foreground mt-1">
+        {offline
+          ? 'Reconnectez-vous pour accéder aux textes liturgiques.'
+          : 'Les textes ne sont pas disponibles pour cette date ou zone. Réessayez ou consultez directement aelf.org'}
+      </p>
     </div>
-    <Button variant="outline" size="sm" onClick={onRetry} className="gap-2">
-      <RefreshCw className="w-3.5 h-3.5" />
-      Réessayer
-    </Button>
-    <p className="text-xs text-muted-foreground">
-      Si le problème persiste, vous pouvez consulter directement{' '}
-      <a href="https://www.aelf.org" target="_blank" rel="noopener noreferrer" className="text-primary underline">
-        aelf.org
-      </a>
-    </p>
+    {!offline && (
+      <button
+        onClick={onRetry}
+        className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors mt-1"
+      >
+        <RefreshCw className="w-3.5 h-3.5" /> Réessayer
+      </button>
+    )}
+    <a
+      href="https://www.aelf.org"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-xs text-muted-foreground/50 underline hover:text-muted-foreground transition-colors"
+    >
+      Ouvrir aelf.org
+    </a>
   </div>
 );
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ─── Main page ────────────────────────────────────────────────────────────────
 const MesseOffice = () => {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const lang = i18n.language?.substring(0, 2) || 'fr';
   const dateLocale = lang === 'fr' ? fr : lang === 'it' ? it : enUS;
 
-  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
-  const [zone, setZone] = useState<string>(() => {
-    return localStorage.getItem('liturgical_zone') || detectZoneFromTimezone();
-  });
-  const [activeTab, setActiveTab] = useState<OfficeId>('messes');
+  const [date, setDate]       = useState<Date>(() => new Date());
+  const [zone, setZone]       = useState<string>(() => localStorage.getItem('liturgical_zone') || detectZone());
+  const [tab, setTab]         = useState<TabId>('messes');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<any>(null);
-  const [liturgicalName, setLiturgicalName] = useState<string>('');
-  const [liturgicalColor, setLiturgicalColor] = useState<string>('');
+  const [offline, setOffline] = useState(false);
+  const [error, setError]     = useState(false);
+  const [data, setData]       = useState<any>(null);
+  const [liturgyName, setLiturgyName] = useState('');
+  const [liturgyColor, setLiturgyColor] = useState('');
+  const tabsRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const dateStr = toDateStr(selectedDate);
+  const dateStr = toDateStr(date);
 
-  const fetchContent = useCallback(async (date: string, z: string, office: OfficeId) => {
-    if (abortRef.current) abortRef.current.abort();
+  const load = useCallback(async (d: string, z: string, t: TabId) => {
+    abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    setLoading(true);
-    setError(null);
-    setData(null);
+    setLoading(true); setError(false); setOffline(false); setData(null);
     try {
-      let result: any;
-      if (office === 'messes') {
-        result = await fetchMesses(date, z);
-        if (result.informations?.jour_liturgique_nom) {
-          setLiturgicalName(result.informations.jour_liturgique_nom);
-          setLiturgicalColor(result.informations.couleur || '');
-        }
-      } else if (office === 'tierce') {
-        result = await fetchTierceGroup(date, z);
-        if (!liturgicalName) {
-          const first = result.find((r: any) => r.status === 'fulfilled');
-          if (first?.value?.informations?.jour_liturgique_nom) {
-            setLiturgicalName(first.value.informations.jour_liturgique_nom);
-          }
-        }
-      } else {
-        result = await fetchOffice(office, date, z);
-        if (result.informations?.jour_liturgique_nom && !liturgicalName) {
-          setLiturgicalName(result.informations.jour_liturgique_nom);
-          setLiturgicalColor(result.informations.couleur || '');
-        }
-      }
-      if (!ctrl.signal.aborted) setData(result);
+      const result = await fetchTab(t, d, z);
+      if (ctrl.signal.aborted) return;
+      const info: AelfInformations = result?.informations || {};
+      if (info.jour_liturgique_nom) setLiturgyName(info.jour_liturgique_nom);
+      if (info.couleur) setLiturgyColor(info.couleur.toLowerCase());
+      setData(result);
     } catch (err: any) {
       if (ctrl.signal.aborted) return;
-      if (err?.name === 'TimeoutError' || err?.message?.includes('timeout')) {
-        setError("L'API liturgique ne répond pas. Vérifiez votre connexion et réessayez.");
-      } else if (!navigator.onLine) {
-        setError('Vous êtes hors ligne. Reconnectez-vous pour accéder aux textes liturgiques.');
-      } else {
-        setError("Les textes liturgiques ne sont pas disponibles pour cette date ou cette zone.");
-      }
+      if (!navigator.onLine) { setOffline(true); }
+      else { setError(true); }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  useEffect(() => {
-    fetchContent(dateStr, zone, activeTab);
-  }, [dateStr, zone, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(dateStr, zone, tab); }, [dateStr, zone, tab]); // eslint-disable-line
 
-  const handleZoneChange = (z: string) => {
-    setZone(z);
-    localStorage.setItem('liturgical_zone', z);
+  const changeZone = (z: string) => { setZone(z); localStorage.setItem('liturgical_zone', z); };
+
+  const goDate = (d: Date) => { setDate(d); setLiturgyName(''); setLiturgyColor(''); };
+
+  const changeTab = (t: TabId) => {
+    setTab(t);
+    // scroll tab into view
+    setTimeout(() => {
+      const el = tabsRef.current?.querySelector(`[data-tab="${t}"]`) as HTMLElement;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }, 50);
   };
 
-  const goToDate = (d: Date) => {
-    setSelectedDate(d);
-    setLiturgicalName('');
-  };
-
-  const nextSundayDate = nextSunday(new Date());
-
-  // ── Render content based on active tab ──────────────────────────────────
+  // ── Content renderer ────────────────────────────────────────────────────────
   const renderContent = () => {
-    if (loading) return <LoadingSpinner />;
-    if (error) return <ErrorMessage message={error} onRetry={() => fetchContent(dateStr, zone, activeTab)} />;
-    if (!data) return null;
+    if (loading) return <Skeleton />;
+    if (offline) return <ErrorState offline onRetry={() => load(dateStr, zone, tab)} />;
+    if (error)   return <ErrorState offline={false} onRetry={() => load(dateStr, zone, tab)} />;
+    if (!data)   return null;
 
-    if (activeTab === 'messes') {
+    if (tab === 'messes') {
       const messes: AelfMesse[] = data.messes || [];
-      if (!messes.length) return <p className="text-center text-muted-foreground py-16">Aucun texte disponible pour cette date.</p>;
+      if (!messes.length) return <EmptyState />;
       return (
-        <div className="space-y-2">
-          {messes.map((messe, mi) => (
+        <div>
+          {messes.map((m, mi) => (
             <div key={mi}>
-              {messe.nom && messes.length > 1 && (
-                <h2 className="font-cinzel text-base font-semibold text-primary mb-4 mt-6">{messe.nom}</h2>
+              {m.nom && messes.length > 1 && (
+                <p className="text-[10px] uppercase tracking-[0.2em] text-primary/50 font-bold mt-8 mb-2">{m.nom}</p>
               )}
-              {(messe.lectures || []).map((lecture, li) => (
-                <LectureBlock key={li} lecture={lecture} lang={lang} />
-              ))}
+              {(m.lectures || []).map((l, li) => <Lecture key={li} lecture={l} index={li} />)}
             </div>
           ))}
         </div>
       );
     }
 
-    if (activeTab === 'tierce') {
-      const results: PromiseSettledResult<any>[] = data;
-      const labels = ['Tierce', 'Sexte', 'None'];
-      return (
-        <div className="space-y-8">
-          {results.map((r, i) => (
-            <div key={i}>
-              <h2 className="font-cinzel text-base font-semibold text-primary mb-4 border-b border-primary/20 pb-2">
-                {labels[i]}
-              </h2>
-              {r.status === 'rejected' ? (
-                <p className="text-sm text-muted-foreground italic">Office non disponible.</p>
-              ) : (
-                <OfficeDataRenderer data={r.value} officeId={['tierce', 'sexte', 'none'][i]} />
-              )}
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    return <OfficeDataRenderer data={data} officeId={activeTab} />;
+    // Office
+    const office = data?.[tab];
+    if (!office) return <EmptyState />;
+    const parties = office.parties || [];
+    const lectures = office.lectures || [];
+    if (!parties.length && !lectures.length) return <EmptyState />;
+    return (
+      <div>
+        {lectures.map((l: AelfLecture, i: number) => <Lecture key={i} lecture={l} index={i} />)}
+        {parties.map((p: any, i: number) => <OfficePartie key={i} partie={p} index={i} />)}
+      </div>
+    );
   };
+
+  const couleurStyle = liturgyColor ? COULEUR_CLASSES[liturgyColor] : null;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Helmet>
         <title>Messe et Office — 3V</title>
         <style>{`
-          .liturgical-text p { margin-bottom: 0.75em; }
-          .liturgical-text p:last-child { margin-bottom: 0; }
-          .liturgical-text strong, .liturgical-text b { color: hsl(var(--primary)); }
-          .liturgical-text em, .liturgical-text i { color: hsl(var(--foreground) / 0.75); }
-          .liturgical-text br { display: block; content: ''; margin-top: 0.4em; }
-          .font-cinzel { font-family: 'Cinzel', 'Georgia', serif; }
+          .reading-content p   { margin-bottom: 1em; }
+          .reading-content p:last-child { margin-bottom: 0; }
+          .reading-content strong,
+          .reading-content b   { color: hsl(var(--primary)); font-weight: 600; }
+          .reading-content em,
+          .reading-content i   { color: hsl(var(--foreground)/0.65); }
+          .psalm-content  p    { margin-bottom: 0.6em; }
+          .psalm-content  p:last-child { margin-bottom: 0; }
         `}</style>
       </Helmet>
+
       <Navigation />
 
-      <div className="max-w-2xl mx-auto px-4 pt-6 pb-24">
-        {/* ── Header ── */}
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <BookOpen className="w-5 h-5 text-primary" />
-            <h1 className="font-cinzel text-xl font-bold tracking-wide text-primary">Messe et Office</h1>
-          </div>
-          <p className="text-xs text-muted-foreground">Textes liturgiques officiels — AELF</p>
-        </motion.div>
+      {/* ── Liturgical colour band ─────────────────────────────────────── */}
+      {liturgyColor && couleurStyle && (
+        <div className={cn('h-1 w-full', couleurStyle.bg)} />
+      )}
 
-        {/* ── Date navigation ── */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.05 }}
-          className="flex items-center gap-2 mb-4 flex-wrap"
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => goToDate(subDays(selectedDate, 1))}
-            title="Jour précédent"
+      <div className="max-w-[680px] mx-auto px-5 pb-28">
+
+        {/* ══ DATE HEADER ══════════════════════════════════════════════════ */}
+        <div className="flex items-center justify-between pt-6 pb-5">
+          {/* Prev */}
+          <button
+            onClick={() => goDate(subDays(date, 1))}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/8 transition-colors text-muted-foreground hover:text-foreground"
+            aria-label="Jour précédent"
           >
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
+            <ChevronLeft className="w-5 h-5" />
+          </button>
 
+          {/* Date display */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className={cn(
-                  'gap-2 font-medium text-sm flex-1 min-w-0 max-w-[200px]',
-                  isToday(selectedDate) && 'border-primary/60 text-primary'
-                )}
-              >
-                <CalendarIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                <span className="truncate">
-                  {isToday(selectedDate)
-                    ? "Aujourd'hui"
-                    : format(selectedDate, 'EEEE d MMMM yyyy', { locale: dateLocale })}
-                </span>
-              </Button>
+              <button className="flex-1 text-center group">
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground/70 mb-0.5">
+                  {format(date, 'EEEE', { locale: dateLocale })}
+                  {isToday(date) && (
+                    <span className="ml-2 text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                      Aujourd'hui
+                    </span>
+                  )}
+                </p>
+                <p className="font-cinzel text-4xl font-bold text-foreground leading-none group-hover:text-primary transition-colors">
+                  {format(date, 'd')}
+                </p>
+                <p className="text-sm text-muted-foreground mt-0.5 uppercase tracking-widest">
+                  {format(date, 'MMMM yyyy', { locale: dateLocale })}
+                </p>
+              </button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(d) => d && goToDate(d)}
-                className="p-3 pointer-events-auto"
-              />
+            <PopoverContent className="w-auto p-0" align="center">
+              <div className="p-2 flex gap-1 border-b border-border/40">
+                {[
+                  { label: 'Hier',      fn: () => goDate(subDays(new Date(), 1)) },
+                  { label: "Aujourd'hui", fn: () => goDate(new Date()) },
+                  { label: 'Demain',    fn: () => goDate(addDays(new Date(), 1)) },
+                  { label: 'Dim. prochain', fn: () => goDate(nextSunday(new Date())) },
+                ].map(({ label, fn }) => (
+                  <button key={label} onClick={fn} className="text-xs px-2 py-1 rounded hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <Calendar mode="single" selected={date} onSelect={d => d && goDate(d)} className="p-3 pointer-events-auto" />
             </PopoverContent>
           </Popover>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => goToDate(addDays(selectedDate, 1))}
-            title="Jour suivant"
+          {/* Next */}
+          <button
+            onClick={() => goDate(addDays(date, 1))}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/8 transition-colors text-muted-foreground hover:text-foreground"
+            aria-label="Jour suivant"
           >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
 
-          <div className="flex gap-1.5 flex-wrap">
-            {!isToday(selectedDate) && (
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => goToDate(new Date())}>
-                Aujourd'hui
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => goToDate(subDays(new Date(), 1))}>
-              Hier
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => goToDate(addDays(new Date(), 1))}>
-              Demain
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => goToDate(nextSundayDate)}>
-              Dim. prochain
-            </Button>
-          </div>
-        </motion.div>
-
-        {/* ── Liturgical name + zone selector ── */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="flex items-start justify-between gap-3 mb-5"
-        >
-          <div className="flex-1 min-w-0">
-            {liturgicalName ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className={cn('w-2 h-2 rounded-full flex-shrink-0', LITURGY_COLORS[liturgicalColor] || 'text-primary')}>●</span>
-                <p className={cn('font-cinzel text-sm font-semibold', LITURGY_COLORS[liturgicalColor] || 'text-primary')}>
-                  {liturgicalName}
-                </p>
-              </div>
-            ) : (
-              <div className="h-5 w-48 bg-white/10 rounded animate-pulse" />
-            )}
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {format(selectedDate, 'EEEE d MMMM yyyy', { locale: dateLocale })}
+        {/* ══ FEAST NAME ══════════════════════════════════════════════════ */}
+        <div className="text-center pb-5">
+          {liturgyName ? (
+            <p className={cn(
+              'text-sm font-medium italic',
+              couleurStyle ? couleurStyle.text : 'text-muted-foreground'
+            )}>
+              {liturgyName}
             </p>
-          </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-            <Select value={zone} onValueChange={handleZoneChange}>
-              <SelectTrigger className="h-7 text-xs w-[140px] border-white/20">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ZONES.map((z) => (
-                  <SelectItem key={z.value} value={z.value} className="text-xs">
-                    {z.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </motion.div>
+          ) : loading ? (
+            <div className="h-4 w-56 bg-white/10 rounded mx-auto animate-pulse" />
+          ) : null}
+        </div>
 
-        {/* ── Tabs ── */}
-        <Tabs
-          value={activeTab}
-          onValueChange={(v) => setActiveTab(v as OfficeId)}
-          className="w-full"
-        >
-          <TabsList className="w-full grid grid-cols-3 sm:grid-cols-6 h-auto gap-1 bg-white/5 p-1 mb-6 rounded-lg">
-            {OFFICES.map((o) => (
-              <TabsTrigger
-                key={o.id}
-                value={o.id}
-                className={cn(
-                  'text-xs py-1.5 px-2 rounded data-[state=active]:bg-primary data-[state=active]:text-primary-foreground',
-                  'leading-tight'
-                )}
-              >
-                {o.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`${dateStr}-${zone}-${activeTab}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              {OFFICES.map((o) => (
-                <TabsContent key={o.id} value={o.id} className="mt-0">
-                  {activeTab === o.id && renderContent()}
-                </TabsContent>
+        {/* ══ ZONE SELECTOR ══════════════════════════════════════════════ */}
+        <div className="flex items-center justify-center gap-1.5 pb-6">
+          <MapPin className="w-3 h-3 text-muted-foreground/50" />
+          <Select value={zone} onValueChange={changeZone}>
+            <SelectTrigger className="h-6 text-[11px] border-0 bg-transparent text-muted-foreground/60 hover:text-muted-foreground w-auto gap-1 focus:ring-0 px-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ZONES.map(z => (
+                <SelectItem key={z.value} value={z.value} className="text-xs">{z.label}</SelectItem>
               ))}
-            </motion.div>
-          </AnimatePresence>
-        </Tabs>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* ══ TABS ═══════════════════════════════════════════════════════ */}
+        <div
+          ref={tabsRef}
+          className="flex overflow-x-auto gap-0 border-b border-white/12 mb-1 -mx-5 px-5 scrollbar-hide"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          {TABS.map(t => {
+            const isActive = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                data-tab={t.id}
+                onClick={() => changeTab(t.id)}
+                className={cn(
+                  'flex-shrink-0 px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] transition-all duration-150 border-b-2 -mb-px whitespace-nowrap',
+                  isActive
+                    ? 'text-foreground border-primary'
+                    : 'border-transparent text-muted-foreground/55 hover:text-muted-foreground hover:border-white/20'
+                )}
+                style={isActive && couleurStyle ? { borderColor: '', color: '' } : undefined}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ══ CONTENT ════════════════════════════════════════════════════ */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`${dateStr}-${zone}-${tab}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
+          >
+            {renderContent()}
+          </motion.div>
+        </AnimatePresence>
+
       </div>
     </div>
   );
 };
 
-// ── OfficeDataRenderer ─────────────────────────────────────────────────────────
-const OfficeDataRenderer = ({ data, officeId }: { data: any; officeId: string }) => {
-  const office: AelfOffice = data?.[officeId];
-  if (!office) {
-    return <p className="text-center text-muted-foreground py-16 text-sm">Office non disponible pour cette date.</p>;
-  }
-  const parties: AelfOfficePartie[] = office.parties || [];
-  const lectures: AelfLecture[] = office.lectures || [];
-  if (!parties.length && !lectures.length) {
-    return <p className="text-center text-muted-foreground py-16 text-sm">Aucun texte disponible.</p>;
-  }
-  return (
-    <div>
-      {lectures.map((l, i) => <LectureBlock key={`l${i}`} lecture={l} lang="fr" />)}
-      {parties.map((p, i) => <OfficeBlock key={`p${i}`} partie={p} />)}
-    </div>
-  );
-};
+const EmptyState = () => (
+  <div className="py-20 text-center">
+    <CalendarDays className="w-8 h-8 mx-auto mb-3 text-muted-foreground/30" />
+    <p className="text-sm text-muted-foreground">Aucun texte disponible pour cette date.</p>
+  </div>
+);
 
 export default MesseOffice;
