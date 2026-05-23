@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { playAttentionTone, sendVisibleNotification } from '@/lib/notification-service';
@@ -22,6 +21,8 @@ export type AppNotificationType =
 export const useBroadcastNotifications = () => {
   const { user } = useAuth();
   const ringIntervalRef = useRef<number | null>(null);
+  const lastSeenIdRef = useRef<string | null>(null);
+  const pollIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -34,32 +35,37 @@ export const useBroadcastNotifications = () => {
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        stopRinging();
-      }
+      if (document.visibilityState === 'visible') stopRinging();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    const channel = supabase
-      .channel(`notifications-toast:${user.id}:${Math.random().toString(36).slice(2)}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const n = payload.new as {
-            id: string;
-            title: string;
-            message: string;
-            type: AppNotificationType;
-            link: string | null;
-          };
+    const checkForNew = async () => {
+      try {
+        const res = await fetch('/api/notifications?limit=5', { credentials: 'include' });
+        if (!res.ok) return;
+        const rows = await res.json() as Array<{
+          id: string;
+          title: string;
+          message: string;
+          type: AppNotificationType;
+          link: string | null;
+        }>;
+        if (!rows.length) return;
 
+        const newest = rows[0];
+
+        if (lastSeenIdRef.current === null) {
+          lastSeenIdRef.current = newest.id;
+          return;
+        }
+
+        if (newest.id === lastSeenIdRef.current) return;
+
+        const newRows = rows.filter((r) => r.id !== lastSeenIdRef.current);
+        lastSeenIdRef.current = newest.id;
+
+        for (const n of newRows.slice(0, 3)) {
           const isCall = n.type === 'call';
           const url = n.link || '/';
 
@@ -114,19 +120,19 @@ export const useBroadcastNotifications = () => {
                   toast.dismiss(toastId);
                 },
               }),
-            {
-              duration: isCall ? 20000 : 7000,
-              position: 'top-right',
-            }
+            { duration: isCall ? 20000 : 7000, position: 'top-right' }
           );
         }
-      )
-      .subscribe();
+      } catch {}
+    };
+
+    pollIntervalRef.current = window.setInterval(() => void checkForNew(), 15000);
+    void checkForNew();
 
     return () => {
       stopRinging();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      supabase.removeChannel(channel);
+      if (pollIntervalRef.current) window.clearInterval(pollIntervalRef.current);
     };
   }, [user?.id]);
 };
@@ -139,22 +145,14 @@ export const broadcastNotificationService = {
     _icon?: string,
     link: string | null = null
   ) {
-    const { data: profiles, error: pe } = await supabase.from('profiles').select('id');
-    if (pe) throw pe;
-    if (!profiles || profiles.length === 0) return { inserted: 0 };
-
-    const payload = profiles.map((p) => ({
-      user_id: p.id,
-      title,
-      message,
-      type,
-      link,
-      is_read: false,
-    }));
-
-    const { error } = await supabase.from('notifications').insert(payload);
-    if (error) throw error;
-    return { inserted: payload.length };
+    const res = await fetch('/api/notifications/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ title, message, type, link }),
+    });
+    if (!res.ok) throw new Error('Failed to broadcast');
+    return res.json();
   },
 
   async sendToRole(
@@ -165,24 +163,14 @@ export const broadcastNotificationService = {
     _icon?: string,
     link: string | null = null
   ) {
-    const roleFilter = role === 'admin' ? ['admin', 'admin_principal'] : ['user'];
-    const { data: roleRows, error: re } = await supabase.from('user_roles').select('user_id, role').in('role', roleFilter as any);
-    if (re) throw re;
-    if (!roleRows || roleRows.length === 0) return { inserted: 0 };
-
-    const uniqueIds = [...new Set(roleRows.map((e) => e.user_id))];
-    const payload = uniqueIds.map((uid) => ({
-      user_id: uid,
-      title,
-      message,
-      type,
-      link,
-      is_read: false,
-    }));
-
-    const { error } = await supabase.from('notifications').insert(payload);
-    if (error) throw error;
-    return { inserted: payload.length };
+    const res = await fetch('/api/notifications/broadcast-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ title, message, role, type, link }),
+    });
+    if (!res.ok) throw new Error('Failed to broadcast to role');
+    return res.json();
   },
 };
 

@@ -24,6 +24,24 @@ router.patch("/notifications/:id/read", requireAuth, async (req, res) => {
   } catch { res.status(500).json({ error: "Failed to mark as read" }); }
 });
 
+router.patch("/notifications/read-all", requireAuth, async (req, res) => {
+  const user = (req as any).user;
+  try {
+    await db.update(notifications).set({ is_read: true })
+      .where(and(eq(notifications.user_id, user.id), eq(notifications.is_read, false)));
+    res.json({ success: true });
+  } catch { res.status(500).json({ error: "Failed to mark all as read" }); }
+});
+
+router.delete("/notifications/:id", requireAuth, async (req, res) => {
+  const user = (req as any).user;
+  try {
+    await db.delete(notifications)
+      .where(and(eq(notifications.id, req.params.id), eq(notifications.user_id, user.id)));
+    res.json({ success: true });
+  } catch { res.status(500).json({ error: "Failed to delete notification" }); }
+});
+
 router.post("/notifications/broadcast", requireAdmin, async (req, res) => {
   const { title, message, type = "announcement", link = null } = req.body;
   try {
