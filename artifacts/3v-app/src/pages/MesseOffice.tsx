@@ -219,6 +219,7 @@ const OFFICE_FIELD_ORDER = [
   'antienne_zacharie', 'cantique_zacharie',
   'antienne_ben', 'benedictus',
   'antienne_mag', 'magnificat',
+  'antienne_magnificat', 'cantique_mariale',
   'antienne_symeon', 'cantique_symeon',
   'intercessions', 'intercession',
   'notre_pere', 'oraison', 'benediction', 'hymne_mariale',
@@ -229,7 +230,7 @@ const OFFICE_LABELS: Record<string, string> = {
   psaume_1:'Psaume 1', psaume_2:'Psaume 2', psaume_3:'Psaume 3',
   capitule:'Capitule', pericope:'Péricope', repons:'Répons', verset:'Verset',
   cantique_zacharie:'Benedictus', benedictus:'Benedictus',
-  magnificat:'Magnificat', cantique_symeon:'Syméon',
+  magnificat:'Magnificat', cantique_mariale:'Magnificat', cantique_symeon:'Syméon',
   intercessions:'Intercessions', intercession:'Intercessions',
   notre_pere:'Notre Père', oraison:'Oraison',
   benediction:'Bénédiction', hymne_mariale:'Hymne mariale',
@@ -240,7 +241,8 @@ const ANTIENNE_PAIR: Record<string, string> = {
   antienne_invitatoire: 'psaume_invitatoire',
   antienne_1: 'psaume_1', antienne_2: 'psaume_2', antienne_3: 'psaume_3',
   antienne_zacharie: 'cantique_zacharie',
-  antienne_ben: 'benedictus', antienne_mag: 'magnificat', antienne_symeon: 'cantique_symeon',
+  antienne_ben: 'benedictus', antienne_mag: 'magnificat',
+  antienne_magnificat: 'cantique_mariale', antienne_symeon: 'cantique_symeon',
 };
 const ANTIENNE_KEYS = new Set(Object.keys(ANTIENNE_PAIR));
 const PSALM_TO_ANT: Record<string, string> = Object.fromEntries(
@@ -250,7 +252,7 @@ const PSALM_TO_ANT: Record<string, string> = Object.fromEntries(
 const PSALM_FIELD_RE = /^psaume_/;
 const CANTICLE_FIXED: Record<string, string> = {
   cantique_zacharie: 'Benedictus', benedictus: 'Benedictus',
-  magnificat: 'Magnificat', cantique_symeon: 'Syméon',
+  magnificat: 'Magnificat', cantique_mariale: 'Magnificat', cantique_symeon: 'Syméon',
 };
 const NOTRE_PERE_FR =
   '<p>Notre Père, qui es aux cieux,<br/>que ton nom soit sanctifié,<br/>que ton règne vienne,<br/>que ta volonté soit faite<br/>sur la terre comme au ciel.</p>' +
