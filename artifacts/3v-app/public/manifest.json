@@ -11,8 +11,26 @@
   "lang": "fr",
   "icons": [
     {
-      "src": "/logo-3v.png",
-      "sizes": "any",
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/badge-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     },
@@ -36,21 +54,21 @@
       "short_name": "Lecture",
       "description": "Accéder au programme de lecture biblique",
       "url": "/biblical-reading",
-      "icons": [{ "src": "/logo-3v.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/favicon-32x32.png", "sizes": "32x32" }]
     },
     {
       "name": "Nos Activités",
       "short_name": "Activités",
       "description": "Découvrir nos événements",
       "url": "/activities",
-      "icons": [{ "src": "/logo-3v.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/favicon-32x32.png", "sizes": "32x32" }]
     },
     {
       "name": "Contact",
       "short_name": "Contact",
       "description": "Nous contacter",
       "url": "/contact",
-      "icons": [{ "src": "/logo-3v.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/favicon-32x32.png", "sizes": "32x32" }]
     }
   ]
 }
