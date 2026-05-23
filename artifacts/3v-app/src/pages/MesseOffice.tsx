@@ -19,7 +19,7 @@ interface AelfLecture {
 }
 interface AelfMesse { nom?: string; lectures: AelfLecture[]; }
 interface AelfInfo  { jour_liturgique_nom?: string; couleur?: string; }
-interface Part      { id: string; label: string; kind: 'lecture'|'partie'; data: AelfLecture|Record<string,unknown>; antienne?: string; }
+interface Part      { id: string; label: string; kind: 'lecture'|'partie'; data: AelfLecture|Record<string,unknown>; antienne?: string; sectionKind?: string; }
 interface PartGroup { id: string; label: string; options: Part[]; }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -209,36 +209,55 @@ function groupParts(parts: Part[]): PartGroup[] {
   return g;
 }
 
-// Flat field order for AELF office responses (Laudes, Vêpres, Complies, etc.)
+// Canonical field order for AELF flat office responses
 const OFFICE_FIELD_ORDER = [
-  'introduction','hymne','antienne_1','psaume_1','antienne_2','psaume_2',
-  'antienne_3','psaume_3','capitule','pericope','repons','verset',
-  'antienne_ben','benedictus','antienne_mag','magnificat',
-  'antienne_symeon','cantique_symeon','intercessions','notre_pere',
-  'oraison','benediction','hymne_mariale',
+  'introduction',
+  'antienne_invitatoire', 'psaume_invitatoire',
+  'hymne',
+  'antienne_1', 'psaume_1', 'antienne_2', 'psaume_2', 'antienne_3', 'psaume_3',
+  'capitule', 'pericope', 'repons', 'verset',
+  'antienne_zacharie', 'cantique_zacharie',
+  'antienne_ben', 'benedictus',
+  'antienne_mag', 'magnificat',
+  'antienne_symeon', 'cantique_symeon',
+  'intercessions', 'intercession',
+  'notre_pere', 'oraison', 'benediction', 'hymne_mariale',
 ];
 const OFFICE_LABELS: Record<string, string> = {
   introduction:'Introduction', hymne:'Hymne',
-  antienne_1:'Antienne 1', psaume_1:'Psaume 1',
-  antienne_2:'Antienne 2', psaume_2:'Psaume 2',
-  antienne_3:'Antienne 3', psaume_3:'Psaume 3',
+  psaume_invitatoire:'Ps invit.',
+  psaume_1:'Psaume 1', psaume_2:'Psaume 2', psaume_3:'Psaume 3',
   capitule:'Capitule', pericope:'Péricope', repons:'Répons', verset:'Verset',
-  antienne_ben:'Ant. Benedictus', benedictus:'Benedictus',
-  antienne_mag:'Ant. Magnificat', magnificat:'Magnificat',
-  antienne_symeon:'Ant. Syméon', cantique_symeon:'Cantique de Syméon',
-  intercessions:'Intercessions', notre_pere:'Notre Père',
-  oraison:'Oraison', benediction:'Bénédiction', hymne_mariale:'Hymne mariale',
+  cantique_zacharie:'Benedictus', benedictus:'Benedictus',
+  magnificat:'Magnificat', cantique_symeon:'Syméon',
+  intercessions:'Intercessions', intercession:'Intercessions',
+  notre_pere:'Notre Père', oraison:'Oraison',
+  benediction:'Bénédiction', hymne_mariale:'Hymne mariale',
 };
 
-// Antienne ↔ psalm pairings (antienne always precedes its psalm in AELF flat responses)
+// Antienne ↔ psalm/canticle pairings
 const ANTIENNE_PAIR: Record<string, string> = {
+  antienne_invitatoire: 'psaume_invitatoire',
   antienne_1: 'psaume_1', antienne_2: 'psaume_2', antienne_3: 'psaume_3',
+  antienne_zacharie: 'cantique_zacharie',
   antienne_ben: 'benedictus', antienne_mag: 'magnificat', antienne_symeon: 'cantique_symeon',
 };
 const ANTIENNE_KEYS = new Set(Object.keys(ANTIENNE_PAIR));
 const PSALM_TO_ANT: Record<string, string> = Object.fromEntries(
   Object.entries(ANTIENNE_PAIR).map(([a, p]) => [p, a])
 );
+
+const PSALM_FIELD_RE = /^psaume_/;
+const CANTICLE_FIXED: Record<string, string> = {
+  cantique_zacharie: 'Benedictus', benedictus: 'Benedictus',
+  magnificat: 'Magnificat', cantique_symeon: 'Syméon',
+};
+const NOTRE_PERE_FR =
+  '<p>Notre Père, qui es aux cieux,<br/>que ton nom soit sanctifié,<br/>que ton règne vienne,<br/>que ta volonté soit faite<br/>sur la terre comme au ciel.</p>' +
+  '<p>Donne-nous aujourd\'hui notre pain de ce jour.</p>' +
+  '<p>Pardonne-nous nos offenses,<br/>comme nous pardonnons aussi à ceux qui nous ont offensés.</p>' +
+  '<p>Et ne nous laisse pas entrer en tentation,<br/>mais délivre-nous du Mal.</p>' +
+  '<p>Amen.</p>';
 
 function fieldText(val: unknown): string {
   if (!val) return '';
@@ -297,7 +316,7 @@ function extractParts(data: unknown, tab: TabId, mi: number, lec: Record<string,
     return parts;
   }
 
-  // Flat structure: each key is a section (Complies, Laudes, Vêpres, etc.)
+  // Flat structure (Laudes, Vêpres, Complies, etc.)
   const allKeys = Object.keys(office);
   const orderedKeys = [
     ...OFFICE_FIELD_ORDER.filter(k => allKeys.includes(k)),
@@ -305,17 +324,35 @@ function extractParts(data: unknown, tab: TabId, mi: number, lec: Record<string,
   ];
   const parts: Part[] = [];
   for (const key of orderedKeys) {
-    // Antienne keys are embedded into their psalm — skip as standalone
     if (ANTIENNE_KEYS.has(key)) continue;
-    const contenu = fieldText(office[key]);
+    let contenu = fieldText(office[key]);
+    // Notre Père: AELF returns just "Notre Père" as placeholder — use full text
+    if (key === 'notre_pere' && contenu.replace(/<[^>]+>/g, '').trim().length < 30) {
+      contenu = NOTRE_PERE_FR;
+    }
     if (!contenu) continue;
     const { titre, ref } = fieldMeta(office[key]);
-    // Look up the paired antienne for this psalm/canticle
     const antKey = PSALM_TO_ANT[key];
-    const antienne = antKey ? fieldText(office[antKey]) || undefined : undefined;
+    // Antiennes are plain HTML strings or objects — normalise to HTML string
+    const antVal = antKey ? office[antKey] : undefined;
+    const antienne = antVal
+      ? (typeof antVal === 'string' ? antVal : fieldText(antVal)) || undefined
+      : undefined;
+
+    // Label: real psalm number for psalms, fixed name for canticles
+    let label: string;
+    if (PSALM_FIELD_RE.test(key)) {
+      const num = ref.match(/\d+(?:\s*\(\d+\))?/)?.[0]?.replace(/\s+/g, '') ?? '';
+      label = num ? `Ps ${num}` : (OFFICE_LABELS[key] || key);
+    } else if (CANTICLE_FIXED[key]) {
+      label = CANTICLE_FIXED[key];
+    } else {
+      label = OFFICE_LABELS[key] || key.replace(/_/g, ' ');
+    }
     parts.push({
       id: `${tab}_${key}`,
-      label: OFFICE_LABELS[key] || key.replace(/_/g, ' '),
+      label,
+      sectionKind: key,
       kind: 'partie',
       antienne,
       data: { contenu, titre, ref } as Record<string, unknown>,
@@ -392,31 +429,125 @@ function Lecture({ lec, label }: { lec: AelfLecture; label: string }) {
   );
 }
 
-function OfficeBlock({ partie, antienne }: { partie: Record<string, unknown>; antienne?: string }) {
-  const label = (partie.titre as string) || (partie.type as string) || '';
+function OfficeBlock({ partie, antienne, sectionKind, label }: {
+  partie: Record<string, unknown>; antienne?: string; sectionKind?: string; label?: string;
+}) {
   if (!partie.contenu) return null;
+  const contenu = partie.contenu as string;
+  const ref     = String(partie.ref   || '');
+  const titre   = String(partie.titre || '');
+
+  // ── Introduction ─────────────────────────────────────────────────────────────
+  if (sectionKind === 'introduction') return (
+    <div className="pb-8 flex flex-col items-center text-center pt-4">
+      <span className="text-white/15 text-2xl mb-4">✝</span>
+      <div className="text-[13px] text-white/55 italic leading-[2.1] [&_p]:mb-1.5 [&_p:last-child]:mb-0 max-w-[400px]"
+        dangerouslySetInnerHTML={{ __html: contenu.replace(/\n\s*/g, '') }} />
+    </div>
+  );
+
+  // ── Hymne ────────────────────────────────────────────────────────────────────
+  if (sectionKind === 'hymne' || sectionKind === 'hymne_mariale') return (
+    <div className="pb-8">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-white/25 text-base leading-none">♪</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/35">
+          {sectionKind === 'hymne_mariale' ? 'Hymne mariale' : 'Hymne'}
+        </span>
+      </div>
+      {titre && <p className="text-[11px] text-white/30 italic mb-3 ml-6">{titre}</p>}
+      <div className="bg-white/[0.025] border border-white/[0.06] rounded-xl px-5 py-5">
+        <div className="text-[14px] italic text-white/82 leading-[2.1] [&_p]:mb-3 [&_p:last-child]:mb-0"
+          dangerouslySetInnerHTML={{ __html: contenu.replace(/\n/g, '<br/>') }} />
+      </div>
+    </div>
+  );
+
+  // ── Notre Père ───────────────────────────────────────────────────────────────
+  if (sectionKind === 'notre_pere') return (
+    <div className="pb-8 flex flex-col items-center text-center pt-4">
+      <span className="text-3xl mb-4 opacity-20">🙏</span>
+      <p className="text-[10px] font-black uppercase tracking-[0.35em] text-white/25 mb-7">Notre Père</p>
+      <div className="text-[16px] text-white/88 leading-[2.3] italic [&_p]:mb-3 [&_p:last-child]:mb-0 max-w-[340px]"
+        dangerouslySetInnerHTML={{ __html: contenu }} />
+    </div>
+  );
+
+  // ── Oraison / Bénédiction ────────────────────────────────────────────────────
+  if (sectionKind === 'oraison' || sectionKind === 'benediction') return (
+    <div className="pb-8">
+      <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30 block mb-4">
+        {sectionKind === 'oraison' ? 'Oraison' : 'Bénédiction'}
+      </span>
+      <div className="border-l-2 border-primary/25 pl-4">
+        <div className="text-[15px] italic text-white/85 leading-[1.95] [&_p]:mb-2 [&_p:last-child]:mb-0"
+          dangerouslySetInnerHTML={{ __html: contenu }} />
+      </div>
+    </div>
+  );
+
+  // ── Répons / Verset ──────────────────────────────────────────────────────────
+  if (sectionKind === 'repons' || sectionKind === 'verset') return (
+    <div className="pb-8">
+      <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30 block mb-3">
+        {sectionKind === 'repons' ? 'Répons' : 'Verset'}
+      </span>
+      <div className="bg-white/[0.03] border border-white/[0.07] rounded-xl px-4 py-4">
+        <div className="text-[14px] italic text-white/80 leading-[1.95] [&_p]:mb-2 [&_p:last-child]:mb-0"
+          dangerouslySetInnerHTML={{ __html: contenu }} />
+      </div>
+    </div>
+  );
+
+  // ── Capitule / Péricope ──────────────────────────────────────────────────────
+  if (sectionKind === 'capitule' || sectionKind === 'pericope') return (
+    <div className="pb-8">
+      <div className="flex items-baseline gap-3 mb-3">
+        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/35">
+          {sectionKind === 'capitule' ? 'Capitule' : 'Péricope'}
+        </span>
+        {ref && <span className="text-xs text-white/50 italic">{ref}</span>}
+      </div>
+      <div className="border-l-2 border-white/15 pl-4">
+        <div className="text-[15px] text-white/85 leading-[1.9] [&_p]:mb-2 [&_p:last-child]:mb-0"
+          dangerouslySetInnerHTML={{ __html: contenu }} />
+      </div>
+    </div>
+  );
+
+  // ── Intercessions ────────────────────────────────────────────────────────────
+  if (sectionKind === 'intercessions' || sectionKind === 'intercession') return (
+    <div className="pb-8">
+      <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30 block mb-4">Intercessions</span>
+      <div className="text-[14px] leading-[1.95] text-white/80 [&_p]:mb-2.5 [&_p:last-child]:mb-0"
+        dangerouslySetInnerHTML={{ __html: contenu }} />
+    </div>
+  );
+
+  // ── Psalms & canticles (default) — antienne before + after ──────────────────
   return (
     <div className="pb-8">
       {label && (
-        <div className="flex items-baseline gap-3 mb-3">
-          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">{label}</span>
-          {String(partie.ref || '') && <span className="text-xs text-white/30 italic">{String(partie.ref || '')}</span>}
+        <div className="flex items-baseline gap-2 mb-4">
+          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/35">{label}</span>
+          {ref && !PSALM_FIELD_RE.test(sectionKind || '') && (
+            <span className="text-xs text-white/25 italic">{ref}</span>
+          )}
         </div>
       )}
-      {/* Antienne before — styled like psalm refrain */}
       {antienne && (
         <div className="bg-blue-950/50 border border-blue-500/20 rounded-xl px-4 py-3 mb-4">
           <span className="text-[9px] font-black uppercase tracking-[0.3em] text-blue-400/70 block mb-1.5">Ant.</span>
-          <p className="text-[15px] italic text-blue-100/95 leading-[1.75] font-medium">{antienne}</p>
+          <div className="text-[15px] italic text-blue-100/95 leading-[1.75] font-medium [&_p]:mb-1 [&_p:last-child]:mb-0 [&_span]:inline"
+            dangerouslySetInnerHTML={{ __html: antienne }} />
         </div>
       )}
-      <div className="reading-text text-[15px] leading-[1.9] text-white/82"
-        dangerouslySetInnerHTML={{ __html: partie.contenu as string }} />
-      {/* Antienne repeat after */}
+      <div className="psalm-text text-[14px] leading-[1.9] text-white/82 [&_p]:mb-1.5 [&_p:last-child]:mb-0"
+        dangerouslySetInnerHTML={{ __html: contenu }} />
       {antienne && (
-        <div className="flex items-start gap-1 text-[12px] text-blue-300/40 italic mt-3 pl-3 border-l border-blue-500/20">
-          <span className="flex-shrink-0">Ant.</span>
-          <span>{antienne}</span>
+        <div className="flex items-start gap-1.5 text-[12px] text-blue-300/40 italic mt-4 pl-3 border-l border-blue-500/20 [&_p]:inline [&_span]:inline">
+          <span className="flex-shrink-0 text-blue-400/50 not-italic font-medium">Ant.</span>
+          <span dangerouslySetInnerHTML={{ __html: antienne }} />
         </div>
       )}
     </div>
@@ -590,7 +721,7 @@ export default function MesseOffice() {
       </div>
     );
     if (selPart.kind === 'lecture') return <Lecture lec={selPart.data as AelfLecture} label={selPart.label} />;
-    return <OfficeBlock partie={selPart.data as Record<string,unknown>} antienne={selPart.antienne} />;
+    return <OfficeBlock partie={selPart.data as Record<string,unknown>} antienne={selPart.antienne} sectionKind={selPart.sectionKind} label={selPart.label} />;
   }
 
   return (
@@ -607,6 +738,8 @@ export default function MesseOffice() {
           .reading-text strong, .reading-text b { color: hsl(var(--primary)); font-weight: 600; }
           .reading-text em, .reading-text i, .psalm-text em { color: rgba(255,255,255,.5); }
           .psalm-text p { padding-left: .4rem; border-left: 2px solid rgba(255,255,255,.06); }
+          .psalm-text .verse_number { font-size: .7em; opacity: .35; vertical-align: super; margin-right: .2em; font-style: normal; }
+          .psalm-text u { text-decoration: none; font-style: italic; color: rgba(255,255,255,.5); }
         `}</style>
       </Helmet>
 
