@@ -6,22 +6,34 @@ const db = supabase as any;
 const METERED_USER = 'a2356b6905de4125c48c1199';
 const METERED_CRED = 'qiDS7HJT6hxF4GAa';
 
+// Free open-relay credentials (no monthly cap — fallback if dedicated quota runs out)
+const OPEN_USER = 'openrelayproject';
+const OPEN_CRED  = 'openrelayproject';
+
 const RTC_CONFIGURATION: RTCConfiguration = {
   iceServers: [
-    // STUN
+    // STUN — multiple providers for redundancy
     {
       urls: [
         'stun:stun.relay.metered.ca:80',
         'stun:stun.l.google.com:19302',
         'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+        'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302',
         'stun:stun.cloudflare.com:3478',
       ],
     },
-    // TURN via metered.ca dedicated credentials (UDP, TCP, TLS)
-    { urls: 'turn:global.relay.metered.ca:80',                    username: METERED_USER, credential: METERED_CRED },
-    { urls: 'turn:global.relay.metered.ca:80?transport=tcp',      username: METERED_USER, credential: METERED_CRED },
-    { urls: 'turn:global.relay.metered.ca:443',                   username: METERED_USER, credential: METERED_CRED },
-    { urls: 'turns:global.relay.metered.ca:443?transport=tcp',    username: METERED_USER, credential: METERED_CRED },
+    // TURN — dedicated credentials (UDP, TCP, TLS)
+    { urls: 'turn:global.relay.metered.ca:80',                 username: METERED_USER, credential: METERED_CRED },
+    { urls: 'turn:global.relay.metered.ca:80?transport=tcp',   username: METERED_USER, credential: METERED_CRED },
+    { urls: 'turn:global.relay.metered.ca:443',                username: METERED_USER, credential: METERED_CRED },
+    { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: METERED_USER, credential: METERED_CRED },
+    // TURN — open relay fallback (free, no quota — works when dedicated quota exhausted)
+    { urls: 'turn:openrelay.metered.ca:80',                    username: OPEN_USER, credential: OPEN_CRED },
+    { urls: 'turn:openrelay.metered.ca:80?transport=tcp',      username: OPEN_USER, credential: OPEN_CRED },
+    { urls: 'turn:openrelay.metered.ca:443',                   username: OPEN_USER, credential: OPEN_CRED },
+    { urls: 'turns:openrelay.metered.ca:443?transport=tcp',    username: OPEN_USER, credential: OPEN_CRED },
   ],
   iceCandidatePoolSize: 10,
   iceTransportPolicy: 'all',
@@ -436,8 +448,11 @@ export const useAdminVideoRoom = ({
       };
 
       pc.ontrack = (ev) => {
-        const [s] = ev.streams;
-        if (s) upsertRemoteStream(pid, s);
+        // Some browsers/mobile WebViews deliver tracks without a stream — build one manually
+        const s = ev.streams[0] ?? new MediaStream([ev.track]);
+        upsertRemoteStream(pid, s);
+        // Re-notify when a muted track unmutes (e.g. remote mic enabled after join)
+        ev.track.onunmute = () => upsertRemoteStream(pid, s);
       };
 
       pc.onconnectionstatechange = () => {
@@ -589,6 +604,24 @@ export const useAdminVideoRoom = ({
 
       try {
         if (signal.signal_type === 'offer') {
+          // ── Perfect negotiation: handle offer collision (glare) ──────────
+          // The peer whose userId is lexicographically LOWER initiates offers
+          // (see syncPeers). That peer is "impolite" — it ignores colliding offers.
+          // The peer with the HIGHER userId is "polite" — it rolls back its own
+          // local offer and accepts the incoming one instead.
+          const isPolite = userId.localeCompare(signal.sender_id) > 0;
+          const offerCollision = pc.signalingState !== 'stable';
+
+          if (offerCollision && !isPolite) {
+            // Impolite peer: drop the incoming offer to avoid glare
+            return;
+          }
+
+          if (offerCollision && isPolite) {
+            // Polite peer: rollback our local offer, accept theirs
+            try { await pc.setLocalDescription({ type: 'rollback' }); } catch {}
+          }
+
           await pc.setRemoteDescription(signal.payload as RTCSessionDescriptionInit);
           await flushPendingIceCandidates(signal.sender_id, pc);
           const answer = await pc.createAnswer();
@@ -630,6 +663,8 @@ export const useAdminVideoRoom = ({
         .from('video_room_signals')
         .select('*')
         .eq('room_id', roomId)
+        // Only fetch signals addressed to us (or broadcast signals with no recipient)
+        .or(`recipient_id.is.null,recipient_id.eq.${userId}`)
         .order('created_at', { ascending: true });
 
       for (const sig of data || []) {
