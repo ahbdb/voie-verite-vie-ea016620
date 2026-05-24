@@ -45,7 +45,7 @@ jobs:
           INPUT_BODY: ${{ inputs.body }}
           INPUT_URL: ${{ inputs.url }}
         run: |
-          node << 'SCRIPT'
+          node --input-type=commonjs << 'SCRIPT'
           const admin = require('firebase-admin');
           const { createClient } = require('@supabase/supabase-js');
 
