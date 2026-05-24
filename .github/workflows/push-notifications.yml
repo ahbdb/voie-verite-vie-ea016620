@@ -49,6 +49,7 @@ jobs:
           const admin = require('firebase-admin');
           const { createClient } = require('@supabase/supabase-js');
 
+          (async () => {
           // ── Initialiser Firebase Admin ────────────────────────────────────
           const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
           admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
@@ -203,4 +204,5 @@ jobs:
           console.log(`✅ Résultat: ${sent} envoyés, ${failed} échoués sur ${fcmTokens.length} appareils`);
 
           if (sent === 0 && fcmTokens.length > 0) process.exit(1);
+          })();
           SCRIPT
