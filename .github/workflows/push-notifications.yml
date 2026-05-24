@@ -1,0 +1,169 @@
+name: Notifications automatiques
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 07h00 WAT (Cameroun) — Prière du matin
+    - cron: '0 11 * * *'  # 12h00 WAT — Angelus
+    - cron: '0 19 * * *'  # 20h00 WAT — Prière du soir
+  workflow_dispatch:
+    inputs:
+      type:
+        description: 'Type de notification (morning, midday, evening, ou custom)'
+        required: true
+        default: 'morning'
+      title:
+        description: 'Titre (si type=custom)'
+        required: false
+      body:
+        description: 'Message (si type=custom)'
+        required: false
+      url:
+        description: 'URL à ouvrir (si type=custom)'
+        required: false
+        default: '/'
+
+jobs:
+  send-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install web-push @supabase/supabase-js
+
+      - name: Envoyer les notifications push
+        env:
+          SUPABASE_URL: https://kaddsojhnkyfavaulrfc.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VAPID_PUBLIC_KEY: BDZP1G3CVzMfjpDGH7MGktPHySL1O1ZqqpP6B5QSgp09f8xu3lN9BLnQ527CZNXIY9q6KoISzbKbmbIAS8_I0AU
+          VAPID_PRIVATE_KEY: D1ktZQBYTUY6rCSctUvT93VIwfUAQj3AeiTIoyZY1ZU
+          VAPID_SUBJECT: mailto:contact@voie-verite-vie.com
+          GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
+          INPUT_TYPE: ${{ inputs.type }}
+          INPUT_TITLE: ${{ inputs.title }}
+          INPUT_BODY: ${{ inputs.body }}
+          INPUT_URL: ${{ inputs.url }}
+        run: |
+          node << 'SCRIPT'
+          const webpush = require('web-push');
+          const { createClient } = require('@supabase/supabase-js');
+
+          webpush.setVapidDetails(
+            process.env.VAPID_SUBJECT,
+            process.env.VAPID_PUBLIC_KEY,
+            process.env.VAPID_PRIVATE_KEY,
+          );
+
+          const MESSAGES = {
+            morning: {
+              title: '🌅 Bonjour ! Que Dieu bénisse votre journée',
+              body: 'Découvrez les lectures du jour et commencez avec une prière',
+              url: '/biblical-reading',
+              action: 'bible',
+            },
+            midday: {
+              title: '☀️ Angelus — 12h',
+              body: 'Un moment de recueillement au milieu de la journée',
+              url: '/',
+              action: 'general',
+            },
+            evening: {
+              title: '🌙 Bonsoir ! Prière du soir',
+              body: 'Terminez votre journée avec une prière et les vêpres',
+              url: '/messe-office',
+              action: 'general',
+            },
+          };
+
+          // Déterminer le type selon le cron ou l'entrée manuelle
+          let type = process.env.INPUT_TYPE || 'morning';
+          const schedule = process.env.GITHUB_EVENT_SCHEDULE;
+          if (schedule === '0 6 * * *') type = 'morning';
+          else if (schedule === '0 11 * * *') type = 'midday';
+          else if (schedule === '0 19 * * *') type = 'evening';
+
+          let payload;
+          if (type === 'custom') {
+            payload = {
+              title: process.env.INPUT_TITLE || '🔔 Voie Vérité Vie',
+              body: process.env.INPUT_BODY || '',
+              url: process.env.INPUT_URL || '/',
+              action: 'general',
+            };
+          } else {
+            payload = MESSAGES[type] || MESSAGES.morning;
+          }
+
+          console.log(`Type: ${type}`);
+          console.log(`Notification: "${payload.title}"`);
+
+          const supabase = createClient(
+            process.env.SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY,
+          );
+
+          const { data: tokens, error } = await supabase
+            .from('fcm_tokens')
+            .select('token, user_id');
+
+          if (error) {
+            console.error('Erreur récupération tokens:', error.message);
+            process.exit(1);
+          }
+
+          console.log(`Envoi vers ${tokens?.length ?? 0} appareils...`);
+
+          const notifPayload = JSON.stringify({
+            notification: {
+              title: payload.title,
+              body: payload.body,
+              icon: '/icon-192x192.png',
+              badge: '/badge-72x72.png',
+              tag: `scheduled-${type}-${Date.now()}`,
+              requireInteraction: false,
+              silent: false,
+              vibrate: [300, 100, 300],
+              data: { url: payload.url, action: payload.action },
+              actions: [
+                { action: 'open', title: 'Ouvrir' },
+                { action: 'dismiss', title: 'Fermer' },
+              ],
+            },
+          });
+
+          let sent = 0, failed = 0;
+          const expired = [];
+
+          await Promise.allSettled((tokens || []).map(async (t) => {
+            let sub;
+            try { sub = JSON.parse(t.token); } catch { failed++; return; }
+            if (!sub?.endpoint || !sub?.keys) { failed++; return; }
+
+            try {
+              await webpush.sendNotification(
+                { endpoint: sub.endpoint, keys: sub.keys },
+                notifPayload,
+                { TTL: 86400, urgency: 'normal' },
+              );
+              sent++;
+            } catch (err) {
+              failed++;
+              if (err.statusCode === 404 || err.statusCode === 410 || err.statusCode === 401) {
+                expired.push(t.token);
+              }
+            }
+          }));
+
+          // Nettoyer les tokens expirés
+          if (expired.length > 0) {
+            await supabase.from('fcm_tokens').delete().in('token', expired);
+            console.log(`${expired.length} tokens expirés supprimés`);
+          }
+
+          console.log(`✅ Résultat: ${sent} envoyés, ${failed} échoués`);
+
+          if (sent === 0 && failed > 0) process.exit(1);
+          SCRIPT
