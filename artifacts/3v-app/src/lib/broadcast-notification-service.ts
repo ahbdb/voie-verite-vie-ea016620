@@ -217,17 +217,39 @@ export const sendBroadcastNotification = async (broadcastId: string): Promise<bo
 
     if (!broadcast) return false;
 
-    // Fan-out: create user_notifications rows via stored procedure
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.rpc as any)('send_broadcast_notification', { p_broadcast_id: broadcastId });
+    // Step 1: Fan-out in-app notifications via stored procedure (best-effort — may not exist).
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.rpc as any)('send_broadcast_notification', { p_broadcast_id: broadcastId });
+    } catch {
+      // RPC absent — fall back to direct insert into user_notifications for all users.
+      try {
+        const { data: users } = await supabase.from('profiles').select('id');
+        if (users && users.length > 0) {
+          await supabase.from('user_notifications').insert(
+            users.map((u) => ({
+              user_id: u.id,
+              broadcast_notification_id: broadcastId,
+              title: broadcast.title,
+              message: broadcast.body ?? '',
+              type: broadcast.type ?? 'announcement',
+              link: null,
+              is_read: false,
+            }))
+          );
+        }
+      } catch {
+        // ignore — in-app delivery is best-effort
+      }
+    }
 
-    // Send Web Push from the browser using client-side VAPID signing
+    // Step 2: Web Push to every subscribed device.
     const { data: tokenRows } = await supabase
       .from('fcm_tokens')
       .select('token');
 
     if (tokenRows && tokenRows.length > 0) {
-      const tokens = tokenRows.map(r => r.token);
+      const tokens = tokenRows.map((r) => r.token);
       const { sendWebPushToTokens } = await import('@/lib/web-push-client');
       const result = await sendWebPushToTokens(tokens, {
         title: broadcast.title,
@@ -239,13 +261,18 @@ export const sendBroadcastNotification = async (broadcastId: string): Promise<bo
         tag: `broadcast-${broadcastId}`,
       });
 
-      // Clean up expired subscriptions
       if (result.expired.length > 0) {
         await supabase.from('fcm_tokens').delete().in('token', result.expired);
       }
 
       console.log(`Push: ${result.sent} sent, ${result.failed} failed, ${result.expired.length} cleaned`);
     }
+
+    // Step 3: Mark the broadcast as sent.
+    await supabase
+      .from('broadcast_notifications')
+      .update({ is_sent: true, sent_at: new Date().toISOString() })
+      .eq('id', broadcastId);
 
     return true;
   } catch (err) {

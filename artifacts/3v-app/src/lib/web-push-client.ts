@@ -211,7 +211,8 @@ export async function sendWebPushToTokens(
         sent++;
       } else {
         failed++;
-        if (r.status === 404 || r.status === 410) expired.push(token);
+        // 404/410 = subscription gone; 401 = VAPID mismatch — all unrecoverable
+        if (r.status === 404 || r.status === 410 || r.status === 401) expired.push(token);
       }
     }),
   );
