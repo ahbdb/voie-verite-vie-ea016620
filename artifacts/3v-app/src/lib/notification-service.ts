@@ -18,19 +18,10 @@ export interface NotificationPayload {
   renotify?: boolean;
 }
 
-const NOTIFICATION_SW_PATH = '/notification-sw.js';
-
 export const registerNotificationServiceWorker = async () => {
-  if (!('serviceWorker' in navigator)) {
-    return null;
-  }
-
-  try {
-    return await navigator.serviceWorker.register(NOTIFICATION_SW_PATH, { scope: '/sw-local/' });
-  } catch (error) {
-    console.log('Service Worker déjà enregistré ou indisponible:', error);
-    return navigator.serviceWorker.ready;
-  }
+  if (!('serviceWorker' in navigator)) return null;
+  // Use whichever service worker is already registered (Firebase Messaging SW)
+  return navigator.serviceWorker.ready.catch(() => null);
 };
 
 const buildNotificationOptions = (payload: NotificationPayload) => ({
@@ -144,19 +135,7 @@ export const sendNotification = async (payload: NotificationPayload) => {
 };
 
 export const initNotificationsAutomatically = async () => {
-  try {
-    await registerNotificationServiceWorker();
-
-    if ('Notification' in window && Notification.permission === 'default') {
-      try {
-        await Notification.requestPermission();
-      } catch (err) {
-        console.log('Permission de notification non disponible:', err);
-      }
-    }
-  } catch (err) {
-    console.log('Initialisation des notifications échouée:', err);
-  }
+  // Permission and SW registration are handled by registerFCMToken() in NotificationInitializer
 };
 
 export const sendBibleNotification = async (title: string, chapter: string) => {
