@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Navigation from '@/components/Navigation';
 import HeroSection from '@/components/HeroSection';
 import MissionSection from '@/components/MissionSection';
 import { ActivitiesSection, CTASection } from '@/components/HomeSections';
+import VersetDuJour from '@/components/VersetDuJour';
 import PostSignupCommunityModal from '@/components/PostSignupCommunityModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -111,6 +112,7 @@ const Index = () => {
       <Navigation />
       <main>
         <HeroSection />
+        <VersetDuJour />
         <MissionSection />
         <ActivitiesSection />
         <CTASection />

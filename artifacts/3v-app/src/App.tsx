@@ -62,6 +62,10 @@ import Profile from "./pages/Profile";
 import Creator from "./pages/Creator";
 import Settings from "./pages/Settings";
 import Documents3V from "./pages/Documents3V";
+import Temoignages from "./pages/Temoignages";
+import Chapelet from "./pages/Chapelet";
+import PriereQuotidienne from "./pages/PriereQuotidienne";
+import Dons from "./pages/Dons";
 import NotFound from "./pages/NotFound";
 import NotificationInitializer from "@/components/NotificationInitializer";
 import FloatingSupportButton from "@/components/FloatingSupportButton";
@@ -137,6 +141,10 @@ const App = () => {
                       <Route path="/neuvaines" element={<Neuvaines />} />
                       <Route path="/neuvaines/:id" element={<NeuvaineDayView />} />
                       <Route path="/messe-office" element={<MesseOffice />} />
+                      <Route path="/temoignages" element={<Temoignages />} />
+                      <Route path="/chapelet" element={<Chapelet />} />
+                      <Route path="/priere-quotidienne" element={<PriereQuotidienne />} />
+                      <Route path="/dons" element={<Dons />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/createur" element={<Creator />} />
                       <Route path="/admin-repair" element={<AdminRepair />} />

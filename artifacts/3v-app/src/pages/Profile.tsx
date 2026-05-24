@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { User, BookOpen, Heart, Activity, Mail, LogOut, Clock, Upload, ImageMinus } from 'lucide-react';
+import { User, BookOpen, Heart, Activity, Mail, LogOut, Clock, Upload, ImageMinus, Flame, Trophy, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface UserProfile {
@@ -186,6 +187,34 @@ const Profile = () => {
     });
   };
 
+  const streak = useMemo(() => {
+    try {
+      const key = 'vvv_last_visit';
+      const today = new Date().toDateString();
+      const stored = localStorage.getItem(key);
+      const streakKey = 'vvv_streak';
+      let current = parseInt(localStorage.getItem(streakKey) || '1', 10);
+      if (stored !== today) {
+        const yesterday = new Date(Date.now() - 86400000).toDateString();
+        current = stored === yesterday ? current + 1 : 1;
+        localStorage.setItem(key, today);
+        localStorage.setItem(streakKey, String(current));
+      }
+      return current;
+    } catch {
+      return 1;
+    }
+  }, []);
+
+  const BADGES = [
+    { id: 'premier_pas', label: 'Premier Pas', emoji: '🌱', desc: 'Compte créé', earned: true },
+    { id: 'lecteur', label: 'Lecteur', emoji: '📖', desc: `${stats.readingDays} lecture(s)`, earned: stats.readingDays >= 1 },
+    { id: 'intercesseur', label: 'Intercesseur', emoji: '🙏', desc: `${stats.prayersCount} intention(s)`, earned: stats.prayersCount >= 1 },
+    { id: 'fidelite_7', label: 'Fidèle', emoji: '🔥', desc: '7 jours de suite', earned: streak >= 7 },
+    { id: 'fidelite_30', label: 'Persévérant', emoji: '⭐', desc: '30 jours de suite', earned: streak >= 30 },
+    { id: 'pionnier', label: 'Pionnier', emoji: '🏆', desc: 'Membre fondateur', earned: true },
+  ];
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -296,6 +325,54 @@ const Profile = () => {
               </Card>
             ))}
           </div>
+
+          {/* Streak */}
+          <Card className="border-orange-500/30 bg-gradient-to-br from-orange-500/5 to-amber-500/5">
+            <CardContent className="pt-6 flex items-center gap-5">
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full bg-orange-500/20 blur-xl" />
+                <div className="relative h-16 w-16 rounded-full border-2 border-orange-500/40 bg-orange-500/10 flex flex-col items-center justify-center">
+                  <Flame className="h-5 w-5 text-orange-500" />
+                  <span className="font-cinzel font-bold text-xl text-orange-500 leading-tight">{streak}</span>
+                </div>
+              </div>
+              <div>
+                <p className="font-cinzel font-bold text-foreground text-lg">Jours de fidélité</p>
+                <p className="text-sm text-muted-foreground">
+                  {streak >= 30 ? 'Extraordinaire ! 🏆' : streak >= 7 ? 'Excellent ! Continuez ainsi 🔥' : 'Revenez demain pour augmenter votre streak'}
+                </p>
+                {streak >= 7 && (
+                  <Badge variant="outline" className="mt-1 text-xs rounded-full text-orange-600 border-orange-500/40 bg-orange-500/10">
+                    {streak >= 30 ? '🌟 Streak légendaire' : '🔥 Streak en feu'}
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Badges */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-cathedral-gold" /> Mes badges
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-3">
+                {BADGES.map((b) => (
+                  <div
+                    key={b.id}
+                    className={`flex flex-col items-center text-center p-3 rounded-xl border transition-all ${b.earned ? 'border-cathedral-gold/40 bg-cathedral-gold/5' : 'border-border/40 bg-muted/20 opacity-40 grayscale'}`}
+                  >
+                    <span className="text-2xl mb-1">{b.emoji}</span>
+                    <span className="text-xs font-bold text-foreground">{b.label}</span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5">{b.desc}</span>
+                    {b.earned && <Sparkles className="h-2.5 w-2.5 text-cathedral-gold mt-1" />}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>
