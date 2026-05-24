@@ -10,9 +10,8 @@ const firebaseConfig = {
   appId: "1:491460650214:web:05d6554ab528c0753a0727",
 };
 
-// Firebase VAPID key — get it from:
-// Firebase Console → Project Settings → Cloud Messaging → Web Push certificates → Key pair
-export const FIREBASE_VAPID_KEY = (import.meta.env.VITE_FIREBASE_VAPID_KEY as string) ?? '';
+// Firebase VAPID public key (Cloud Messaging → Web Push certificates)
+export const FIREBASE_VAPID_KEY = "Nvibymz2P0iwMwthCvDLvWOwxyBb-Cw7pO3cs0TXJtY";
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
