@@ -57,6 +57,8 @@ import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminNotificationScheduler from "./pages/admin/AdminNotificationScheduler";
 import AdminVideo from "./pages/admin/AdminVideo";
 import AdminVideoRoom from "./pages/admin/AdminVideoRoom";
+import AdminTemoignages from "./pages/admin/AdminTemoignages";
+import AdminDons from "./pages/admin/AdminDons";
 import AdminRepair from "./pages/AdminRepair";
 import Profile from "./pages/Profile";
 import Creator from "./pages/Creator";
@@ -172,6 +174,8 @@ const App = () => {
                       <Route path="/meeting/:roomId" element={<AdminVideoRoom />} />
                       <Route path="/admin/users" element={<AdminUsers />} />
                       <Route path="/admin/admins" element={<AdminManagement />} />
+                      <Route path="/admin/testimonials" element={<AdminTemoignages />} />
+                      <Route path="/admin/donations" element={<AdminDons />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/documents-3v" element={<Documents3V />} />
                       <Route path="*" element={<NotFound />} />

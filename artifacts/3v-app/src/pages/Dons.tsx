@@ -1,154 +1,117 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useTranslation } from 'react-i18next';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Heart, Check, Phone, Copy } from 'lucide-react';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { Heart, Check, Building2, Phone, QrCode, Copy, X as XIcon } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { toast as sonnerToast } from 'sonner';
+import { QRCodeSVG } from 'qrcode.react';
 
 const db = supabase as any;
 
-interface PaymentMethod {
-  id: string;
-  name: string;
-  logo: string;
-  number: string;
-  color: string;
-  bgClass: string;
-  borderClass: string;
-  instruction: string;
+// ── Payment info (mirrors DonationModal.tsx) ────────────────────────────────
+
+const REVOLUT_INFO = {
+  bank: 'Revolut Bank UAB',
+  address: 'Via Dante 7, 20123, Milano (ML), Italy',
+  bic: 'REVOITM2',
+  iban: 'IT94 O036 6901 6009 7214 2622 259',
+  ibanRaw: 'IT94O0366901600972142622259',
+  beneficiary: 'DYLANNE BAUDOUIN AHOUFACK',
+  title: 'Fondateur-Modérateur du Mouvement VOIE VERITE VIE',
+};
+
+const WHATSAPP_NUMBER = '+393513430349';
+
+function buildEpcPayload(ref = 'Don - 3V') {
+  return ['BCD', '002', '1', 'SCT', REVOLUT_INFO.bic, REVOLUT_INFO.beneficiary, REVOLUT_INFO.ibanRaw, '', '', '', ref].join('\n');
 }
 
-const PAYMENT_METHODS: PaymentMethod[] = [
-  {
-    id: 'orange',
-    name: 'Orange Money',
-    logo: '🟠',
-    number: '+237 6XX XXX XXX',
-    color: 'text-orange-600',
-    bgClass: 'bg-orange-500/10',
-    borderClass: 'border-orange-500/40',
-    instruction: 'Composez #150# → Paiement → Entrez le numéro et le montant',
-  },
-  {
-    id: 'mtn',
-    name: 'MTN MoMo',
-    logo: '🟡',
-    number: '+237 6XX XXX XXX',
-    color: 'text-yellow-600',
-    bgClass: 'bg-yellow-500/10',
-    borderClass: 'border-yellow-500/40',
-    instruction: 'Composez *126# → Payer un service → Entrez le numéro et le montant',
-  },
-  {
-    id: 'moov',
-    name: 'Moov Money',
-    logo: '🔵',
-    number: '+237 6XX XXX XXX',
-    color: 'text-blue-600',
-    bgClass: 'bg-blue-500/10',
-    borderClass: 'border-blue-500/40',
-    instruction: 'Composez *555# → Transfert → Entrez le numéro et le montant',
-  },
-];
-
-const PRESET_AMOUNTS = [500, 1000, 2000, 5000, 10000, 20000];
+// ── Cause options ───────────────────────────────────────────────────────────
 
 const CAUSES = [
-  { id: 'general',        label: '🙏 Soutien général',      description: 'Pour le fonctionnement de la communauté 3V' },
-  { id: 'jeunesse',       label: '✨ Jeunesse & Formation', description: 'Activités et retraites pour les jeunes' },
-  { id: 'evangelisation', label: '📖 Évangélisation',       description: 'Missions et outreach' },
-  { id: 'pauvres',        label: '🤝 Aide aux pauvres',     description: 'Solidarité avec les plus démunis' },
+  { id: 'general',        emoji: '🙏', labelKey: 'dons.causes.general',        descKey: 'dons.causes.generalDesc' },
+  { id: 'jeunesse',       emoji: '✨', labelKey: 'dons.causes.jeunesse',       descKey: 'dons.causes.jeunesseDesc' },
+  { id: 'evangelisation', emoji: '📖', labelKey: 'dons.causes.evangelisation', descKey: 'dons.causes.evangelisationDesc' },
+  { id: 'pauvres',        emoji: '🤝', labelKey: 'dons.causes.pauvres',        descKey: 'dons.causes.pauvresDesc' },
 ];
 
+// ── Component ────────────────────────────────────────────────────────────────
+
 const Dons = () => {
+  const { t } = useTranslation();
+  const { toast } = useToast();
   const { user } = useAuth();
-  const [selectedMethod, setSelectedMethod] = useState('orange');
-  const [selectedAmount, setSelectedAmount] = useState<number | null>(1000);
-  const [customAmount, setCustomAmount] = useState('');
+
   const [selectedCause, setSelectedCause] = useState('general');
-  const [step, setStep] = useState<'choose' | 'confirm' | 'done'>('choose');
-  const [saving, setSaving] = useState(false);
+  const [showQr, setShowQr] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [donationRecorded, setDonationRecorded] = useState(false);
+  const [recording, setRecording] = useState(false);
 
-  const method = PAYMENT_METHODS.find((m) => m.id === selectedMethod)!;
-  const finalAmount = customAmount ? parseInt(customAmount, 10) : selectedAmount;
-  const causeLabel = CAUSES.find((c) => c.id === selectedCause)?.label ?? selectedCause;
-
-  const handleConfirm = () => {
-    if (!finalAmount || finalAmount < 100) {
-      toast.error('Montant minimum : 100 FCFA');
-      return;
+  const copy = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      toast({ title: t('donation.copied'), description: t('donation.copiedField', { field }) });
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast({ title: t('donation.copyError'), description: t('donation.copyErrorDesc'), variant: 'destructive' });
     }
-    setStep('confirm');
   };
 
-  const handleDone = async () => {
-    setSaving(true);
+  const openWhatsApp = () => {
+    const causeLabel = t(CAUSES.find((c) => c.id === selectedCause)?.labelKey ?? 'dons.causes.general');
+    const base = t('donation.whatsappMsg');
+    const msg = encodeURIComponent(`${base}\nCause : ${causeLabel}${user ? `\n${t('donation.yourName').replace(' *', '')} : ${user.user_metadata?.full_name ?? ''}` : ''}`);
+    window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\+/g, '')}?text=${msg}`, '_blank');
+  };
+
+  const recordDonation = async () => {
+    setRecording(true);
     const { error } = await db.from('donations').insert({
-      amount: finalAmount,
+      amount: 0,
       currency: 'XAF',
       donor_name: user?.user_metadata?.full_name ?? null,
       donor_email: user?.email ?? null,
       user_id: user?.id ?? null,
-      message: JSON.stringify({ cause: selectedCause, method: selectedMethod }),
+      message: JSON.stringify({ cause: selectedCause, method: 'iban' }),
       status: 'pending',
     });
-
     if (error) {
-      console.error('donation insert error:', error);
-      toast.error('Impossible d\'enregistrer le don. Réessayez.');
+      console.error('donation record error:', error);
     } else {
-      toast.success('Merci pour votre don ! Que Dieu vous bénisse abondamment. 🙏');
-      setStep('done');
+      setDonationRecorded(true);
+      sonnerToast.success('Merci pour votre générosité ! 🙏 Que Dieu vous bénisse abondamment.');
     }
-    setSaving(false);
+    setRecording(false);
   };
 
-  const copyNumber = async () => {
-    await navigator.clipboard.writeText(method.number);
-    toast.success('Numéro copié !');
-  };
-
-  if (step === 'done') {
-    return (
-      <div className="min-h-screen bg-background">
-        <Helmet><title>Dons & Offrandes — Voie Vérité Vie</title></Helmet>
-        <Navigation />
-        <div className="flex items-center justify-center min-h-[80vh] px-4">
-          <div className="max-w-sm text-center space-y-5">
-            <div className="text-6xl">🙏</div>
-            <h2 className="font-cinzel text-2xl font-bold text-foreground">Merci pour votre don !</h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              Votre générosité a été enregistrée. L'équipe 3V confirmera la réception de votre offrande.
-              Que Dieu bénisse le centuple ce que vous avez donné.
-            </p>
-            <div className="rounded-xl border border-cathedral-gold/20 bg-cathedral-gold/5 p-4 text-sm">
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-muted-foreground">Montant</span>
-                <span className="font-bold text-foreground">{finalAmount?.toLocaleString('fr-FR')} FCFA</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Cause</span>
-                <span className="font-medium text-foreground">{causeLabel}</span>
-              </div>
-            </div>
-            <Button onClick={() => { setStep('choose'); setCustomAmount(''); setSelectedAmount(1000); }} variant="outline" className="rounded-xl w-full">
-              Faire un autre don
-            </Button>
-          </div>
-        </div>
+  const CopyRow = ({ label, value, field }: { label: string; value: string; field: string }) => (
+    <div className="flex items-start justify-between gap-3 py-2 border-b border-border/50 last:border-0">
+      <div className="min-w-0">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-0.5">{label}</p>
+        <p className="text-sm font-medium text-foreground break-all">{value}</p>
       </div>
-    );
-  }
+      <button
+        onClick={() => copy(value, label)}
+        className="flex-shrink-0 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+        title={t('donation.copy')}
+      >
+        {copiedField === field ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+      </button>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>Dons & Offrandes — Voie Vérité Vie</title>
-        <meta name="description" content="Soutenez la mission de la communauté 3V par un don via Mobile Money." />
+        <title>{t('dons.title')} — Voie Vérité Vie</title>
+        <meta name="description" content={t('dons.subtitle')} />
       </Helmet>
       <Navigation />
 
@@ -157,164 +120,172 @@ const Dons = () => {
         <div className="relative max-w-2xl mx-auto">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cathedral-gold/40 bg-background/10 backdrop-blur-sm mb-5">
             <Heart className="h-3.5 w-3.5 text-cathedral-gold" />
-            <span className="text-xs uppercase tracking-[0.2em] text-cathedral-gold font-medium">Soutenir la mission</span>
+            <span className="text-xs uppercase tracking-[0.2em] text-cathedral-gold font-medium">{t('dons.badge')}</span>
           </div>
-          <h1 className="font-cinzel text-4xl sm:text-5xl font-bold text-white mb-4">Dons & Offrandes</h1>
+          <h1 className="font-cinzel text-4xl sm:text-5xl font-bold text-white mb-4">{t('dons.title')}</h1>
           <div className="cathedral-line w-24 h-px mx-auto my-4" />
-          <p className="text-white/70 text-sm sm:text-base leading-relaxed max-w-lg mx-auto">
-            Votre générosité permet à la communauté 3V de grandir et d'évangéliser. Chaque don, grand ou petit, est une semence de vie.
-          </p>
+          <p className="text-white/70 text-sm sm:text-base leading-relaxed max-w-lg mx-auto">{t('dons.subtitle')}</p>
         </div>
       </header>
 
       <main className="max-w-xl mx-auto px-4 py-10 space-y-6">
-        {step === 'choose' ? (
-          <>
-            <div className="rounded-2xl border border-cathedral-gold/20 bg-cathedral-gold/5 p-5 text-center">
-              <p className="font-['Playfair_Display',serif] text-sm italic text-foreground/80">
-                « Que chacun donne selon ce qu'il a décidé dans son cœur, sans tristesse ni contrainte, car Dieu aime celui qui donne avec joie. »
-              </p>
-              <p className="text-xs text-cathedral-gold font-semibold mt-2">2 Corinthiens 9, 7</p>
-            </div>
 
-            <div className="space-y-2">
-              <h2 className="font-cinzel font-bold text-foreground text-base">Pour quelle cause ?</h2>
-              <div className="grid grid-cols-1 gap-2">
-                {CAUSES.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setSelectedCause(c.id)}
-                    className={`flex items-center justify-between rounded-xl border p-4 text-left transition-all ${selectedCause === c.id ? 'border-cathedral-gold/60 bg-cathedral-gold/10' : 'border-border/60 bg-card hover:border-border'}`}
-                  >
-                    <div>
-                      <div className="font-medium text-sm text-foreground">{c.label}</div>
-                      <div className="text-xs text-muted-foreground">{c.description}</div>
-                    </div>
-                    {selectedCause === c.id && <Check className="h-4 w-4 text-cathedral-gold shrink-0" />}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* Scripture */}
+        <div className="rounded-2xl border border-cathedral-gold/20 bg-cathedral-gold/5 p-5 text-center">
+          <p className="font-['Playfair_Display',serif] text-sm italic text-foreground/80">{t('dons.verse')}</p>
+          <p className="text-xs text-cathedral-gold font-semibold mt-2">{t('dons.verseRef')}</p>
+        </div>
 
-            <div className="space-y-3">
-              <h2 className="font-cinzel font-bold text-foreground text-base">Montant (FCFA)</h2>
-              <div className="grid grid-cols-3 gap-2">
-                {PRESET_AMOUNTS.map((a) => (
-                  <button
-                    key={a}
-                    onClick={() => { setSelectedAmount(a); setCustomAmount(''); }}
-                    className={`rounded-xl border py-3 text-sm font-bold transition-all ${selectedAmount === a && !customAmount ? 'bg-cathedral-gold/20 border-cathedral-gold/60 text-cathedral-gold' : 'border-border/60 bg-card text-foreground hover:border-border'}`}
-                  >
-                    {a.toLocaleString('fr-FR')}
-                  </button>
-                ))}
-              </div>
-              <div className="relative">
-                <Input
-                  type="number"
-                  placeholder="Autre montant..."
-                  value={customAmount}
-                  onChange={(e) => { setCustomAmount(e.target.value); setSelectedAmount(null); }}
-                  className="rounded-xl pr-16"
-                  min={100}
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-bold">FCFA</span>
-              </div>
-            </div>
+        {/* Cause selector */}
+        <div className="space-y-2">
+          <h2 className="font-cinzel font-bold text-foreground text-base">{t('dons.causeTitle')}</h2>
+          <div className="grid grid-cols-1 gap-2">
+            {CAUSES.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setSelectedCause(c.id)}
+                className={`flex items-center justify-between rounded-xl border p-4 text-left transition-all ${selectedCause === c.id ? 'border-cathedral-gold/60 bg-cathedral-gold/10' : 'border-border/60 bg-card hover:border-border'}`}
+              >
+                <div>
+                  <div className="font-medium text-sm text-foreground">{c.emoji} {t(c.labelKey)}</div>
+                  <div className="text-xs text-muted-foreground">{t(c.descKey)}</div>
+                </div>
+                {selectedCause === c.id && <Check className="h-4 w-4 text-cathedral-gold shrink-0" />}
+              </button>
+            ))}
+          </div>
+        </div>
 
-            <div className="space-y-3">
-              <h2 className="font-cinzel font-bold text-foreground text-base">Méthode de paiement</h2>
-              <div className="space-y-2">
-                {PAYMENT_METHODS.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setSelectedMethod(m.id)}
-                    className={`w-full flex items-center gap-3 rounded-xl border p-4 text-left transition-all ${selectedMethod === m.id ? `${m.bgClass} ${m.borderClass}` : 'border-border/60 bg-card hover:border-border'}`}
-                  >
-                    <span className="text-2xl">{m.logo}</span>
-                    <div className="flex-1">
-                      <div className={`font-bold text-sm ${selectedMethod === m.id ? m.color : 'text-foreground'}`}>{m.name}</div>
-                      <div className="text-xs text-muted-foreground">{m.instruction}</div>
-                    </div>
-                    {selectedMethod === m.id && <Check className={`h-4 w-4 ${m.color} shrink-0`} />}
-                  </button>
-                ))}
+        {/* QR EPC-SEPA */}
+        <div className="rounded-2xl border border-primary/30 bg-card p-5 space-y-4">
+          {!showQr ? (
+            <button
+              onClick={() => setShowQr(true)}
+              className="w-full flex flex-col items-center gap-3 rounded-2xl border-2 border-primary bg-primary/5 p-5 hover:bg-primary/10 active:scale-[0.98] transition-all"
+            >
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                <QrCode className="w-7 h-7 text-primary" />
               </div>
+              <div className="text-center">
+                <p className="font-semibold text-foreground text-base">{t('donation.qrTitle')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('donation.qrDesc')}</p>
+              </div>
+            </button>
+          ) : (
+            <div className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-muted/30 p-5">
+              <div className="flex items-center justify-between w-full">
+                <p className="font-semibold text-foreground">{t('donation.qrCodeTitle')}</p>
+                <button onClick={() => setShowQr(false)} className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground">
+                  <XIcon className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="bg-white p-4 rounded-xl shadow-sm">
+                <QRCodeSVG value={buildEpcPayload()} size={220} level="M" includeMargin={false} />
+              </div>
+              <div className="w-full rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">{t('donation.qrHowTitle')}</p>
+                <ol className="text-xs text-amber-700 dark:text-amber-400 space-y-1 list-decimal list-inside">
+                  <li>{t('donation.qrStep1')}</li>
+                  <li>{t('donation.qrStep2')}</li>
+                  <li>{t('donation.qrStep3')}</li>
+                  <li>{t('donation.qrStep4')}</li>
+                </ol>
+              </div>
+              <p className="text-xs text-center text-muted-foreground">{t('donation.qrCompat')}</p>
             </div>
+          )}
 
-            <Button onClick={handleConfirm} className="w-full bg-cathedral-gold hover:bg-cathedral-gold/90 text-black font-bold rounded-xl py-5 text-base">
-              <Heart className="h-4 w-4 mr-2" />
-              Continuer — {finalAmount ? `${finalAmount.toLocaleString('fr-FR')} FCFA` : 'choisir un montant'}
+          <div className="relative flex items-center">
+            <div className="flex-1 border-t border-border" />
+            <span className="px-3 text-xs text-muted-foreground">{t('donation.orManualTransfer')}</span>
+            <div className="flex-1 border-t border-border" />
+          </div>
+
+          {/* Bank details */}
+          <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-1">
+            <div className="flex items-center gap-2 mb-3">
+              <Building2 className="w-4 h-4 text-primary" />
+              <p className="text-sm font-semibold text-foreground">{t('donation.bankDetails')}</p>
+            </div>
+            <div className="flex items-start justify-between gap-3 py-2 border-b border-border/50">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('donation.beneficiary')}</p>
+                <p className="text-sm font-medium text-foreground">{REVOLUT_INFO.beneficiary}</p>
+                <p className="text-xs text-muted-foreground italic">{REVOLUT_INFO.title}</p>
+              </div>
+              <button
+                onClick={() => copy(REVOLUT_INFO.beneficiary, t('donation.beneficiary'))}
+                className="flex-shrink-0 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                title={t('donation.copy')}
+              >
+                {copiedField === t('donation.beneficiary') ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <CopyRow label="IBAN"        value={REVOLUT_INFO.iban} field="IBAN" />
+            <CopyRow label="BIC / SWIFT" value={REVOLUT_INFO.bic}  field="BIC / SWIFT" />
+            <CopyRow label={t('donation.bank')} value={REVOLUT_INFO.bank} field="bank" />
+            <div className="pt-2">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('donation.address')}</p>
+              <p className="text-xs text-muted-foreground">{REVOLUT_INFO.address}</p>
+            </div>
+          </div>
+
+          {/* Communication */}
+          <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 p-3">
+            <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+              {t('donation.communication')}{user?.user_metadata?.full_name ? ` — ${user.user_metadata.full_name}` : ''}
+            </p>
+          </div>
+
+          <div className="relative flex items-center">
+            <div className="flex-1 border-t border-border" />
+            <span className="px-3 text-xs text-muted-foreground">{t('donation.or')}</span>
+            <div className="flex-1 border-t border-border" />
+          </div>
+
+          {/* Mobile Money via WhatsApp */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Phone className="w-4 h-4 text-green-600" />
+              <p className="text-sm font-semibold text-foreground">{t('donation.mobileMoney')}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">{t('donation.mobileMoneyDesc')}</p>
+            <Button
+              variant="outline"
+              onClick={openWhatsApp}
+              className="w-full gap-2 border-green-500 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20"
+            >
+              <Phone className="w-4 h-4" />
+              {t('donation.whatsappBtn')}
             </Button>
-          </>
-        ) : (
-          <>
-            <div className="rounded-2xl border border-cathedral-gold/30 bg-card p-6 space-y-5">
-              <div className="text-center space-y-2">
-                <div className="text-4xl">{method.logo}</div>
-                <h2 className="font-cinzel text-xl font-bold text-foreground">Instructions de paiement</h2>
-                <Badge variant="outline" className="rounded-full text-cathedral-gold border-cathedral-gold/40">
-                  {finalAmount?.toLocaleString('fr-FR')} FCFA via {method.name}
-                </Badge>
+          </div>
+
+          {/* "I donated" button */}
+          <div className="pt-1">
+            {donationRecorded ? (
+              <div className="flex items-center justify-center gap-2 text-emerald-600 text-sm font-medium py-3">
+                <Check className="h-4 w-4" /> Don enregistré — Merci ! 🙏
               </div>
+            ) : (
+              <Button
+                onClick={recordDonation}
+                disabled={recording}
+                className="w-full bg-cathedral-gold hover:bg-cathedral-gold/90 text-black font-bold rounded-xl"
+              >
+                <Heart className="h-4 w-4 mr-2" />
+                {recording ? 'Enregistrement...' : 'J\'ai fait mon don'}
+              </Button>
+            )}
+          </div>
 
-              <div className={`rounded-xl ${method.bgClass} ${method.borderClass} border p-4 space-y-3`}>
-                <div className="text-sm font-medium text-foreground">Numéro de réception :</div>
-                <div className="flex items-center justify-between gap-3 bg-background rounded-lg px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Phone className={`h-4 w-4 ${method.color}`} />
-                    <span className="font-mono font-bold text-foreground">{method.number}</span>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={copyNumber} className="gap-1.5 text-xs">
-                    <Copy className="h-3.5 w-3.5" /> Copier
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">{method.instruction}</p>
-              </div>
+          <p className="text-center text-xs text-muted-foreground pt-1">{t('donation.thanks')}</p>
+        </div>
 
-              <div className="rounded-xl bg-muted/40 p-4 space-y-1.5 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Cause :</span>
-                  <span className="font-medium text-foreground">{causeLabel}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Montant :</span>
-                  <span className="font-bold text-foreground">{finalAmount?.toLocaleString('fr-FR')} FCFA</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Méthode :</span>
-                  <span className="font-medium text-foreground">{method.name}</span>
-                </div>
-              </div>
-
-              <p className="text-xs text-muted-foreground text-center leading-relaxed">
-                Après le paiement, cliquez sur « J'ai payé » pour enregistrer votre don.
-                Envoyez votre reçu par WhatsApp pour confirmation rapide. 🙏
-              </p>
-
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep('choose')} className="flex-1 rounded-xl">
-                  Modifier
-                </Button>
-                <Button
-                  onClick={handleDone}
-                  disabled={saving}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl"
-                >
-                  <Check className="h-4 w-4 mr-2" />
-                  {saving ? 'Enregistrement...' : 'J\'ai payé'}
-                </Button>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-cathedral-gold/20 bg-cathedral-gold/5 p-5 text-center">
-              <p className="font-['Playfair_Display',serif] text-sm italic text-foreground/80">
-                « Celui qui sème abondamment moissonnera aussi abondamment. »
-              </p>
-              <p className="text-xs text-cathedral-gold font-semibold mt-2">2 Corinthiens 9, 6</p>
-            </div>
-          </>
-        )}
+        {/* Closing verse */}
+        <div className="rounded-2xl border border-cathedral-gold/20 bg-cathedral-gold/5 p-5 text-center">
+          <p className="font-['Playfair_Display',serif] text-sm italic text-foreground/80">{t('dons.verse2')}</p>
+          <p className="text-xs text-cathedral-gold font-semibold mt-2">{t('dons.verseRef2')}</p>
+        </div>
       </main>
     </div>
   );

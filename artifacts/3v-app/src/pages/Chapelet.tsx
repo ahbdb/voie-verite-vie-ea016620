@@ -1,401 +1,570 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useTranslation } from 'react-i18next';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RotateCcw, CheckCircle2, Circle, Volume2, VolumeX, Play, Square } from 'lucide-react';
 import { useSpeech } from '@/hooks/useSpeech';
+import { Volume2, Square, ChevronRight, ChevronLeft, BookOpen, RotateCcw, Play, Pause } from 'lucide-react';
 
-type MysteryType = 'joyeux' | 'lumineux' | 'douloureux' | 'glorieux';
+// ── Canonical prayer texts (Notre Père: réforme de la CEF 2017) ────────────
+
+const NOTRE_PERE = `Notre Père, qui es aux cieux,
+que ton nom soit sanctifié,
+que ton règne vienne,
+que ta volonté soit faite sur la terre comme au ciel.
+Donne-nous aujourd'hui notre pain de ce jour.
+Pardonne-nous nos offenses,
+comme nous pardonnons aussi à ceux qui nous ont offensés.
+Et ne nous laisse pas entrer en tentation,
+mais délivre-nous du Mal.
+Amen.`;
+
+const JE_VOUS_SALUE = `Je vous salue, Marie, pleine de grâces,
+le Seigneur est avec vous.
+Vous êtes bénie entre toutes les femmes,
+et Jésus, le fruit de vos entrailles, est béni.
+Sainte Marie, Mère de Dieu,
+priez pour nous, pauvres pécheurs,
+maintenant et à l'heure de notre mort.
+Amen.`;
+
+const GLOIRE_AU_PERE = `Gloire au Père, au Fils et au Saint-Esprit,
+comme il était au commencement, maintenant et toujours,
+dans les siècles des siècles. Amen.`;
+
+const O_MON_JESUS = `Ô mon Jésus, pardonnez-nous nos péchés,
+préservez-nous du feu de l'enfer,
+conduisez au ciel toutes les âmes,
+surtout celles qui ont le plus besoin de votre miséricorde.`;
+
+const JE_CROIS_EN_DIEU = `Je crois en Dieu, le Père tout-puissant,
+Créateur du ciel et de la terre.
+Et en Jésus-Christ, son Fils unique, notre Seigneur,
+qui a été conçu du Saint-Esprit,
+est né de la Vierge Marie,
+a souffert sous Ponce Pilate,
+a été crucifié, est mort et a été enseveli,
+est descendu aux enfers,
+le troisième jour est ressuscité des morts,
+est monté aux cieux,
+est assis à la droite de Dieu le Père tout-puissant,
+d'où il viendra juger les vivants et les morts.
+Je crois au Saint-Esprit,
+à la Sainte Église catholique,
+à la communion des saints,
+à la rémission des péchés,
+à la résurrection de la chair,
+à la vie éternelle.
+Amen.`;
+
+const SALVE_REGINA = `Salve Regina, Mère de miséricorde,
+notre vie, notre douceur, notre espérance, salut !
+Vers vous nous crions, pauvres enfants d'Ève exilés.
+Vers vous nous soupirons, gémissant et pleurant
+dans cette vallée de larmes.
+Ô vous, notre avocate, tournez vers nous
+vos yeux miséricordieux.
+Et après cet exil, montrez-nous Jésus,
+le fruit béni de vos entrailles.
+Ô clémente, ô pieuse, ô douce Vierge Marie.
+Amen.`;
+
+// ── Mystery definitions ────────────────────────────────────────────────────
 
 interface Mystery {
   title: string;
-  mysteries: string[];
+  fruit: string;
+  scripture: string;
+  scriptureText: string;
+}
+
+interface MysterySet {
+  key: string;
+  label: string;
   days: string;
-  color: string;
-  bgClass: string;
-  borderClass: string;
-  emoji: string;
+  mysteries: Mystery[];
 }
 
-const MYSTERIES: Record<MysteryType, Mystery> = {
-  joyeux: {
-    title: 'Mystères Joyeux',
+const MYSTERY_SETS: MysterySet[] = [
+  {
+    key: 'joyful',
+    label: 'Mystères Joyeux',
     days: 'Lundi & Samedi',
-    emoji: '⭐',
-    color: 'text-amber-600',
-    bgClass: 'bg-amber-500/10',
-    borderClass: 'border-amber-500/30',
     mysteries: [
-      "L'Annonciation de l'Ange Gabriel à Marie",
-      "La Visitation de Marie à Élisabeth",
-      "La Nativité de Jésus à Bethléem",
-      "La Présentation de Jésus au Temple",
-      "Le Recouvrement de Jésus au Temple",
+      {
+        title: "L'Annonciation",
+        fruit: "L'humilité",
+        scripture: 'Lc 1, 26-38',
+        scriptureText: "L'ange Gabriel fut envoyé par Dieu dans une ville de Galilée, appelée Nazareth, à une vierge fiancée à un homme de la maison de David, nommé Joseph. Le nom de la vierge était Marie.",
+      },
+      {
+        title: 'La Visitation',
+        fruit: "L'amour du prochain",
+        scripture: 'Lc 1, 39-56',
+        scriptureText: "Dès qu'Élisabeth entendit la salutation de Marie, l'enfant tressaillit en elle. Élisabeth fut remplie de l'Esprit Saint et s'écria : Tu es bénie entre toutes les femmes et le fruit de tes entrailles est béni !",
+      },
+      {
+        title: 'La Nativité de Jésus',
+        fruit: "L'esprit de pauvreté et le détachement des biens",
+        scripture: 'Lc 2, 1-20',
+        scriptureText: "Elle enfanta son fils premier-né, l'emmaillota et le coucha dans une mangeoire, parce qu'il n'y avait pas de place pour eux dans la salle commune.",
+      },
+      {
+        title: 'La Présentation de Jésus au Temple',
+        fruit: "L'obéissance et la pureté",
+        scripture: 'Lc 2, 22-40',
+        scriptureText: "Syméon prit l'enfant dans ses bras et bénit Dieu : Maintenant, Seigneur, tu peux laisser ton serviteur s'en aller en paix. Car mes yeux ont vu ton salut que tu as préparé à la face de tous les peuples.",
+      },
+      {
+        title: "Le Recouvrement de Jésus au Temple",
+        fruit: "La piété filiale et la fidélité à la vocation",
+        scripture: 'Lc 2, 41-52',
+        scriptureText: "Au bout de trois jours, ses parents le trouvèrent dans le Temple, assis au milieu des docteurs de la Loi, les écoutant et les interrogeant. Et sa mère lui dit : Mon enfant, pourquoi nous as-tu fait cela ?",
+      },
     ],
   },
-  lumineux: {
-    title: 'Mystères Lumineux',
+  {
+    key: 'luminous',
+    label: 'Mystères Lumineux',
     days: 'Jeudi',
-    emoji: '✨',
-    color: 'text-sky-600',
-    bgClass: 'bg-sky-500/10',
-    borderClass: 'border-sky-500/30',
     mysteries: [
-      "Le Baptême de Jésus au Jourdain",
-      "Les Noces de Cana",
-      "L'Annonce du Royaume de Dieu",
-      "La Transfiguration de Jésus",
-      "L'Institution de l'Eucharistie",
+      {
+        title: 'Le Baptême de Jésus au Jourdain',
+        fruit: "L'ouverture à l'Esprit Saint",
+        scripture: 'Mt 3, 13-17',
+        scriptureText: "Jésus fut baptisé et, à l'instant, il remonta de l'eau. Le ciel s'ouvrit et il vit l'Esprit de Dieu descendre comme une colombe et venir sur lui. Et une voix venant du ciel disait : Celui-ci est mon Fils bien-aimé, en qui j'ai mis toute ma faveur.",
+      },
+      {
+        title: 'Les Noces de Cana',
+        fruit: "La confiance en Marie et en la Parole du Christ",
+        scripture: 'Jn 2, 1-11',
+        scriptureText: "La mère de Jésus lui dit : Ils n'ont plus de vin. Sa mère dit aux serviteurs : Faites tout ce qu'il vous dira. Jésus leur dit : Remplissez les jarres d'eau. Tel fut le premier des signes miraculeux que Jésus accomplit.",
+      },
+      {
+        title: "L'Annonce du Royaume de Dieu",
+        fruit: "La conversion et la confiance en Dieu",
+        scripture: 'Mc 1, 14-15',
+        scriptureText: "Jésus se rendit en Galilée, proclamant la Bonne Nouvelle de Dieu : Les temps sont accomplis et le Règne de Dieu est tout proche. Repentez-vous et croyez à la Bonne Nouvelle.",
+      },
+      {
+        title: 'La Transfiguration',
+        fruit: "Le désir ardent de la sainteté",
+        scripture: 'Mt 17, 1-8',
+        scriptureText: "Jésus fut transfiguré devant eux ; son visage devint brillant comme le soleil et ses vêtements blancs comme la lumière. Une voix disait depuis la nuée : Celui-ci est mon Fils bien-aimé, en qui j'ai mis toute ma faveur. Écoutez-le.",
+      },
+      {
+        title: "L'Institution de l'Eucharistie",
+        fruit: "L'adoration et l'amour eucharistiques",
+        scripture: 'Lc 22, 19-20',
+        scriptureText: "Puis, prenant du pain et rendant grâce, il le rompit et le leur donna, en disant : Ceci est mon corps, donné pour vous. Faites cela en mémoire de moi. Il fit de même pour la coupe, après le repas.",
+      },
     ],
   },
-  douloureux: {
-    title: 'Mystères Douloureux',
+  {
+    key: 'sorrowful',
+    label: 'Mystères Douloureux',
     days: 'Mardi & Vendredi',
-    emoji: '✝️',
-    color: 'text-rose-600',
-    bgClass: 'bg-rose-500/10',
-    borderClass: 'border-rose-500/30',
     mysteries: [
-      "L'Agonie de Jésus au Jardin des Oliviers",
-      "La Flagellation de Jésus",
-      "Le Couronnement d'épines",
-      "Le Portement de la Croix",
-      "La Crucifixion et la Mort de Jésus",
+      {
+        title: "L'Agonie à Gethsémani",
+        fruit: "La contrition et le repentir de nos péchés",
+        scripture: 'Lc 22, 39-46',
+        scriptureText: "Dans son angoisse, Jésus priait avec plus d'insistance, et sa sueur devint comme des gouttes de sang tombant à terre. Il dit : Père, si tu veux, éloigne de moi cette coupe ; cependant, que ce soit ta volonté et non la mienne qui se réalise.",
+      },
+      {
+        title: 'La Flagellation',
+        fruit: "La mortification et la pénitence",
+        scripture: 'Jn 19, 1',
+        scriptureText: "Alors Pilate prit Jésus et le fit flageller. Ce n'est pas lui que je trouve coupable, dit-il. C'est pourquoi je vais le faire flageller, puis le relâcher.",
+      },
+      {
+        title: "Le Couronnement d'épines",
+        fruit: "Le courage moral et le mépris des humiliations",
+        scripture: 'Jn 19, 2-3',
+        scriptureText: "Les soldats tressèrent une couronne d'épines, la posèrent sur sa tête et le revêtirent d'un manteau de pourpre. Ils s'approchaient de lui et disaient : Salut, roi des Juifs ! Et ils lui donnaient des gifles.",
+      },
+      {
+        title: 'Le Portement de la Croix',
+        fruit: "La patience et la persévérance dans les épreuves",
+        scripture: 'Lc 23, 26-32',
+        scriptureText: "Comme ils l'emmenaient, ils prirent un certain Simon de Cyrène qui revenait des champs, et ils le chargèrent de la croix pour qu'il la porte derrière Jésus. Jésus dit : Si quelqu'un veut marcher derrière moi, qu'il renonce à lui-même.",
+      },
+      {
+        title: 'La Crucifixion et la Mort de Jésus',
+        fruit: "La grâce de la persévérance finale et la rémission des péchés",
+        scripture: 'Jn 19, 25-30',
+        scriptureText: "Près de la croix de Jésus se tenaient sa mère, la sœur de sa mère, Marie, femme de Clopas, et Marie de Magdala. Jésus dit à sa mère : Femme, voici ton fils. Puis au disciple : Voici ta mère. Puis, baissant la tête, il remit l'esprit.",
+      },
     ],
   },
-  glorieux: {
-    title: 'Mystères Glorieux',
+  {
+    key: 'glorious',
+    label: 'Mystères Glorieux',
     days: 'Mercredi & Dimanche',
-    emoji: '👑',
-    color: 'text-emerald-600',
-    bgClass: 'bg-emerald-500/10',
-    borderClass: 'border-emerald-500/30',
     mysteries: [
-      "La Résurrection de Jésus",
-      "L'Ascension de Jésus au Ciel",
-      "La Pentecôte",
-      "L'Assomption de Marie",
-      "Le Couronnement de Marie comme Reine du Ciel",
+      {
+        title: 'La Résurrection de Jésus',
+        fruit: "La foi vivante et la joie pascale",
+        scripture: 'Jn 20, 1-18',
+        scriptureText: "Le premier jour de la semaine, Marie de Magdala se rend au tombeau de grand matin. Elle vit que la pierre avait été enlevée du tombeau. Jésus lui dit : Ne me retiens pas, car je ne suis pas encore monté vers le Père.",
+      },
+      {
+        title: "L'Ascension de Jésus",
+        fruit: "L'espérance des biens célestes et le désir du ciel",
+        scripture: 'Ac 1, 9-11',
+        scriptureText: "Il fut emporté sous leurs yeux, et une nuée le déroba à leur regard. Deux hommes en vêtements blancs leur dirent : Hommes de Galilée, pourquoi restez-vous là à regarder vers le ciel ? Ce Jésus qui a été enlevé parmi vous vers le ciel viendra de la même manière.",
+      },
+      {
+        title: 'La Pentecôte',
+        fruit: "La charité ardente et les sept dons du Saint-Esprit",
+        scripture: 'Ac 2, 1-4',
+        scriptureText: "Quand arriva le jour de la Pentecôte, ils se trouvaient réunis tous ensemble. Ils virent apparaître des langues comme de feu qui se partageaient et il s'en posa une sur chacun d'eux. Ils furent tous remplis de l'Esprit Saint.",
+      },
+      {
+        title: "L'Assomption de la Vierge Marie",
+        fruit: "La piété filiale envers Marie, Mère de Dieu",
+        scripture: 'Ap 12, 1',
+        scriptureText: "Un signe grandiose apparut dans le ciel : une femme enveloppée du soleil, la lune sous ses pieds, et sur sa tête une couronne de douze étoiles.",
+      },
+      {
+        title: 'Le Couronnement de Marie, Reine du Ciel',
+        fruit: "La confiance et la dévotion à la Vierge Marie",
+        scripture: 'Ap 12, 10',
+        scriptureText: "J'entendis dans le ciel une voix forte qui disait : C'est maintenant le salut, la puissance et le règne de notre Dieu, et le pouvoir de son Christ. Car il a été précipité, l'accusateur de nos frères.",
+      },
     ],
   },
-};
+];
 
-const MYSTERY_ORDER: MysteryType[] = ['joyeux', 'lumineux', 'douloureux', 'glorieux'];
-
-const getDayMystery = (): MysteryType => {
-  const day = new Date().getDay();
-  if (day === 0 || day === 3) return 'glorieux';
-  if (day === 1 || day === 6) return 'joyeux';
-  if (day === 2 || day === 5) return 'douloureux';
-  return 'lumineux';
-};
-
-const PRAYERS = {
-  credo: `Je crois en Dieu, le Père tout-puissant, Créateur du ciel et de la terre, et en Jésus-Christ, son Fils unique, notre Seigneur, qui a été conçu du Saint-Esprit, est né de la Vierge Marie, a souffert sous Ponce Pilate, a été crucifié, est mort et a été enseveli, est descendu aux enfers, le troisième jour est ressuscité des morts, est monté aux cieux, est assis à la droite de Dieu le Père tout-puissant, d'où il viendra juger les vivants et les morts. Je crois en l'Esprit-Saint, à la sainte Église catholique, à la communion des saints, à la rémission des péchés, à la résurrection de la chair, à la vie éternelle. Amen.`,
-  pater: `Notre Père, qui es aux cieux, que ton nom soit sanctifié, que ton règne vienne, que ta volonté soit faite sur la terre comme au ciel. Donne-nous aujourd'hui notre pain de ce jour, pardonne-nous nos offenses comme nous pardonnons aussi à ceux qui nous ont offensés, et ne nous soumets pas à la tentation, mais délivre-nous du mal. Amen.`,
-  ave: `Je vous salue, Marie, pleine de grâce ; le Seigneur est avec vous. Vous êtes bénie entre toutes les femmes et Jésus, le fruit de vos entrailles, est béni. Sainte Marie, Mère de Dieu, priez pour nous, pauvres pécheurs, maintenant et à l'heure de notre mort. Amen.`,
-  gloria: `Gloire au Père, et au Fils, et au Saint-Esprit, comme il était au commencement, maintenant et toujours, dans les siècles des siècles. Amen.`,
-  fatima: `Ô mon Jésus, pardonnez-nous nos péchés, préservez-nous du feu de l'enfer, conduisez au ciel toutes les âmes, surtout celles qui ont le plus besoin de votre miséricorde. Amen.`,
-  salve: `Salve, Regina, Mater misericordiae ! Vita, dulcedo et spes nostra, salve ! Ad te clamamus, exsules filii Hevae. Ad te suspiramus gementes et flentes in hac lacrymarum valle. Eia ergo, Advocata nostra, illos tuos misericordes oculos ad nos converte. Et Jesum benedictum fructum ventris tui, nobis post hoc exsilium ostende. O clemens, o pia, o dulcis Virgo Maria !`,
-};
-
-// Display versions with line breaks (for card text)
-const PRAYERS_DISPLAY: Record<string, string> = {
-  credo: `Je crois en Dieu, le Père tout-puissant, Créateur du ciel et de la terre,\net en Jésus-Christ, son Fils unique, notre Seigneur,\nqui a été conçu du Saint-Esprit, est né de la Vierge Marie,\na souffert sous Ponce Pilate, a été crucifié, est mort et a été enseveli,\nest descendu aux enfers, le troisième jour est ressuscité des morts,\nest monté aux cieux, est assis à la droite de Dieu le Père tout-puissant,\nd'où il viendra juger les vivants et les morts.\nJe crois en l'Esprit-Saint, à la sainte Église catholique,\nà la communion des saints, à la rémission des péchés,\nà la résurrection de la chair, à la vie éternelle. Amen.`,
-  pater: `Notre Père, qui es aux cieux,\nque ton nom soit sanctifié,\nque ton règne vienne,\nque ta volonté soit faite sur la terre comme au ciel.\nDonne-nous aujourd'hui notre pain de ce jour,\npardonne-nous nos offenses\ncomme nous pardonnons aussi à ceux qui nous ont offensés,\net ne nous soumets pas à la tentation,\nmais délivre-nous du mal. Amen.`,
-  ave: `Je vous salue, Marie, pleine de grâce ;\nle Seigneur est avec vous.\nVous êtes bénie entre toutes les femmes\net Jésus, le fruit de vos entrailles, est béni.\nSainte Marie, Mère de Dieu,\npriez pour nous, pauvres pécheurs,\nmaintenant et à l'heure de notre mort. Amen.`,
-  gloria: `Gloire au Père, et au Fils, et au Saint-Esprit,\ncomme il était au commencement, maintenant et toujours,\ndans les siècles des siècles. Amen.`,
-  fatima: `Ô mon Jésus, pardonnez-nous nos péchés,\npréservez-nous du feu de l'enfer,\nconduisez au ciel toutes les âmes,\nsurtout celles qui ont le plus besoin de votre miséricorde. Amen.`,
-  salve: `Salve, Regina, Mater misericordiae !\nVita, dulcedo et spes nostra, salve !\nAd te clamamus, exsules filii Hevae.\nAd te suspiramus gementes et flentes in hac lacrymarum valle.\nEia ergo, Advocata nostra,\nillos tuos misericordes oculos ad nos converte.\nEt Jesum benedictum fructum ventris tui,\nnobis post hoc exsilium ostende.\nO clemens, o pia, o dulcis Virgo Maria !`,
-};
-
-type Phase = 'credo' | 'pater-intro' | 'ave-intro' | 'gloria-intro' | 'mystery' | 'pater' | 'ave' | 'gloria' | 'fatima' | 'salve' | 'done';
-
-interface RosaryState {
-  mysteryType: MysteryType;
-  mysteryIndex: number;
-  phase: Phase;
-  aveCount: number;
+// Determine today's mystery set by day of week
+function getTodaySet(): MysterySet {
+  const day = new Date().getDay(); // 0=Sun,1=Mon,...,6=Sat
+  if (day === 1 || day === 6) return MYSTERY_SETS[0]; // Joyful
+  if (day === 4) return MYSTERY_SETS[1];               // Luminous
+  if (day === 2 || day === 5) return MYSTERY_SETS[2];  // Sorrowful
+  return MYSTERY_SETS[3];                               // Glorious
 }
+
+// ── State machine types ─────────────────────────────────────────────────────
+type Step =
+  | 'chooser'
+  | 'credo'
+  | 'pater-intro'
+  | 'ave-intro-1'
+  | 'ave-intro-2'
+  | 'ave-intro-3'
+  | 'gloria-intro'
+  | { mystery: number }
+  | { pater: number }
+  | { ave: number; index: number }
+  | { gloria: number }
+  | { fatima: number }
+  | 'salve'
+  | 'done';
+
+function getStepLabel(step: Step): string {
+  if (step === 'credo') return 'Je crois en Dieu';
+  if (step === 'pater-intro') return 'Notre Père';
+  if (step === 'ave-intro-1') return 'Je vous salue, Marie (1)';
+  if (step === 'ave-intro-2') return 'Je vous salue, Marie (2)';
+  if (step === 'ave-intro-3') return 'Je vous salue, Marie (3)';
+  if (step === 'gloria-intro') return 'Gloire au Père';
+  if (step === 'salve') return 'Salve Regina';
+  if (typeof step === 'object' && 'mystery' in step) return `Mystère ${step.mystery + 1}`;
+  if (typeof step === 'object' && 'pater' in step) return `Notre Père — Dizaine ${step.pater + 1}`;
+  if (typeof step === 'object' && 'ave' in step) return `Je vous salue, Marie ${step.index + 1} / 10`;
+  if (typeof step === 'object' && 'gloria' in step) return `Gloire au Père — Dizaine ${step.gloria + 1}`;
+  if (typeof step === 'object' && 'fatima' in step) return `Ô mon Jésus — Dizaine ${step.fatima + 1}`;
+  return '';
+}
+
+function getStepText(step: Step): string {
+  if (step === 'credo') return JE_CROIS_EN_DIEU;
+  if (step === 'pater-intro') return NOTRE_PERE;
+  if (step === 'ave-intro-1' || step === 'ave-intro-2' || step === 'ave-intro-3') return JE_VOUS_SALUE;
+  if (step === 'gloria-intro') return GLOIRE_AU_PERE;
+  if (step === 'salve') return SALVE_REGINA;
+  if (typeof step === 'object' && 'pater' in step) return NOTRE_PERE;
+  if (typeof step === 'object' && 'ave' in step) return JE_VOUS_SALUE;
+  if (typeof step === 'object' && 'gloria' in step) return GLOIRE_AU_PERE;
+  if (typeof step === 'object' && 'fatima' in step) return O_MON_JESUS;
+  return '';
+}
+
+function nextStep(step: Step, total = 5): Step {
+  if (step === 'credo') return 'pater-intro';
+  if (step === 'pater-intro') return 'ave-intro-1';
+  if (step === 'ave-intro-1') return 'ave-intro-2';
+  if (step === 'ave-intro-2') return 'ave-intro-3';
+  if (step === 'ave-intro-3') return 'gloria-intro';
+  if (step === 'gloria-intro') return { mystery: 0 };
+  if (typeof step === 'object' && 'mystery' in step) return { pater: step.mystery };
+  if (typeof step === 'object' && 'pater' in step) return { ave: step.pater, index: 0 };
+  if (typeof step === 'object' && 'ave' in step) {
+    if (step.index < 9) return { ave: step.ave, index: step.index + 1 };
+    return { gloria: step.ave };
+  }
+  if (typeof step === 'object' && 'gloria' in step) return { fatima: step.gloria };
+  if (typeof step === 'object' && 'fatima' in step) {
+    const next = step.fatima + 1;
+    return next < total ? { mystery: next } : 'salve';
+  }
+  if (step === 'salve') return 'done';
+  return 'done';
+}
+
+function prevStep(step: Step): Step {
+  if (step === 'credo') return 'chooser';
+  if (step === 'pater-intro') return 'credo';
+  if (step === 'ave-intro-1') return 'pater-intro';
+  if (step === 'ave-intro-2') return 'ave-intro-1';
+  if (step === 'ave-intro-3') return 'ave-intro-2';
+  if (step === 'gloria-intro') return 'ave-intro-3';
+  if (typeof step === 'object' && 'mystery' in step) {
+    return step.mystery === 0 ? 'gloria-intro' : { fatima: step.mystery - 1 };
+  }
+  if (typeof step === 'object' && 'pater' in step) return { mystery: step.pater };
+  if (typeof step === 'object' && 'ave' in step) {
+    return step.index === 0 ? { pater: step.ave } : { ave: step.ave, index: step.index - 1 };
+  }
+  if (typeof step === 'object' && 'gloria' in step) return { ave: step.gloria, index: 9 };
+  if (typeof step === 'object' && 'fatima' in step) return { gloria: step.fatima };
+  if (step === 'salve') return { fatima: 4 };
+  return 'chooser';
+}
+
+function totalSteps(total = 5): number {
+  return 6 + total * 14 + 1;
+}
+
+function stepIndex(step: Step, total = 5): number {
+  if (step === 'chooser' || step === 'credo') return 0;
+  if (step === 'pater-intro') return 1;
+  if (step === 'ave-intro-1') return 2;
+  if (step === 'ave-intro-2') return 3;
+  if (step === 'ave-intro-3') return 4;
+  if (step === 'gloria-intro') return 5;
+  if (typeof step === 'object' && 'mystery' in step) return 6 + step.mystery * 14;
+  if (typeof step === 'object' && 'pater' in step) return 7 + step.pater * 14;
+  if (typeof step === 'object' && 'ave' in step) return 8 + step.ave * 14 + step.index;
+  if (typeof step === 'object' && 'gloria' in step) return 18 + step.gloria * 14;
+  if (typeof step === 'object' && 'fatima' in step) return 19 + step.fatima * 14;
+  if (step === 'salve') return 6 + total * 14;
+  if (step === 'done') return totalSteps(total);
+  return 0;
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
 
 const Chapelet = () => {
-  const suggestedMystery = useMemo(getDayMystery, []);
-  const [mysteryType, setMysteryType] = useState<MysteryType>(suggestedMystery);
-  const [started, setStarted] = useState(false);
-  const [autoRead, setAutoRead] = useState(false);
-  const [state, setState] = useState<RosaryState>({ mysteryType: suggestedMystery, mysteryIndex: 0, phase: 'credo', aveCount: 0 });
-  const [completed, setCompleted] = useState(false);
+  const { t } = useTranslation();
+  const { speak, stop, speaking, supported } = useSpeech(0.78);
 
-  const { speak, stop, speaking, supported } = useSpeech(0.8);
-  const mystery = MYSTERIES[state.mysteryType];
+  const [mysterySet, setMysterySet] = useState<MysterySet>(() => getTodaySet());
+  const [step, setStep] = useState<Step>('chooser');
+  const [autoRead, setAutoRead] = useState<boolean>(() => {
+    try { return localStorage.getItem('chapelet-autoread') === 'true'; } catch { return false; }
+  });
 
-  const startRosary = () => {
-    setState({ mysteryType, mysteryIndex: 0, phase: 'credo', aveCount: 0 });
-    setStarted(true);
-    setCompleted(false);
-  };
+  const mysteries = mysterySet.mysteries;
+  const total = mysteries.length;
 
-  const getPrayerText = useCallback((s: RosaryState): string => {
-    const { phase, aveCount, mysteryIndex } = s;
-    const m = MYSTERIES[s.mysteryType].mysteries[mysteryIndex];
-    switch (phase) {
-      case 'credo': return PRAYERS.credo;
-      case 'pater-intro': return PRAYERS.pater;
-      case 'ave-intro': return PRAYERS.ave;
-      case 'gloria-intro': return PRAYERS.gloria;
-      case 'mystery': return `Méditons sur le ${mysteryIndex + 1}er mystère : ${m}`;
-      case 'pater': return PRAYERS.pater;
-      case 'ave': return PRAYERS.ave;
-      case 'gloria': return PRAYERS.gloria;
-      case 'fatima': return PRAYERS.fatima;
-      case 'salve': return PRAYERS.salve;
-      default: return '';
-    }
-  }, []);
+  const isMystery = typeof step === 'object' && 'mystery' in step;
+  const currentMystery = isMystery ? mysteries[(step as { mystery: number }).mystery] : null;
 
-  const advance = useCallback(() => {
-    setState((prev) => {
-      const { phase, aveCount, mysteryIndex } = prev;
-      let next: RosaryState = prev;
+  const handleNext = useCallback(() => {
+    stop();
+    setStep((s) => nextStep(s, total));
+  }, [stop, total]);
 
-      if (phase === 'credo')        next = { ...prev, phase: 'pater-intro' };
-      else if (phase === 'pater-intro') next = { ...prev, phase: 'ave-intro' };
-      else if (phase === 'ave-intro')   next = { ...prev, phase: 'gloria-intro' };
-      else if (phase === 'gloria-intro') next = { ...prev, phase: 'mystery', mysteryIndex: 0 };
-      else if (phase === 'mystery') next = { ...prev, phase: 'pater' };
-      else if (phase === 'pater')   next = { ...prev, phase: 'ave', aveCount: 0 };
-      else if (phase === 'ave') {
-        if (aveCount < 9) next = { ...prev, aveCount: aveCount + 1 };
-        else              next = { ...prev, phase: 'gloria' };
-      }
-      else if (phase === 'gloria') next = { ...prev, phase: 'fatima' };
-      else if (phase === 'fatima') {
-        if (mysteryIndex < 4) next = { ...prev, phase: 'mystery', mysteryIndex: mysteryIndex + 1 };
-        else                  next = { ...prev, phase: 'salve' };
-      }
-      else if (phase === 'salve') next = { ...prev, phase: 'done' };
+  const handlePrev = useCallback(() => {
+    stop();
+    setStep((s) => prevStep(s));
+  }, [stop]);
 
-      return next;
-    });
-  }, []);
-
-  // Auto-read when phase changes
-  useEffect(() => {
-    if (!started || !autoRead || state.phase === 'done') return;
-    const text = getPrayerText(state);
+  const handleListen = () => {
+    if (speaking) { stop(); return; }
+    const text = getStepText(step);
     if (text) speak(text);
-  }, [state.phase, state.aveCount, state.mysteryIndex, started, autoRead]);
+  };
 
   useEffect(() => {
-    if (state.phase === 'done') { setCompleted(true); stop(); }
-  }, [state.phase]);
-
-  const getPhaseInfo = () => {
-    const { phase, aveCount, mysteryIndex } = state;
-    const m = mystery.mysteries[mysteryIndex];
-    switch (phase) {
-      case 'credo':       return { title: 'Credo', subtitle: 'Début du chapelet', display: PRAYERS_DISPLAY.credo, button: 'Continuer →' };
-      case 'pater-intro': return { title: 'Notre Père', subtitle: '1er chapelet — introduction', display: PRAYERS_DISPLAY.pater, button: 'Continuer →' };
-      case 'ave-intro':   return { title: 'Je vous salue Marie', subtitle: '3 Ave Maria', display: PRAYERS_DISPLAY.ave, button: 'Continuer →' };
-      case 'gloria-intro':return { title: 'Gloire au Père', subtitle: 'Doxologie', display: PRAYERS_DISPLAY.gloria, button: 'Commencer les mystères →' };
-      case 'mystery':     return { title: `${mysteryIndex + 1}er Mystère`, subtitle: m, display: `Méditons sur :\n\n${m}`, button: 'Prier le Notre Père →' };
-      case 'pater':       return { title: 'Notre Père', subtitle: `Mystère ${mysteryIndex + 1} sur 5`, display: PRAYERS_DISPLAY.pater, button: 'Commencer les Ave Maria →' };
-      case 'ave':         return { title: `Ave Maria ${aveCount + 1}/10`, subtitle: `Mystère ${mysteryIndex + 1} — ${m}`, display: PRAYERS_DISPLAY.ave, button: aveCount < 9 ? `Ave Maria suivant (${aveCount + 2}/10) →` : 'Gloire au Père →' };
-      case 'gloria':      return { title: 'Gloire au Père', subtitle: `Fin du mystère ${mysteryIndex + 1}`, display: PRAYERS_DISPLAY.gloria, button: 'Oraison de Fatima →' };
-      case 'fatima':      return { title: 'Oraison de Fatima', subtitle: `Mystère ${mysteryIndex + 1} terminé`, display: PRAYERS_DISPLAY.fatima, button: mysteryIndex < 4 ? `Mystère ${mysteryIndex + 2} →` : 'Salve Regina →' };
-      case 'salve':       return { title: 'Salve Regina', subtitle: 'Fin du chapelet', display: PRAYERS_DISPLAY.salve, button: 'Terminer ✓' };
-      default:            return { title: '', subtitle: '', display: '', button: '' };
+    if (autoRead && step !== 'chooser' && step !== 'done') {
+      const text = getStepText(step);
+      if (text) {
+        const id = setTimeout(() => speak(text), 400);
+        return () => clearTimeout(id);
+      }
     }
+  }, [step, autoRead]);
+
+  const toggleAutoRead = () => {
+    const next = !autoRead;
+    setAutoRead(next);
+    try { localStorage.setItem('chapelet-autoread', String(next)); } catch {}
+    if (!next) stop();
   };
 
-  const getProgress = () => {
-    const { phase, aveCount, mysteryIndex } = state;
-    const total = 4 + 5 * 13 + 1;
-    let s = 0;
-    const ordered: Phase[] = ['credo', 'pater-intro', 'ave-intro', 'gloria-intro', 'mystery', 'pater', 'ave', 'gloria', 'fatima', 'salve', 'done'];
-    const idx = ordered.indexOf(phase);
-    if (idx >= 1) s += 1;
-    if (idx >= 2) s += 1;
-    if (idx >= 3) s += 1;
-    if (idx >= 4) s += 1;
-    s += mysteryIndex * 13;
-    if (['pater', 'ave', 'gloria', 'fatima'].includes(phase)) s += 1;
-    if (['ave', 'gloria', 'fatima'].includes(phase)) s += 1 + aveCount;
-    if (phase === 'gloria') s += 11;
-    if (phase === 'fatima') s += 12;
-    if (phase === 'salve')  s += 4 * 13;
-    return Math.min(Math.round((s / total) * 100), 99);
-  };
+  const restart = () => { stop(); setStep('chooser'); };
 
-  const phaseInfo = started && state.phase !== 'done' ? getPhaseInfo() : null;
+  const idx = stepIndex(step, total);
+  const tot = totalSteps(total);
+  const pct = tot > 0 ? Math.round((idx / tot) * 100) : 0;
 
+  const text = getStepText(step);
+  const label = getStepLabel(step);
+
+  // ── Chooser ──────────────────────────────────────────────────────────────
+  if (step === 'chooser') {
+    return (
+      <div className="min-h-screen bg-background">
+        <Helmet><title>Le Saint Rosaire — Voie Vérité Vie</title></Helmet>
+        <Navigation />
+        <header className="relative overflow-hidden border-b border-cathedral-gold/20 bg-gradient-cathedral pt-28 pb-12 text-center px-4">
+          <div className="absolute inset-0 bg-gradient-stained opacity-50 pointer-events-none" />
+          <div className="relative max-w-2xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cathedral-gold/40 bg-background/10 backdrop-blur-sm mb-5">
+              <BookOpen className="h-3.5 w-3.5 text-cathedral-gold" />
+              <span className="text-xs uppercase tracking-[0.2em] text-cathedral-gold font-medium">{t('chapelet.badge')}</span>
+            </div>
+            <h1 className="font-cinzel text-4xl sm:text-5xl font-bold text-white mb-4">{t('chapelet.title')}</h1>
+            <div className="cathedral-line w-24 h-px mx-auto my-4" />
+            <p className="text-white/70 text-sm sm:text-base leading-relaxed max-w-lg mx-auto">{t('chapelet.subtitle')}</p>
+          </div>
+        </header>
+
+        <main className="max-w-xl mx-auto px-4 py-10 space-y-4">
+          <h2 className="font-cinzel font-bold text-foreground text-base">{t('chapelet.chooseSet')}</h2>
+          {MYSTERY_SETS.map((ms) => (
+            <button
+              key={ms.key}
+              onClick={() => { setMysterySet(ms); setStep('credo'); }}
+              className={`w-full flex items-center justify-between rounded-2xl border p-5 text-left transition-all hover:shadow-md ${ms.key === mysterySet.key ? 'border-cathedral-gold/60 bg-cathedral-gold/10' : 'border-border/60 bg-card hover:border-cathedral-gold/30'}`}
+            >
+              <div>
+                <div className="font-cinzel font-bold text-foreground">{ms.label}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{ms.days}</div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+          ))}
+        </main>
+      </div>
+    );
+  }
+
+  // ── Done ──────────────────────────────────────────────────────────────────
+  if (step === 'done') {
+    return (
+      <div className="min-h-screen bg-background">
+        <Helmet><title>Le Saint Rosaire — Voie Vérité Vie</title></Helmet>
+        <Navigation />
+        <div className="flex items-center justify-center min-h-[80vh] px-4">
+          <div className="max-w-sm text-center space-y-5">
+            <div className="text-6xl">🌹</div>
+            <h2 className="font-cinzel text-2xl font-bold text-foreground">{t('chapelet.done')}</h2>
+            <p className="text-muted-foreground text-sm leading-relaxed">{t('chapelet.doneDesc')}</p>
+            <div className="rounded-xl border border-cathedral-gold/20 bg-cathedral-gold/5 p-4">
+              <p className="font-['Playfair_Display',serif] text-sm italic text-foreground/80">{t('chapelet.doneVerse')}</p>
+            </div>
+            <Button onClick={restart} className="rounded-xl w-full bg-cathedral-gold hover:bg-cathedral-gold/90 text-black font-bold">
+              <RotateCcw className="h-4 w-4 mr-2" /> {t('chapelet.newChapelet')}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Prayer step ───────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>Chapelet — Voie Vérité Vie</title>
-        <meta name="description" content="Priez le chapelet guidé étape par étape avec les mystères du jour." />
-      </Helmet>
+      <Helmet><title>Le Saint Rosaire — Voie Vérité Vie</title></Helmet>
       <Navigation />
 
-      <header className="relative overflow-hidden border-b border-cathedral-gold/20 bg-gradient-cathedral pt-28 pb-12 text-center px-4">
+      <header className="relative overflow-hidden border-b border-cathedral-gold/20 bg-gradient-cathedral pt-28 pb-8 text-center px-4">
         <div className="absolute inset-0 bg-gradient-stained opacity-50 pointer-events-none" />
         <div className="relative max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cathedral-gold/40 bg-background/10 backdrop-blur-sm mb-5">
-            <span className="text-cathedral-gold text-sm">📿</span>
-            <span className="text-xs uppercase tracking-[0.2em] text-cathedral-gold font-medium">Prière mariale</span>
+          <p className="font-cinzel text-cathedral-gold text-sm font-bold tracking-wider mb-1">{mysterySet.label}</p>
+          <h1 className="font-cinzel text-2xl sm:text-3xl font-bold text-white">{t('chapelet.title')}</h1>
+          <div className="mt-4 w-full bg-white/20 rounded-full h-1.5">
+            <div
+              className="bg-cathedral-gold h-1.5 rounded-full transition-all duration-500"
+              style={{ width: `${pct}%` }}
+            />
           </div>
-          <h1 className="font-cinzel text-4xl sm:text-5xl font-bold text-white mb-4">Chapelet</h1>
-          <div className="cathedral-line w-24 h-px mx-auto my-4" />
-          <p className="text-white/70 text-sm sm:text-base leading-relaxed max-w-lg mx-auto">
-            Méditez les mystères de la foi guidé pas à pas. Le Saint Rosaire est une prière contemplative qui unit le cœur à Marie.
-          </p>
+          <p className="text-white/60 text-xs mt-1">{pct}%</p>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-10 space-y-6">
-        {!started ? (
-          <>
-            <div className="rounded-2xl border border-cathedral-gold/20 bg-card p-6">
-              <h2 className="font-cinzel font-bold text-foreground text-lg mb-1">Choisir les mystères</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                Suggestion du jour ({new Date().toLocaleDateString('fr-FR', { weekday: 'long' })}) :{' '}
-                <span className="font-semibold text-foreground">{MYSTERIES[suggestedMystery].title}</span>
-              </p>
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                {MYSTERY_ORDER.map((key) => {
-                  const m = MYSTERIES[key];
-                  const isSelected = mysteryType === key;
-                  return (
-                    <button key={key} onClick={() => setMysteryType(key)} className={`rounded-xl border p-4 text-left transition-all ${isSelected ? `${m.bgClass} ${m.borderClass}` : 'border-border/60 hover:border-border'}`}>
-                      <div className="text-2xl mb-1">{m.emoji}</div>
-                      <div className={`font-cinzel font-bold text-sm ${isSelected ? m.color : 'text-foreground'}`}>{m.title}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{m.days}</div>
-                    </button>
-                  );
-                })}
+      <main className="max-w-xl mx-auto px-4 py-8 space-y-5">
+
+        {currentMystery && (
+          <div className="rounded-2xl border border-cathedral-gold/30 bg-cathedral-gold/5 p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="rounded-full text-cathedral-gold border-cathedral-gold/40 text-xs">
+                {t('chapelet.mysteryOf', { n: (step as { mystery: number }).mystery + 1 })}
+              </Badge>
+            </div>
+            <h2 className="font-cinzel font-bold text-foreground text-lg">{currentMystery.title}</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('chapelet.fruit')}</p>
+                <p className="text-foreground font-medium text-xs">{currentMystery.fruit}</p>
               </div>
-
-              {supported && (
-                <label className="flex items-center gap-3 cursor-pointer rounded-xl border border-border/60 bg-muted/20 p-3">
-                  <input type="checkbox" checked={autoRead} onChange={(e) => setAutoRead(e.target.checked)} className="rounded" />
-                  <Volume2 className="h-4 w-4 text-cathedral-gold shrink-0" />
-                  <div>
-                    <div className="text-sm font-medium text-foreground">Lecture vocale automatique</div>
-                    <div className="text-xs text-muted-foreground">Chaque prière sera lue à voix haute</div>
-                  </div>
-                </label>
-              )}
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{t('chapelet.scripture')}</p>
+                <p className="text-cathedral-gold font-bold text-xs">{currentMystery.scripture}</p>
+              </div>
             </div>
-
-            <div className={`rounded-2xl border ${MYSTERIES[mysteryType].borderClass} ${MYSTERIES[mysteryType].bgClass} p-6`}>
-              <h3 className={`font-cinzel font-bold ${MYSTERIES[mysteryType].color} mb-3`}>{MYSTERIES[mysteryType].title}</h3>
-              <ol className="space-y-2">
-                {MYSTERIES[mysteryType].mysteries.map((m, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-foreground/80">
-                    <span className={`font-bold ${MYSTERIES[mysteryType].color} shrink-0`}>{i + 1}.</span>
-                    {m}
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            <Button onClick={startRosary} className="w-full bg-cathedral-gold hover:bg-cathedral-gold/90 text-black font-bold rounded-xl py-5 text-base">
-              📿 Commencer le chapelet
-            </Button>
-          </>
-        ) : completed ? (
-          <div className="rounded-2xl border border-cathedral-gold/30 bg-card p-10 text-center space-y-4">
-            <div className="text-5xl">🙏</div>
-            <h2 className="font-cinzel text-2xl font-bold text-foreground">Chapelet terminé</h2>
-            <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-              Que Marie intercède pour vous et vous accompagne dans toutes vos intentions. Amen.
+            <p className="text-xs text-muted-foreground italic leading-relaxed border-l-2 border-cathedral-gold/30 pl-3">
+              {currentMystery.scriptureText}
             </p>
-            <Button variant="outline" onClick={() => setStarted(false)} className="rounded-xl gap-2">
-              <RotateCcw className="h-4 w-4" /> Nouveau chapelet
-            </Button>
           </div>
-        ) : phaseInfo ? (
-          <>
-            {/* Progress */}
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{mystery.title}</span>
-                <span>{getProgress()}%</span>
-              </div>
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                <div className="h-full bg-cathedral-gold transition-all duration-500" style={{ width: `${getProgress()}%` }} />
-              </div>
-            </div>
+        )}
 
-            {/* Ave bead counter */}
-            {state.phase === 'ave' && (
-              <div className="flex items-center justify-center gap-1.5 flex-wrap py-1">
-                {Array.from({ length: 10 }).map((_, i) =>
-                  i <= state.aveCount
-                    ? <CheckCircle2 key={i} className="h-5 w-5 text-cathedral-gold" />
-                    : <Circle key={i} className="h-5 w-5 text-muted-foreground/40" />
-                )}
-              </div>
-            )}
-
-            {/* Prayer card */}
-            <div className="rounded-2xl border border-cathedral-gold/30 bg-card p-6 space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <Badge variant="outline" className="text-cathedral-gold border-cathedral-gold/40 rounded-full text-xs mb-2">{phaseInfo.subtitle}</Badge>
-                  <h2 className="font-cinzel text-xl font-bold text-foreground">{phaseInfo.title}</h2>
-                </div>
-
-                {/* Voice controls */}
-                {supported && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => speaking ? stop() : speak(getPrayerText(state))}
-                      title={speaking ? 'Arrêter' : 'Écouter'}
-                      className={`p-2 rounded-full transition-colors border ${speaking ? 'text-cathedral-gold border-cathedral-gold/40 bg-cathedral-gold/10' : 'text-muted-foreground border-border hover:border-border/80 hover:text-foreground'}`}
-                    >
-                      {speaking ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                    </button>
-                    <button
-                      onClick={() => setAutoRead((v) => !v)}
-                      title={autoRead ? 'Désactiver lecture auto' : 'Activer lecture auto'}
-                      className={`p-2 rounded-full transition-colors border ${autoRead ? 'text-cathedral-gold border-cathedral-gold/40 bg-cathedral-gold/10' : 'text-muted-foreground border-border hover:border-border/80 hover:text-foreground'}`}
-                    >
-                      {autoRead ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="relative rounded-xl bg-muted/40 p-5">
-                <span className="absolute top-2 left-3 text-3xl font-serif text-cathedral-gold/20 leading-none select-none">"</span>
-                <p className="font-['Playfair_Display',serif] text-sm text-foreground/90 leading-relaxed whitespace-pre-line italic relative z-10">
-                  {state.phase === 'mystery' ? mystery.mysteries[state.mysteryIndex] : phaseInfo.display}
-                </p>
-              </div>
-
-              {speaking && (
-                <div className="flex items-center gap-2 text-xs text-cathedral-gold">
-                  <span className="flex gap-0.5">
-                    {[0,1,2].map((i) => (
-                      <span key={i} className="w-1 rounded-full bg-cathedral-gold animate-bounce" style={{ height: '12px', animationDelay: `${i * 0.15}s` }} />
-                    ))}
-                  </span>
-                  Lecture en cours...
-                </div>
+        {text && (
+          <div className="rounded-2xl border border-border/60 bg-card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-cinzel font-bold text-foreground text-base">{label}</h3>
+              {supported && (
+                <button
+                  onClick={handleListen}
+                  title={speaking ? t('chapelet.stop') : t('chapelet.listen')}
+                  className={`p-2 rounded-full transition-colors ${speaking ? 'text-cathedral-gold bg-cathedral-gold/10' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+                >
+                  {speaking ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                </button>
               )}
-
-              <Button onClick={advance} className="w-full bg-cathedral-gold hover:bg-cathedral-gold/90 text-black font-bold rounded-xl">
-                {phaseInfo.button}
-              </Button>
             </div>
+            <p className="text-foreground text-sm leading-loose whitespace-pre-line font-['Playfair_Display',serif]">
+              {text}
+            </p>
+          </div>
+        )}
 
-            <Button variant="ghost" size="sm" onClick={() => { stop(); setStarted(false); setCompleted(false); }} className="w-full text-muted-foreground text-xs">
-              Arrêter le chapelet
-            </Button>
-          </>
-        ) : null}
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={handlePrev} className="flex-1 rounded-xl gap-1.5">
+            <ChevronLeft className="h-4 w-4" /> {t('chapelet.previous')}
+          </Button>
+          <Button onClick={handleNext} className="flex-1 bg-cathedral-gold hover:bg-cathedral-gold/90 text-black font-bold rounded-xl gap-1.5">
+            {t('chapelet.next')} <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+          <button
+            onClick={toggleAutoRead}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 border transition-all ${autoRead ? 'border-cathedral-gold/40 text-cathedral-gold bg-cathedral-gold/10' : 'border-border hover:border-border/80'}`}
+          >
+            {autoRead ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+            {t('chapelet.autoRead')}
+          </button>
+          <button onClick={restart} className="flex items-center gap-1 hover:text-foreground transition-colors">
+            <RotateCcw className="h-3 w-3" /> {t('chapelet.restart')}
+          </button>
+        </div>
       </main>
     </div>
   );

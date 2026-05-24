@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import FixSuperadminRole from '@/components/admin/FixSuperadminRole';
 import {
   Home, Info, Calendar, BookOpen, MessageSquare,
-  Image, HelpCircle, Mail, Bot, Settings, Users, Shield, Flame, Cross, User, Palette, Bell, Clock, Video, CalendarDays
+  Image, HelpCircle, Mail, Bot, Settings, Users, Shield, Flame, Cross, User, Palette, Bell, Clock, Video, CalendarDays, Heart, DollarSign
 } from 'lucide-react';
 
 const adminSectionKeys = [
@@ -30,6 +30,8 @@ const adminSectionKeys = [
   { titleKey: 'admin.sections.videoRooms', descKey: 'admin.sections.videoRoomsDesc', icon: Video, path: '/admin/video' },
   { titleKey: 'admin.sections.aiAssistant', descKey: 'admin.sections.aiAssistantDesc', icon: Bot, path: '/admin/ai' },
   { titleKey: 'admin.sections.users', descKey: 'admin.sections.usersDesc', icon: Users, path: '/admin/users' },
+  { titleKey: 'admin.sections.testimonials', descKey: 'admin.sections.testimonialsDesc', icon: Heart, path: '/admin/testimonials' },
+  { titleKey: 'admin.sections.donations', descKey: 'admin.sections.donationsDesc', icon: DollarSign, path: '/admin/donations' },
 ];
 
 interface Stats {

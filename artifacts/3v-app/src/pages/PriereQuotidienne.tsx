@@ -1,11 +1,52 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useTranslation } from 'react-i18next';
 import Navigation from '@/components/Navigation';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sun, Sunset, Moon, Star, ChevronDown, ChevronUp, Copy, Check, Play, Square } from 'lucide-react';
-import { toast } from 'sonner';
+import { Sun, Sunset, Moon, Star, ChevronDown, ChevronUp, Volume2, Square, BookOpen, Loader2 } from 'lucide-react';
 import { useSpeech } from '@/hooks/useSpeech';
+
+// ── AELF API ───────────────────────────────────────────────────────────────
+
+const AELF_BASE = 'https://api.aelf.org/v1';
+
+function detectZone(): string {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone ?? '';
+    if (tz.startsWith('Africa')) return 'afrique';
+    if (tz.startsWith('Europe/Brussels')) return 'belgique';
+    if (tz.startsWith('America')) return 'canada';
+    if (tz.startsWith('Europe/Zurich') || tz.startsWith('Europe/Geneva')) return 'suisse';
+  } catch {}
+  return 'afrique';
+}
+
+function getTodayStr(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+interface AelfLecture {
+  type: string;
+  titre?: string;
+  ref?: string;
+  contenu?: string;
+}
+
+interface AelfInfo {
+  jour_liturgique_nom?: string;
+  couleur?: string;
+}
+
+interface AelfData {
+  messes?: { lectures?: AelfLecture[]; information?: AelfInfo };
+  information?: AelfInfo;
+}
+
+// ── Static prayers ─────────────────────────────────────────────────────────
 
 interface PrayerBlock {
   id: string;
@@ -23,160 +64,325 @@ const PRAYERS: Record<TimeOfDay, PrayerBlock[]> = {
       id: 'offrande',
       title: 'Offrande du matin',
       subtitle: 'Commencer la journée en union avec Dieu',
-      text: `Ô Jésus, par le Cœur Immaculé de Marie, je vous offre les prières, les travaux, les joies et les souffrances de cette journée, en réparation des péchés, pour les intentions de tous ceux qui prient avec moi, et en union avec le saint Sacrifice de la Messe.`,
+      text: `Ô Jésus, par le Cœur Immaculé de Marie, je vous offre les prières, les travaux, les joies et les souffrances de cette journée, en réparation des péchés, pour les intentions de tous ceux qui prient avec moi, et en union avec le saint Sacrifice de la Messe. Amen.`,
       source: 'Prière traditionnelle',
     },
     {
       id: 'angeGardien',
-      title: "Prière à l'Ange gardien",
-      text: `Ange de Dieu, qui es mon gardien, éclaire, garde, conduis et gouverne celui que la bonté divine m'a confié. Amen.`,
+      title: 'Prière à l'Ange Gardien',
+      text: `Ange de Dieu, qui êtes mon gardien,
+éclairez, gardez, gouvernez et conduisez
+la pauvre âme que la bonté divine
+vous a confiée.
+Amen.`,
       source: 'Prière traditionnelle',
     },
     {
-      id: 'magnificat',
-      title: 'Magnificat',
-      subtitle: 'Cantique de la Vierge Marie',
-      text: `Mon âme exalte le Seigneur, exulte mon esprit en Dieu, mon Sauveur !\nIl s'est penché sur son humble servante ; désormais tous les âges me diront bienheureuse.\nLe Tout-Puissant fit pour moi des merveilles ; Saint est son nom !\nSon amour s'étend d'âge en âge sur ceux qui le craignent.\nDéployant la force de son bras, il disperse les superbes.\nIl renverse les puissants de leurs trônes, il élève les humbles.\nIl comble de biens les affamés, renvoie les riches les mains vides.\nIl relève Israël son serviteur, il se souvient de son amour,\nde la promesse faite à nos pères, en faveur d'Abraham et de sa race à jamais.`,
-      source: 'Luc 1, 46-55',
+      id: 'psaume23',
+      title: 'Psaume 23 — Le Seigneur est mon berger',
+      text: `Le Seigneur est mon berger,
+je ne manque de rien.
+Sur des prés d'herbe fraîche,
+il me fait reposer.
+Il me mène vers les eaux tranquilles
+et me fait revivre.
+Il me guide sur les justes chemins
+pour l'honneur de son nom.
+Si je traverse les ravins de la mort,
+je ne crains aucun mal,
+car tu es avec moi :
+ton bâton me guide et me rassure.`,
+      source: 'Ps 23',
     },
     {
-      id: 'psaume63',
-      title: 'Psaume 63 — Prière de l\'aurore',
-      text: `Ô Dieu, tu es mon Dieu, je te cherche dès l'aube ;\nmon âme a soif de toi ;\nma chair languit après toi dans une terre aride, altérée, sans eau.\nC'est ainsi que je t'ai contemplé dans le sanctuaire,\nvoyant ta puissance et ta gloire.\nTon amour vaut mieux que la vie,\nmes lèvres diront ta louange.\nAinsi je te bénirai ma vie durant,\nen ton nom j'élèverai les mains.`,
-      source: 'Psaume 63, 2-5',
+      id: 'veniCreator',
+      title: 'Viens, Esprit Créateur',
+      subtitle: 'Veni Creator Spiritus',
+      text: `Viens, Esprit Créateur,
+visite l'âme de tes fidèles,
+emplis de la grâce d'en haut
+les cœurs que tu as créés.
+Toi qu'on appelle Consolateur,
+don du Dieu très-haut,
+source vive, feu, charité,
+et doux onction spirituelle.
+Enseigne-nous le Père,
+fais-nous connaître le Fils,
+et toi, l'Esprit des deux,
+donne-nous de croire en toi.
+Amen.`,
+      source: 'Hymne liturgique — IXe siècle',
     },
   ],
   midi: [
     {
       id: 'angelus',
-      title: 'Angélus',
-      subtitle: 'À midi, la prière de l\'Incarnation',
-      text: `L'Ange du Seigneur a annoncé à Marie, et elle a conçu du Saint-Esprit.\n\nJe vous salue, Marie, pleine de grâce ; le Seigneur est avec vous. Vous êtes bénie entre toutes les femmes et Jésus, le fruit de vos entrailles, est béni. Sainte Marie, Mère de Dieu, priez pour nous, pauvres pécheurs, maintenant et à l'heure de notre mort. Amen.\n\nJe suis la servante du Seigneur, qu'il me soit fait selon votre parole.\n\nJe vous salue, Marie...\n\nEt le Verbe s'est fait chair, et il a habité parmi nous.\n\nJe vous salue, Marie...\n\nPriez pour nous, sainte Mère de Dieu. Afin que nous soyons rendus dignes des promesses de Jésus-Christ.\n\nPrions : Répandez, Seigneur, votre grâce en nos âmes, afin que nous qui avons connu, par le message de l'ange, l'Incarnation de votre Fils Jésus-Christ, nous soyons conduits par sa passion et sa croix jusqu'à la gloire de la résurrection. Par le même Jésus-Christ, Notre Seigneur. Amen.`,
-      source: 'Prière mariale',
+      title: "L'Angélus",
+      subtitle: 'Prière mariale de midi',
+      text: `V. L'ange du Seigneur a annoncé à Marie.
+R. Et elle a conçu du Saint-Esprit.
+
+Je vous salue, Marie, pleine de grâces,
+le Seigneur est avec vous.
+Vous êtes bénie entre toutes les femmes,
+et Jésus, le fruit de vos entrailles, est béni.
+Sainte Marie, Mère de Dieu,
+priez pour nous, pauvres pécheurs,
+maintenant et à l'heure de notre mort. Amen.
+
+V. Voici la servante du Seigneur.
+R. Qu'il me soit fait selon votre parole.
+
+(Je vous salue, Marie…)
+
+V. Et le Verbe s'est fait chair.
+R. Et il a habité parmi nous.
+
+(Je vous salue, Marie…)
+
+V. Priez pour nous, sainte Mère de Dieu.
+R. Afin que nous soyons rendus dignes des promesses de Jésus-Christ.
+
+Prions : Répands, Seigneur, ta grâce en nos âmes,
+afin que nous qui avons connu,
+par le message de l'ange,
+l'Incarnation de ton Fils Jésus-Christ,
+nous arrivions par sa Passion et sa Croix
+à la gloire de la Résurrection.
+Par Jésus-Christ, Notre Seigneur. Amen.`,
+      source: 'XIIe siècle',
     },
     {
-      id: 'pause',
-      title: 'Prière de la pause',
-      subtitle: 'Pour sanctifier le milieu du jour',
-      text: `Seigneur, je m'arrête un instant pour me rappeler votre présence.\nDans l'agitation de cette journée, rappelez-moi que je suis en votre main.\nBénissez mes actions, mes rencontres et mes paroles.\nFaites que tout ce que j'entreprends soit ordonné à votre gloire.\nJe vous confie l'après-midi qui vient. Amen.`,
+      id: 'memorare',
+      title: 'Mémoraré',
+      text: `Souvenez-vous, ô très miséricordieuse Vierge Marie,
+qu'on n'a jamais entendu dire qu'aucun de ceux
+qui ont eu recours à votre protection,
+imploré votre assistance ou réclamé votre intercession
+ait été abandonné.
+Animé de cette confiance, je cours vers vous,
+ô Vierge des vierges, ma Mère.
+Je viens à vous et, pécheur repentant,
+je me prosterne en gémissant à vos pieds.
+Ô Mère du Verbe incarné, ne méprisez pas mes prières,
+mais écoutez-les favorablement et daignez les exaucer.
+Amen.`,
+      source: 'Saint Bernard de Clairvaux',
+    },
+    {
+      id: 'gloire',
+      title: 'Gloire au Père',
+      text: `Gloire au Père, au Fils et au Saint-Esprit,
+comme il était au commencement, maintenant et toujours,
+dans les siècles des siècles. Amen.`,
+      source: 'Prière liturgique',
     },
   ],
   soir: [
     {
-      id: 'exammen',
-      title: 'Examen de conscience',
-      subtitle: 'Relire sa journée avec Dieu',
-      text: `1. Reconnaissance — Seigneur, merci pour les grâces et les joies d'aujourd'hui.\n\n2. Demander la lumière — Esprit-Saint, éclaire mon regard pour voir ma journée comme tu la vois.\n\n3. Relire la journée — Qu'ai-je fait de bon ? Qu'est-ce qui aurait pu être mieux ? Y a-t-il eu des moments où j'ai blessé quelqu'un ou refusé votre appel ?\n\n4. Exprimer le regret — Seigneur, je suis désolé pour mes manquements. Pardonnez-moi.\n\n5. Tourner vers demain — Avec votre aide, demain je veux... Bonne nuit, Seigneur.`,
+      id: 'examen',
+      title: 'Examen de conscience du soir',
+      text: `Seigneur, je m'arrête un instant devant toi.
+Merci pour cette journée qui s'achève.
+Je te rends grâce pour tous les moments de joie,
+pour les personnes que j'ai rencontrées,
+pour les biens que tu m'as accordés.
+
+Je te demande pardon pour les fois où j'ai failli :
+les impatiences, les paroles blessantes,
+les pensées égoïstes, les occasions de bien manquées.
+
+Garde-moi cette nuit, et que ton Esprit veille sur moi.
+Amen.`,
+      source: 'Prière traditionnelle',
     },
     {
-      id: 'contrition',
-      title: 'Acte de contrition',
-      text: `Mon Dieu, j'ai un regret sincère de vous avoir offensé, parce que vous êtes infiniment bon, infiniment aimable et que le péché vous déplaît.\nJe prends la ferme résolution, avec le secours de votre sainte grâce, de ne plus vous offenser et de faire pénitence. Amen.`,
+      id: 'confiteor',
+      title: 'Confiteor — Acte de contrition',
+      text: `Je confesse à Dieu tout-puissant,
+je reconnais devant mes frères,
+que j'ai péché en pensée, en parole,
+par action et par omission ;
+oui, j'ai vraiment péché.
+C'est pourquoi je supplie la bienheureuse Vierge Marie,
+les anges et tous les saints,
+et vous aussi, mes frères,
+de prier pour moi le Seigneur notre Dieu.`,
+      source: 'Rite romain',
     },
     {
-      id: 'complie',
-      title: 'Prière du soir',
-      text: `Avant que cette journée s'achève, Seigneur, je vous remets tout ce que j'ai vécu :\nles réussites et les échecs, les joies et les peines, les efforts et les repos.\nVeillez sur moi et sur ceux que j'aime cette nuit.\nDonnez-moi le repos du corps et la paix de l'âme.\nQue vos anges m'entourent de leur protection.\nJe remets mon esprit entre vos mains. Amen.`,
+      id: 'completoire',
+      title: 'Hymne des Complies — Into manus',
+      text: `En tes mains, Seigneur, je remets mon esprit.
+Tu nous as rachetés, Seigneur, Dieu de vérité.
+Tu as fait de moi la joie et l'allégresse,
+et je peux te glorifier nuit et jour.
+
+Garde-moi, Seigneur, comme la prunelle de l'œil,
+à l'ombre de tes ailes, protège-moi.
+
+Que la nuit soit douce et le repos réparateur,
+afin que demain nous soyons prêts à te servir.
+Amen.`,
+      source: 'Liturgie des Heures',
     },
     {
-      id: 'nunc',
-      title: 'Cantique de Syméon (Nunc Dimittis)',
-      text: `Maintenant, ô Maître, tu peux laisser ton serviteur s'en aller en paix selon ta parole ;\ncar mes yeux ont vu ton salut,\nque tu as préparé devant tous les peuples,\nlumière pour éclairer les nations,\net gloire de ton peuple Israël.`,
-      source: 'Luc 2, 29-32',
+      id: 'rosaire-soir',
+      title: 'Invitation au Rosaire',
+      text: `Ce soir, confiez-vous à la Vierge Marie
+en méditant un mystère du Saint Rosaire.
+Commencez par le Notre Père,
+puis dix Ave Maria en contemplant le mystère,
+et terminez par le Gloire au Père.
+
+Notre Père, qui es aux cieux,
+que ton nom soit sanctifié,
+que ton règne vienne,
+que ta volonté soit faite sur la terre comme au ciel.
+Donne-nous aujourd'hui notre pain de ce jour.
+Pardonne-nous nos offenses,
+comme nous pardonnons aussi à ceux qui nous ont offensés.
+Et ne nous laisse pas entrer en tentation,
+mais délivre-nous du Mal.
+Amen.`,
+      source: 'Invitation à la prière',
     },
   ],
   nuit: [
     {
-      id: 'abandon',
-      title: "Acte d'abandon",
-      subtitle: 'Se remettre totalement à Dieu',
-      text: `Père, je m'abandonne à toi ; fais de moi ce qu'il te plaira.\nQuoi que tu fasses de moi, je te remercie.\nJe suis prêt à tout, j'accepte tout.\nPourvu que ta volonté se fasse en moi et en toutes tes créatures,\nje ne désire rien d'autre, mon Dieu.\nJe remets mon âme entre tes mains.\nJe te la donne, mon Dieu, avec tout l'amour de mon cœur,\nparce que je t'aime,\net que c'est pour moi un besoin d'amour de me donner, de me remettre entre tes mains sans mesure,\navec une infinie confiance, car tu es mon Père. Amen.`,
-      source: 'Charles de Foucauld',
+      id: 'benediction',
+      title: 'Bénédiction du soir',
+      text: `Que le Seigneur vous bénisse et vous garde.
+Que le Seigneur fasse briller sur vous son visage,
+qu'il vous soit favorable.
+Que le Seigneur vous montre son visage
+et vous donne la paix.
+Amen.`,
+      source: 'Nombres 6, 24-26',
     },
     {
-      id: 'souvenez',
-      title: 'Memorare',
-      text: `Souvenez-vous, ô très miséricordieuse Vierge Marie, qu'on n'a jamais entendu dire que personne de ceux qui ont eu recours à votre protection, imploré votre secours ou demandé votre intercession ait été abandonné.\nAnimé d'une telle confiance, je viens à vous, ô Vierge des vierges, ma Mère !\nJe viens vers vous et, gémissant sous le poids de mes péchés, je tombe à vos pieds.\nVierge Mère du Verbe, ne méprisez pas mes supplications ;\nécoutez-les favorablement et daignez les exaucer. Amen.`,
-      source: 'Saint Bernard',
+      id: 'dormir',
+      title: 'Prière avant de dormir',
+      text: `Seigneur, je me confie entre tes mains
+pour la nuit qui vient.
+Garde mon âme et mon corps.
+Que tes anges m'entourent pendant mon repos
+et que je me réveille demain avec la grâce
+de te servir fidèlement.
+
+Dans tes mains, Seigneur,
+je remets mon esprit. Amen.`,
+      source: 'Ps 31, 6',
+    },
+    {
+      id: 'salve',
+      title: 'Salve Regina',
+      subtitle: 'Reine du Ciel, notre espérance',
+      text: `Salve Regina, Mère de miséricorde,
+notre vie, notre douceur, notre espérance, salut !
+Vers vous nous crions, pauvres enfants d'Ève exilés.
+Vers vous nous soupirons, gémissant et pleurant
+dans cette vallée de larmes.
+Ô vous, notre avocate, tournez vers nous
+vos yeux miséricordieux.
+Et après cet exil, montrez-nous Jésus,
+le fruit béni de vos entrailles.
+Ô clémente, ô pieuse, ô douce Vierge Marie.
+Amen.`,
+      source: 'Antiphon mariale — XIe siècle',
     },
   ],
 };
 
-const TIME_CONFIG: Record<TimeOfDay, {
-  label: string;
-  icon: React.ReactNode;
-  color: string;
-  bgClass: string;
-  borderClass: string;
-}> = {
-  matin: { label: 'Prières du Matin', icon: <Sun className="h-5 w-5" />,    color: 'text-amber-500',  bgClass: 'bg-amber-500/10',  borderClass: 'border-amber-500/30' },
-  midi:  { label: 'Prières de Midi',  icon: <Sunset className="h-5 w-5" />, color: 'text-orange-500', bgClass: 'bg-orange-500/10', borderClass: 'border-orange-500/30' },
-  soir:  { label: 'Prières du Soir',  icon: <Moon className="h-5 w-5" />,   color: 'text-blue-500',   bgClass: 'bg-blue-500/10',   borderClass: 'border-blue-500/30' },
-  nuit:  { label: 'Prières de Nuit',  icon: <Star className="h-5 w-5" />,   color: 'text-violet-500', bgClass: 'bg-violet-500/10', borderClass: 'border-violet-500/30' },
+const TIME_CONFIG: Record<TimeOfDay, { label: string; icon: React.ElementType; color: string; bgClass: string; borderClass: string; description: string }> = {
+  matin: { label: 'Matin', icon: Sun,     color: 'text-amber-500',  bgClass: 'bg-amber-50 dark:bg-amber-900/20',    borderClass: 'border-amber-200 dark:border-amber-800', description: '6h — 12h' },
+  midi:  { label: 'Midi',  icon: Sunset,  color: 'text-orange-500', bgClass: 'bg-orange-50 dark:bg-orange-900/20',  borderClass: 'border-orange-200 dark:border-orange-800', description: '12h — 18h' },
+  soir:  { label: 'Soir',  icon: Moon,    color: 'text-indigo-500', bgClass: 'bg-indigo-50 dark:bg-indigo-900/20',  borderClass: 'border-indigo-200 dark:border-indigo-800', description: '18h — 21h' },
+  nuit:  { label: 'Nuit',  icon: Star,    color: 'text-violet-500', bgClass: 'bg-violet-50 dark:bg-violet-900/20',  borderClass: 'border-violet-200 dark:border-violet-800', description: '21h — 6h' },
 };
 
-const getTimeOfDay = (): TimeOfDay => {
+function getDefaultTime(): TimeOfDay {
   const h = new Date().getHours();
   if (h >= 5 && h < 12) return 'matin';
-  if (h >= 12 && h < 17) return 'midi';
-  if (h >= 17 && h < 22) return 'soir';
+  if (h >= 12 && h < 18) return 'midi';
+  if (h >= 18 && h < 22) return 'soir';
   return 'nuit';
-};
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
 
 const PriereQuotidienne = () => {
-  const suggested = useMemo(getTimeOfDay, []);
-  const [activeTime, setActiveTime] = useState<TimeOfDay>(suggested);
+  const { t } = useTranslation();
+  const { speak, stop, speaking, supported } = useSpeech(0.8);
+
+  const [activeTime, setActiveTime] = useState<TimeOfDay>(getDefaultTime);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
-  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
 
-  const { speak, stop, speaking, supported } = useSpeech(0.82);
+  // AELF state
+  const [gospel, setGospel] = useState<AelfLecture | null>(null);
+  const [liturgicalDay, setLiturgicalDay] = useState<string>('');
+  const [aelfLoading, setAelfLoading] = useState(true);
+  const [aelfError, setAelfError] = useState(false);
 
-  const config = TIME_CONFIG[activeTime];
-  const prayers = PRAYERS[activeTime];
+  useEffect(() => {
+    const controller = new AbortController();
+    const zone = detectZone();
+    const date = getTodayStr();
+    setAelfLoading(true);
+    setAelfError(false);
 
-  const toggleExpand = (id: string) => {
-    if (expanded === id) {
-      setExpanded(null);
-    } else {
-      setExpanded(id);
-      // Stop any running speech when collapsing
-      if (playingId && playingId !== id) {
-        stop();
-        setPlayingId(null);
-      }
-    }
-  };
+    fetch(`${AELF_BASE}/messes/${date}/${zone}`, { signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error('aelf error');
+        return r.json() as Promise<AelfData>;
+      })
+      .then((data) => {
+        const info = data?.messes?.information ?? data?.information;
+        if (info?.jour_liturgique_nom) setLiturgicalDay(info.jour_liturgique_nom);
 
-  const handlePlay = (p: PrayerBlock) => {
-    if (playingId === p.id && speaking) {
-      stop();
-      setPlayingId(null);
-    } else {
-      setPlayingId(p.id);
-      speak(p.text.replace(/\n/g, ' '));
-      // Track when speech ends
-      const check = setInterval(() => {
-        if (!window.speechSynthesis.speaking) {
-          setPlayingId(null);
-          clearInterval(check);
+        const lectures = data?.messes?.lectures ?? [];
+        const evangile = lectures.find(
+          (l) => l.type?.toLowerCase().includes('evangile') || l.type?.toLowerCase().includes('évangile'),
+        );
+        if (evangile) setGospel(evangile);
+        setAelfLoading(false);
+      })
+      .catch((err) => {
+        if ((err as Error).name !== 'AbortError') {
+          setAelfError(true);
+          setAelfLoading(false);
         }
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  const handleSpeak = (prayer: PrayerBlock) => {
+    if (speakingId === prayer.id) {
+      stop();
+      setSpeakingId(null);
+    } else {
+      stop();
+      setSpeakingId(prayer.id);
+      speak(`${prayer.title}. ${prayer.text}`);
+      const check = setInterval(() => {
+        if (!window.speechSynthesis.speaking) { setSpeakingId(null); clearInterval(check); }
       }, 500);
     }
   };
 
-  const copyPrayer = async (text: string, id: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopied(id);
-    toast.success('Prière copiée !');
-    setTimeout(() => setCopied(null), 2000);
-  };
+  const prayers = PRAYERS[activeTime];
+  const cfg = TIME_CONFIG[activeTime];
+  const Icon = cfg.icon;
+
+  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
 
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
         <title>Prière du Jour — Voie Vérité Vie</title>
-        <meta name="description" content="Priez matin, midi, soir et nuit avec des prières traditionnelles catholiques adaptées à chaque moment." />
+        <meta name="description" content="Prières liturgiques du jour et Évangile selon l'AELF." />
       </Helmet>
       <Navigation />
 
@@ -184,113 +390,127 @@ const PriereQuotidienne = () => {
         <div className="absolute inset-0 bg-gradient-stained opacity-50 pointer-events-none" />
         <div className="relative max-w-2xl mx-auto">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cathedral-gold/40 bg-background/10 backdrop-blur-sm mb-5">
-            <span className="text-cathedral-gold text-sm">🕯️</span>
-            <span className="text-xs uppercase tracking-[0.2em] text-cathedral-gold font-medium">Liturgie des Heures</span>
+            <BookOpen className="h-3.5 w-3.5 text-cathedral-gold" />
+            <span className="text-xs uppercase tracking-[0.2em] text-cathedral-gold font-medium">{t('dailyPrayer.badge')}</span>
           </div>
-          <h1 className="font-cinzel text-4xl sm:text-5xl font-bold text-white mb-4">Prière du Jour</h1>
+          <h1 className="font-cinzel text-4xl sm:text-5xl font-bold text-white mb-4">{t('dailyPrayer.title')}</h1>
           <div className="cathedral-line w-24 h-px mx-auto my-4" />
-          <p className="text-white/70 text-sm sm:text-base leading-relaxed max-w-lg mx-auto">
-            Sanctifiez chaque moment de votre journée par la prière. Matin, midi, soir et nuit — laissez Dieu habiter votre temps.
-          </p>
+          <p className="text-white/70 text-sm sm:text-base leading-relaxed max-w-lg mx-auto">{t('dailyPrayer.subtitle')}</p>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-10 space-y-6">
-        {/* Time selector */}
+      <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+
+        {/* ── Gospel of the Day ── */}
+        <section className="rounded-2xl border border-cathedral-gold/30 bg-cathedral-gold/5 p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-cathedral-gold" />
+            <h2 className="font-cinzel font-bold text-foreground text-base">{t('dailyPrayer.gospelOfDay')}</h2>
+          </div>
+          {liturgicalDay && (
+            <p className="text-xs text-cathedral-gold font-semibold uppercase tracking-wider">{liturgicalDay}</p>
+          )}
+
+          {aelfLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {t('dailyPrayer.loadingGospel')}
+            </div>
+          ) : aelfError || !gospel ? (
+            <p className="text-sm text-muted-foreground italic">{t('dailyPrayer.gospelError')}</p>
+          ) : (
+            <div className="space-y-2">
+              {gospel.ref && (
+                <p className="text-cathedral-gold text-xs font-bold">{gospel.ref}</p>
+              )}
+              {gospel.titre && (
+                <p className="font-semibold text-foreground text-sm">{gospel.titre}</p>
+              )}
+              {gospel.contenu && (
+                <div className="text-sm text-muted-foreground leading-relaxed max-h-48 overflow-y-auto pr-1 border-l-2 border-cathedral-gold/30 pl-3">
+                  <p className="whitespace-pre-line font-['Playfair_Display',serif] italic">
+                    {stripHtml(gospel.contenu).slice(0, 800)}{gospel.contenu.length > 800 ? '…' : ''}
+                  </p>
+                </div>
+              )}
+              {supported && gospel.contenu && (
+                <button
+                  onClick={() => {
+                    if (speakingId === 'gospel') { stop(); setSpeakingId(null); }
+                    else { stop(); setSpeakingId('gospel'); speak(stripHtml(gospel.contenu ?? '')); }
+                  }}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-all ${speakingId === 'gospel' ? 'text-cathedral-gold border-cathedral-gold/40 bg-cathedral-gold/10' : 'text-muted-foreground border-border hover:border-border/80'}`}
+                >
+                  {speakingId === 'gospel' ? <Square className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
+                  {speakingId === 'gospel' ? t('dailyPrayer.stop') : t('dailyPrayer.listen')}
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* ── Time-of-day selector ── */}
         <div className="grid grid-cols-4 gap-2">
-          {(Object.keys(TIME_CONFIG) as TimeOfDay[]).map((key) => {
-            const c = TIME_CONFIG[key];
-            const isActive = activeTime === key;
-            const isSuggested = key === suggested;
+          {(Object.keys(TIME_CONFIG) as TimeOfDay[]).map((t_key) => {
+            const c = TIME_CONFIG[t_key];
+            const TIcon = c.icon;
             return (
               <button
-                key={key}
-                onClick={() => { setActiveTime(key); setExpanded(null); stop(); setPlayingId(null); }}
-                className={`relative rounded-xl border p-3 text-center transition-all ${isActive ? `${c.bgClass} ${c.borderClass}` : 'border-border/60 hover:border-border bg-card'}`}
+                key={t_key}
+                onClick={() => setActiveTime(t_key)}
+                className={`flex flex-col items-center gap-1 rounded-xl border py-3 transition-all ${activeTime === t_key ? `${c.bgClass} ${c.borderClass}` : 'border-border/60 bg-card hover:border-border'}`}
               >
-                {isSuggested && (
-                  <div className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-cathedral-gold border-2 border-background" />
-                )}
-                <div className={`flex justify-center mb-1 ${isActive ? c.color : 'text-muted-foreground'}`}>{c.icon}</div>
-                <div className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? c.color : 'text-muted-foreground'}`}>{key}</div>
+                <TIcon className={`h-5 w-5 ${activeTime === t_key ? c.color : 'text-muted-foreground'}`} />
+                <span className={`text-xs font-bold ${activeTime === t_key ? c.color : 'text-muted-foreground'}`}>{c.label}</span>
+                <span className="text-[9px] text-muted-foreground hidden sm:block">{c.description}</span>
               </button>
             );
           })}
         </div>
 
-        <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${config.bgClass} w-fit`}>
-          <span className={config.color}>{config.icon}</span>
-          <span className={`text-sm font-cinzel font-bold ${config.color}`}>{config.label}</span>
-        </div>
-
-        {/* Prayer accordion */}
+        {/* ── Prayers accordion ── */}
         <div className="space-y-3">
-          {prayers.map((p) => {
-            const isOpen = expanded === p.id;
-            const isPlaying = playingId === p.id && speaking;
+          <h2 className="font-cinzel font-bold text-foreground text-base flex items-center gap-2">
+            <Icon className={`h-4 w-4 ${cfg.color}`} />
+            {t(`dailyPrayer.${activeTime}`)}
+          </h2>
+          {prayers.map((prayer) => {
+            const isOpen = expanded === prayer.id;
+            const isPlaying = speakingId === prayer.id;
             return (
-              <div key={p.id} className={`rounded-2xl border transition-all ${isOpen ? `${config.borderClass} bg-card` : 'border-border/60 bg-card hover:border-border/80'}`}>
-                <button onClick={() => toggleExpand(p.id)} className="w-full flex items-center justify-between p-5 text-left">
+              <div
+                key={prayer.id}
+                className={`rounded-2xl border transition-all ${isOpen ? `${cfg.borderClass} ${cfg.bgClass}` : 'border-border/60 bg-card hover:border-border/80'}`}
+              >
+                <button
+                  onClick={() => setExpanded(isOpen ? null : prayer.id)}
+                  className="w-full flex items-center justify-between p-4 text-left"
+                >
                   <div>
-                    <div className="font-cinzel font-bold text-foreground">{p.title}</div>
-                    {p.subtitle && <div className="text-xs text-muted-foreground mt-0.5">{p.subtitle}</div>}
+                    <p className="font-cinzel font-bold text-foreground text-sm">{prayer.title}</p>
+                    {prayer.subtitle && <p className="text-xs text-muted-foreground mt-0.5">{prayer.subtitle}</p>}
                   </div>
-                  {isOpen
-                    ? <ChevronUp className={`h-4 w-4 ${config.color} shrink-0`} />
-                    : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                  }
+                  {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
                 </button>
 
                 {isOpen && (
-                  <div className="px-5 pb-5 space-y-4">
-                    <div className="relative rounded-xl bg-muted/40 p-5">
-                      <span className="absolute top-2 left-3 text-3xl font-serif text-cathedral-gold/20 leading-none select-none">"</span>
-                      <p className="font-['Playfair_Display',serif] text-sm text-foreground/90 leading-relaxed whitespace-pre-line italic relative z-10">
-                        {p.text}
-                      </p>
-                    </div>
-
-                    {/* Voice animation */}
-                    {isPlaying && (
-                      <div className="flex items-center gap-2 text-xs text-cathedral-gold">
-                        <span className="flex gap-0.5">
-                          {[0, 1, 2, 3].map((i) => (
-                            <span key={i} className="w-1 rounded-full bg-cathedral-gold animate-bounce" style={{ height: '10px', animationDelay: `${i * 0.12}s` }} />
-                          ))}
-                        </span>
-                        Lecture en cours...
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between gap-2">
-                      {p.source ? (
-                        <Badge variant="outline" className="text-xs rounded-full text-muted-foreground border-border">{p.source}</Badge>
-                      ) : <div />}
-
-                      <div className="flex items-center gap-2">
-                        {/* Listen button */}
-                        {supported && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`gap-1.5 text-xs ${isPlaying ? 'text-cathedral-gold' : 'text-muted-foreground hover:text-foreground'}`}
-                            onClick={() => handlePlay(p)}
-                          >
-                            {isPlaying ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                            {isPlaying ? 'Arrêter' : 'Écouter'}
-                          </Button>
-                        )}
-                        {/* Copy button */}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={() => copyPrayer(p.text, p.id)}
+                  <div className="px-4 pb-5 space-y-3">
+                    <p className="text-sm text-foreground leading-loose whitespace-pre-line font-['Playfair_Display',serif]">
+                      {prayer.text}
+                    </p>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      {prayer.source && (
+                        <span className="text-xs text-muted-foreground italic">{prayer.source}</span>
+                      )}
+                      {supported && (
+                        <button
+                          onClick={() => handleSpeak(prayer)}
+                          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-all ${isPlaying ? `${cfg.color} ${cfg.borderClass} ${cfg.bgClass}` : 'text-muted-foreground border-border hover:border-border/80'}`}
                         >
-                          {copied === p.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                          Copier
-                        </Button>
-                      </div>
+                          {isPlaying ? <Square className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
+                          {isPlaying ? t('dailyPrayer.stop') : t('dailyPrayer.listen')}
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -299,9 +519,12 @@ const PriereQuotidienne = () => {
           })}
         </div>
 
+        {/* ── Scriptural verse footer ── */}
         <div className="rounded-2xl border border-cathedral-gold/20 bg-cathedral-gold/5 p-5 text-center">
-          <p className="text-sm text-muted-foreground italic">« Priez sans cesse. »</p>
-          <p className="text-xs text-cathedral-gold font-semibold mt-1">1 Thessaloniciens 5, 17</p>
+          <p className="font-['Playfair_Display',serif] text-sm italic text-foreground/80">
+            « Priez sans cesse. En toute chose, rendez grâce. »
+          </p>
+          <p className="text-xs text-cathedral-gold font-semibold mt-2">1 Thessaloniciens 5, 17-18</p>
         </div>
       </main>
     </div>
