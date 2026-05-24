@@ -1,21 +1,14 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+/**
+ * Client-side Web Push sender (RFC 8291 + RFC 8292 VAPID)
+ * Runs entirely in the browser using Web Crypto API.
+ * No server deployment required.
+ */
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-// VAPID keys — generated for Voie-Vérité-Vie push notifications
-const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") ??
-  "BDZP1G3CVzMfjpDGH7MGktPHySL1O1ZqqpP6B5QSgp09f8xu3lN9BLnQ527CZNXIY9q6KoISzbKbmbIAS8_I0AU";
-const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") ??
-  "D1ktZQBYTUY6rCSctUvT93VIwfUAQj3AeiTIoyZY1ZU";
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
+const VAPID_PRIVATE_KEY = "D1ktZQBYTUY6rCSctUvT93VIwfUAQj3AeiTIoyZY1ZU";
 const VAPID_SUBJECT = "mailto:contact@voie-verite-vie.com";
 
-interface PushPayload {
+export interface WebPushPayload {
   title: string;
   body: string;
   icon?: string;
@@ -23,11 +16,11 @@ interface PushPayload {
   url?: string;
   action?: string;
   tag?: string;
-  image?: string;
   requireInteraction?: boolean;
   vibrate?: number[];
-  user_ids?: string[];
 }
+
+// ── Encoding helpers ──────────────────────────────────────────────────────────
 
 function b64url(data: Uint8Array): string {
   return btoa(String.fromCharCode(...data))
@@ -36,8 +29,13 @@ function b64url(data: Uint8Array): string {
 
 function decodeB64url(s: string): Uint8Array {
   const pad = "=".repeat((4 - (s.length % 4)) % 4);
-  return Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + pad), c => c.charCodeAt(0));
+  return Uint8Array.from(
+    atob(s.replace(/-/g, "+").replace(/_/g, "/") + pad),
+    c => c.charCodeAt(0),
+  );
 }
+
+// ── HKDF (RFC 5869) ───────────────────────────────────────────────────────────
 
 async function hkdfExtract(salt: Uint8Array, ikm: Uint8Array): Promise<CryptoKey> {
   const saltKey = await crypto.subtle.importKey("raw", salt, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
@@ -53,6 +51,8 @@ async function hkdfExpand(prk: CryptoKey, info: Uint8Array, length: number): Pro
   return okm.slice(0, length);
 }
 
+// ── RFC 8291 — Payload encryption ─────────────────────────────────────────────
+
 async function encryptPayload(payloadText: string, p256dh: string, auth: string): Promise<Uint8Array> {
   const enc = new TextEncoder();
   const plaintext = enc.encode(payloadText);
@@ -64,13 +64,16 @@ async function encryptPayload(payloadText: string, p256dh: string, auth: string)
   const receiverPub = await crypto.subtle.importKey("raw", receiverPubRaw, { name: "ECDH", namedCurve: "P-256" }, false, []);
 
   const sharedBits = await crypto.subtle.deriveBits({ name: "ECDH", public: receiverPub }, senderKeys.privateKey, 256);
-  const sharedSecret = new Uint8Array(sharedBits);
 
   const authSecret = decodeB64url(auth);
   const salt = crypto.getRandomValues(new Uint8Array(16));
 
-  const keyInfo = new Uint8Array([...enc.encode("WebPush: info\0"), ...receiverPubRaw, ...senderPubRaw]);
-  const prkKey = await hkdfExtract(authSecret, sharedSecret);
+  const keyInfo = new Uint8Array([
+    ...enc.encode("WebPush: info\0"),
+    ...receiverPubRaw,
+    ...senderPubRaw,
+  ]);
+  const prkKey = await hkdfExtract(authSecret, new Uint8Array(sharedBits));
   const ikm = await hkdfExpand(prkKey, keyInfo, 32);
 
   const prkSalt = await hkdfExtract(salt, ikm);
@@ -96,6 +99,8 @@ async function encryptPayload(payloadText: string, p256dh: string, auth: string)
   return body;
 }
 
+// ── RFC 8292 — VAPID JWT ──────────────────────────────────────────────────────
+
 function derToRaw(der: Uint8Array): Uint8Array {
   if (der.length === 64) return der;
   let offset = 2;
@@ -112,34 +117,41 @@ function derToRaw(der: Uint8Array): Uint8Array {
   return raw;
 }
 
-async function vapidAuthHeader(endpoint: string): Promise<string> {
-  const audience = new URL(endpoint).origin;
-  const now = Math.floor(Date.now() / 1000);
-  const header = { typ: "JWT", alg: "ES256" };
-  const claims = { aud: audience, exp: now + 43200, sub: VAPID_SUBJECT };
-  const enc = new TextEncoder();
-  const h = b64url(enc.encode(JSON.stringify(header)));
-  const c = b64url(enc.encode(JSON.stringify(claims)));
-  const unsigned = `${h}.${c}`;
-
+let _vapidKey: CryptoKey | null = null;
+async function getVapidSigningKey(): Promise<CryptoKey> {
+  if (_vapidKey) return _vapidKey;
   const pubBytes = decodeB64url(VAPID_PUBLIC_KEY);
   const x = b64url(pubBytes.slice(1, 33));
   const y = b64url(pubBytes.slice(33, 65));
-
-  const signingKey = await crypto.subtle.importKey(
+  _vapidKey = await crypto.subtle.importKey(
     "jwk",
     { kty: "EC", crv: "P-256", d: VAPID_PRIVATE_KEY, x, y, key_ops: ["sign"], ext: true },
     { name: "ECDSA", namedCurve: "P-256" },
     false,
     ["sign"],
   );
+  return _vapidKey;
+}
 
-  const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, signingKey, enc.encode(unsigned)));
+async function vapidAuthHeader(endpoint: string): Promise<string> {
+  const audience = new URL(endpoint).origin;
+  const now = Math.floor(Date.now() / 1000);
+  const enc = new TextEncoder();
+  const h = b64url(enc.encode(JSON.stringify({ typ: "JWT", alg: "ES256" })));
+  const c = b64url(enc.encode(JSON.stringify({ aud: audience, exp: now + 43200, sub: VAPID_SUBJECT })));
+  const unsigned = `${h}.${c}`;
+  const key = await getVapidSigningKey();
+  const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, enc.encode(unsigned)));
   const rawSig = sig.length === 64 ? sig : derToRaw(sig);
   return `vapid t=${unsigned}.${b64url(rawSig)}, k=${VAPID_PUBLIC_KEY}`;
 }
 
-async function sendOne(tokenJson: string, payload: PushPayload): Promise<{ status: number; ok: boolean }> {
+// ── Send one push ─────────────────────────────────────────────────────────────
+
+async function sendOnePush(
+  tokenJson: string,
+  payload: WebPushPayload,
+): Promise<{ status: number; ok: boolean }> {
   let sub: { endpoint: string; keys: { p256dh: string; auth: string } };
   try { sub = JSON.parse(tokenJson); } catch { return { status: 0, ok: false }; }
   if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) return { status: 0, ok: false };
@@ -162,46 +174,44 @@ async function sendOne(tokenJson: string, payload: PushPayload): Promise<{ statu
       encryptPayload(notifJson, sub.keys.p256dh, sub.keys.auth),
       vapidAuthHeader(sub.endpoint),
     ]);
+
     const res = await fetch(sub.endpoint, {
       method: "POST",
-      headers: { Authorization: auth, "Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream", TTL: "86400", Urgency: "normal" },
+      headers: {
+        Authorization: auth,
+        "Content-Encoding": "aes128gcm",
+        "Content-Type": "application/octet-stream",
+        TTL: "86400",
+        Urgency: "normal",
+      },
       body,
     });
     return { status: res.status, ok: res.ok };
-  } catch (err) {
-    console.error("sendOne error:", err);
+  } catch {
     return { status: 0, ok: false };
   }
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+// ── Public API ────────────────────────────────────────────────────────────────
 
-  try {
-    const payload: PushPayload = await req.json();
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+export async function sendWebPushToTokens(
+  tokens: string[],
+  payload: WebPushPayload,
+): Promise<{ sent: number; failed: number; expired: string[] }> {
+  let sent = 0, failed = 0;
+  const expired: string[] = [];
 
-    let query = supabase.from("fcm_tokens").select("token, user_id");
-    if (payload.user_ids && payload.user_ids.length > 0) {
-      query = query.in("user_id", payload.user_ids);
-    }
+  await Promise.allSettled(
+    tokens.map(async (token) => {
+      const r = await sendOnePush(token, payload);
+      if (r.ok) {
+        sent++;
+      } else {
+        failed++;
+        if (r.status === 404 || r.status === 410) expired.push(token);
+      }
+    }),
+  );
 
-    const { data: tokens, error } = await query;
-    if (error) throw error;
-    if (!tokens?.length) return Response.json({ sent: 0, message: "No subscriptions" }, { headers: corsHeaders });
-
-    let sent = 0, failed = 0;
-    const expired: string[] = [];
-    for (const t of tokens) {
-      const r = await sendOne(t.token, payload);
-      if (r.ok) { sent++; } else { failed++; if (r.status === 404 || r.status === 410) expired.push(t.token); }
-    }
-    if (expired.length) await supabase.from("fcm_tokens").delete().in("token", expired);
-
-    console.log(`Push: ${sent} sent, ${failed} failed, ${expired.length} cleaned`);
-    return Response.json({ sent, failed, cleaned: expired.length }, { headers: corsHeaders });
-  } catch (err) {
-    console.error("Push handler error:", err);
-    return Response.json({ error: String(err) }, { status: 500, headers: corsHeaders });
-  }
-});
+  return { sent, failed, expired };
+}

@@ -85,8 +85,8 @@ export const getUserNotifications = async (limit = 50): Promise<UserNotification
       id: row.id,
       user_id: row.user_id ?? '',
       title: row.title,
-      message: row.message,
-      type: row.type,
+      message: row.message ?? '',
+      type: row.type ?? 'announcement',
       link: row.link,
       is_read: row.is_read,
       created_at: row.created_at,
@@ -209,7 +209,6 @@ export const sendBroadcastNotification = async (broadcastId: string): Promise<bo
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return false;
 
-    // 1. Save broadcast to DB and fan-out to user_notifications
     const { data: broadcast } = await supabase
       .from('broadcast_notifications')
       .select('*')
@@ -218,12 +217,19 @@ export const sendBroadcastNotification = async (broadcastId: string): Promise<bo
 
     if (!broadcast) return false;
 
-    // Fan-out via stored procedure (creates user_notifications rows)
-    await supabase.rpc('send_broadcast_notification', { p_broadcast_id: broadcastId });
+    // Fan-out: create user_notifications rows via stored procedure
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.rpc as any)('send_broadcast_notification', { p_broadcast_id: broadcastId });
 
-    // 2. Send real Web Push to all subscribed devices
-    const { error } = await supabase.functions.invoke('send-push-notification', {
-      body: {
+    // Send Web Push from the browser using client-side VAPID signing
+    const { data: tokenRows } = await supabase
+      .from('fcm_tokens')
+      .select('token');
+
+    if (tokenRows && tokenRows.length > 0) {
+      const tokens = tokenRows.map(r => r.token);
+      const { sendWebPushToTokens } = await import('@/lib/web-push-client');
+      const result = await sendWebPushToTokens(tokens, {
         title: broadcast.title,
         body: broadcast.body || '',
         icon: broadcast.icon || '/icon-192x192.png',
@@ -231,12 +237,14 @@ export const sendBroadcastNotification = async (broadcastId: string): Promise<bo
         url: '/',
         action: broadcast.type || 'announcement',
         tag: `broadcast-${broadcastId}`,
-        requireInteraction: false,
-      },
-    });
+      });
 
-    if (error) {
-      console.error('Push send error:', error);
+      // Clean up expired subscriptions
+      if (result.expired.length > 0) {
+        await supabase.from('fcm_tokens').delete().in('token', result.expired);
+      }
+
+      console.log(`Push: ${result.sent} sent, ${result.failed} failed, ${result.expired.length} cleaned`);
     }
 
     return true;
@@ -258,12 +266,12 @@ export const getBroadcastNotifications = async (limit = 50): Promise<BroadcastNo
     return data.map((row) => ({
       id: row.id,
       title: row.title,
-      body: row.body,
-      type: normalizeBroadcastType(row.type),
-      target_role: row.target_role,
+      body: row.body ?? undefined,
+      type: normalizeBroadcastType(row.type ?? undefined),
+      target_role: (row.target_role as BroadcastTargetRole) ?? 'all',
       created_by: row.created_by ?? '',
       is_sent: row.is_sent,
-      sent_at: row.sent_at,
+      sent_at: row.sent_at ?? undefined,
       created_at: row.created_at,
       updated_at: row.updated_at,
     }));
