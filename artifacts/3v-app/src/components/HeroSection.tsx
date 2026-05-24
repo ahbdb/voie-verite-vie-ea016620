@@ -99,8 +99,7 @@ const HeroSection = () => {
   const [verses, setVerses] = useState<DisplayVerse[]>(fallbackVerses);
 
   const userName = useMemo(() => {
-    const metaName = (user?.user_metadata as any)?.full_name as string | undefined;
-    return metaName || user?.email?.split('@')[0] || '';
+    return user?.name || user?.email?.split('@')[0] || '';
   }, [user]);
 
   const todayPrayer = useMemo(() => {

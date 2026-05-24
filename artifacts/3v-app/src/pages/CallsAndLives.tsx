@@ -411,7 +411,7 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
       sendCallJoinNotification(
         sessionTitle,
         room.id,
-        user.user_metadata?.full_name || user.email
+        user.name ?? user.email ?? undefined
       ).catch(() => {});
 
       toast.success(t('calls.sessionStarted'));

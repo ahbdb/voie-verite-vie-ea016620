@@ -4,9 +4,12 @@
  * No server deployment required.
  */
 
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
+const VAPID_PUBLIC_KEY = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) ?? '';
 const VAPID_PRIVATE_KEY = "D1ktZQBYTUY6rCSctUvT93VIwfUAQj3AeiTIoyZY1ZU";
 const VAPID_SUBJECT = "mailto:contact@voie-verite-vie.com";
+
+// Browser always uses ArrayBuffer (never SharedArrayBuffer) — safe cast
+const asAB = (u: Uint8Array): Uint8Array<ArrayBuffer> => u as unknown as Uint8Array<ArrayBuffer>;
 
 export interface WebPushPayload {
   title: string;
@@ -27,33 +30,33 @@ function b64url(data: Uint8Array): string {
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
-function decodeB64url(s: string): Uint8Array {
+function decodeB64url(s: string): Uint8Array<ArrayBuffer> {
   const pad = "=".repeat((4 - (s.length % 4)) % 4);
-  return Uint8Array.from(
+  return asAB(Uint8Array.from(
     atob(s.replace(/-/g, "+").replace(/_/g, "/") + pad),
     c => c.charCodeAt(0),
-  );
+  ));
 }
 
 // ── HKDF (RFC 5869) ───────────────────────────────────────────────────────────
 
 async function hkdfExtract(salt: Uint8Array, ikm: Uint8Array): Promise<CryptoKey> {
-  const saltKey = await crypto.subtle.importKey("raw", salt, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const prk = new Uint8Array(await crypto.subtle.sign("HMAC", saltKey, ikm));
-  return crypto.subtle.importKey("raw", prk, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const saltKey = await crypto.subtle.importKey("raw", asAB(salt), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const prk = new Uint8Array(await crypto.subtle.sign("HMAC", saltKey, asAB(ikm)));
+  return crypto.subtle.importKey("raw", asAB(prk), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
 }
 
-async function hkdfExpand(prk: CryptoKey, info: Uint8Array, length: number): Promise<Uint8Array> {
+async function hkdfExpand(prk: CryptoKey, info: Uint8Array, length: number): Promise<Uint8Array<ArrayBuffer>> {
   const t = new Uint8Array(info.length + 1);
   t.set(info);
   t[info.length] = 0x01;
-  const okm = new Uint8Array(await crypto.subtle.sign("HMAC", prk, t));
-  return okm.slice(0, length);
+  const okm = new Uint8Array(await crypto.subtle.sign("HMAC", prk, asAB(t)));
+  return asAB(okm.slice(0, length));
 }
 
 // ── RFC 8291 — Payload encryption ─────────────────────────────────────────────
 
-async function encryptPayload(payloadText: string, p256dh: string, auth: string): Promise<Uint8Array> {
+async function encryptPayload(payloadText: string, p256dh: string, auth: string): Promise<Uint8Array<ArrayBuffer>> {
   const enc = new TextEncoder();
   const plaintext = enc.encode(payloadText);
 
@@ -85,7 +88,7 @@ async function encryptPayload(payloadText: string, p256dh: string, auth: string)
   padded[plaintext.length] = 0x02;
 
   const encKey = await crypto.subtle.importKey("raw", cek, "AES-GCM", false, ["encrypt"]);
-  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, encKey, padded));
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, encKey, asAB(padded)));
 
   const rs = new Uint8Array(4);
   new DataView(rs.buffer).setUint32(0, 4096);
@@ -96,7 +99,7 @@ async function encryptPayload(payloadText: string, p256dh: string, auth: string)
   body[off++] = senderPubRaw.length;
   body.set(senderPubRaw, off); off += senderPubRaw.length;
   body.set(ciphertext, off);
-  return body;
+  return asAB(body);
 }
 
 // ── RFC 8292 — VAPID JWT ──────────────────────────────────────────────────────

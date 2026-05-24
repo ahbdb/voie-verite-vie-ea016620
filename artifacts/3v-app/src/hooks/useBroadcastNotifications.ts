@@ -180,7 +180,7 @@ export const broadcastNotificationService = {
 
       // Envoyer via RPC si elle existe
       try {
-        await supabase.rpc('send_broadcast_notification', {
+        await (supabase.rpc as any)('send_broadcast_notification', {
           p_title: title,
           p_body: message,
           p_type: type,
@@ -226,7 +226,7 @@ export const broadcastNotificationService = {
 
       // Envoyer via RPC si elle existe
       try {
-        await supabase.rpc('send_broadcast_notification', {
+        await (supabase.rpc as any)('send_broadcast_notification', {
           p_title: title,
           p_body: message,
           p_type: type,

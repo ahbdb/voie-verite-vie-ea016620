@@ -97,7 +97,7 @@ const AdminVideo = () => {
   }, [hasVideoAccess]);
 
   const adminDisplayName = () => {
-    const name = user?.user_metadata?.full_name || user?.email || 'Un administrateur';
+    const name = user?.name || user?.email || 'Un administrateur';
     if (adminRole === 'admin_principal') return `L'administrateur principal ${name}`;
     return `L'administrateur ${name}`;
   };

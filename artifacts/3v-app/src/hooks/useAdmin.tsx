@@ -45,21 +45,23 @@ export const useAdmin = () => {
     setLoading(true);
 
     // Récupérer le rôle depuis la table user_roles de Supabase
-    supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
+    Promise.resolve(
+      supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single()
+    )
       .then(({ data, error }) => {
         let adminRole: AdminRole = null;
-        
+
         if (!error && data) {
           const role = data.role;
           if (role === 'admin_principal') adminRole = 'admin_principal';
           else if (role === 'admin') adminRole = 'admin';
           else if (role === 'moderator') adminRole = 'moderator';
         }
-        
+
         roleCache.set(user.id, { role: adminRole, timestamp: Date.now() });
         setAdminRole(adminRole);
         setIsAdmin(adminRole !== null);

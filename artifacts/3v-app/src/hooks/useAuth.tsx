@@ -23,20 +23,37 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-async function buildAuthUser(session: Session): Promise<AuthUser> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, avatar_url')
-    .eq('id', session.user.id)
-    .single();
-
+function sessionToUser(session: Session): AuthUser {
   return {
     id: session.user.id,
-    name: profile?.full_name || session.user.user_metadata?.full_name || null,
+    name: session.user.user_metadata?.full_name || null,
     email: session.user.email || null,
-    profileImage: profile?.avatar_url || session.user.user_metadata?.avatar_url || null,
+    profileImage: session.user.user_metadata?.avatar_url || null,
     roles: [],
   };
+}
+
+// Fetch profile in the background and enrich the user object — never blocks loading.
+function enrichFromProfile(session: Session, setUser: (u: AuthUser) => void) {
+  void (async () => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', session.user.id)
+        .single();
+      if (!data) return;
+      setUser({
+        id: session.user.id,
+        name: data.full_name || session.user.user_metadata?.full_name || null,
+        email: session.user.email || null,
+        profileImage: data.avatar_url || session.user.user_metadata?.avatar_url || null,
+        roles: [],
+      });
+    } catch {
+      // ignore — profile enrichment is best-effort
+    }
+  })();
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -46,32 +63,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setSupabaseUser(session?.user ?? null);
-
-        if (session?.user) {
-          const authUser = await buildAuthUser(session);
-          setUser(authUser);
-        } else {
-          setUser(null);
-        }
-        setLoading(false);
-      }
-    );
-
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setSupabaseUser(session?.user ?? null);
-      if (session?.user) {
-        const authUser = await buildAuthUser(session);
-        setUser(authUser);
+    // 1. Subscribe to future auth changes — set loading=false immediately, enrich profile in background.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setSession(sess);
+      setSupabaseUser(sess?.user ?? null);
+      if (sess?.user) {
+        setUser(sessionToUser(sess));
+        enrichFromProfile(sess, setUser);
+      } else {
+        setUser(null);
       }
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // 2. Read the current session immediately (from localStorage — no network call).
+    //    This resolves quickly and unblocks the UI.
+    supabase.auth.getSession()
+      .then(({ data: { session: sess } }) => {
+        setSession(sess);
+        setSupabaseUser(sess?.user ?? null);
+        if (sess?.user) {
+          setUser(sessionToUser(sess));
+          enrichFromProfile(sess, setUser);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+
+    // 3. Safety net: if nothing resolves in 6 s (e.g. auth server unreachable), unblock the UI.
+    const safetyTimer = setTimeout(() => setLoading(false), 6000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(safetyTimer);
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -96,14 +123,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refetch = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    setSession(session);
-    setSupabaseUser(session?.user ?? null);
-    if (session?.user) {
-      const authUser = await buildAuthUser(session);
-      setUser(authUser);
-    } else {
-      setUser(null);
+    try {
+      const { data: { session: sess } } = await supabase.auth.getSession();
+      setSession(sess);
+      setSupabaseUser(sess?.user ?? null);
+      if (sess?.user) {
+        setUser(sessionToUser(sess));
+        enrichFromProfile(sess, setUser);
+      } else {
+        setUser(null);
+      }
+    } catch {
+      // ignore
     }
   };
 

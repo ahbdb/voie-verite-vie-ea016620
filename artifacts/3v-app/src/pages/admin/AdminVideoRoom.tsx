@@ -373,7 +373,7 @@ const AdminVideoRoom = () => {
   const { user } = useAuth();
   const { adminRole } = useAdmin();
   const hasManagement = adminRole === 'admin' || adminRole === 'admin_principal';
-  const displayName = user?.user_metadata?.full_name || user?.email || 'Participant';
+  const displayName = user?.name || user?.email || 'Participant';
 
   const callSession = useCallSession();
   const { primeAudioPlayback } = callSession;
