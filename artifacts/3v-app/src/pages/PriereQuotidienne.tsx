@@ -3,8 +3,9 @@ import { Helmet } from 'react-helmet-async';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sun, Sunset, Moon, Star, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
+import { Sun, Sunset, Moon, Star, ChevronDown, ChevronUp, Copy, Check, Play, Square } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSpeech } from '@/hooks/useSpeech';
 
 interface PrayerBlock {
   id: string;
@@ -27,7 +28,7 @@ const PRAYERS: Record<TimeOfDay, PrayerBlock[]> = {
     },
     {
       id: 'angeGardien',
-      title: 'Prière à l\'Ange gardien',
+      title: "Prière à l'Ange gardien",
       text: `Ange de Dieu, qui es mon gardien, éclaire, garde, conduis et gouverne celui que la bonté divine m'a confié. Amen.`,
       source: 'Prière traditionnelle',
     },
@@ -39,7 +40,7 @@ const PRAYERS: Record<TimeOfDay, PrayerBlock[]> = {
       source: 'Luc 1, 46-55',
     },
     {
-      id: 'psaume',
+      id: 'psaume63',
       title: 'Psaume 63 — Prière de l\'aurore',
       text: `Ô Dieu, tu es mon Dieu, je te cherche dès l'aube ;\nmon âme a soif de toi ;\nma chair languit après toi dans une terre aride, altérée, sans eau.\nC'est ainsi que je t'ai contemplé dans le sanctuaire,\nvoyant ta puissance et ta gloire.\nTon amour vaut mieux que la vie,\nmes lèvres diront ta louange.\nAinsi je te bénirai ma vie durant,\nen ton nom j'élèverai les mains.`,
       source: 'Psaume 63, 2-5',
@@ -50,7 +51,7 @@ const PRAYERS: Record<TimeOfDay, PrayerBlock[]> = {
       id: 'angelus',
       title: 'Angélus',
       subtitle: 'À midi, la prière de l\'Incarnation',
-      text: `V. L'Ange du Seigneur a annoncé à Marie ;\nR. Et elle a conçu du Saint-Esprit.\n\nJe vous salue, Marie...\n\nV. Je suis la servante du Seigneur ;\nR. Qu'il me soit fait selon votre parole.\n\nJe vous salue, Marie...\n\nV. Et le Verbe s'est fait chair ;\nR. Et il a habité parmi nous.\n\nJe vous salue, Marie...\n\nV. Priez pour nous, sainte Mère de Dieu ;\nR. Afin que nous soyons rendus dignes des promesses de Jésus-Christ.\n\nPrions : Répandez, Seigneur, votre grâce en nos âmes, afin que nous qui avons connu, par le message de l'ange, l'Incarnation de votre Fils Jésus-Christ, nous soyons conduits par sa passion et sa croix jusqu'à la gloire de la résurrection. Par le même Jésus-Christ, Notre Seigneur. Amen.`,
+      text: `L'Ange du Seigneur a annoncé à Marie, et elle a conçu du Saint-Esprit.\n\nJe vous salue, Marie, pleine de grâce ; le Seigneur est avec vous. Vous êtes bénie entre toutes les femmes et Jésus, le fruit de vos entrailles, est béni. Sainte Marie, Mère de Dieu, priez pour nous, pauvres pécheurs, maintenant et à l'heure de notre mort. Amen.\n\nJe suis la servante du Seigneur, qu'il me soit fait selon votre parole.\n\nJe vous salue, Marie...\n\nEt le Verbe s'est fait chair, et il a habité parmi nous.\n\nJe vous salue, Marie...\n\nPriez pour nous, sainte Mère de Dieu. Afin que nous soyons rendus dignes des promesses de Jésus-Christ.\n\nPrions : Répandez, Seigneur, votre grâce en nos âmes, afin que nous qui avons connu, par le message de l'ange, l'Incarnation de votre Fils Jésus-Christ, nous soyons conduits par sa passion et sa croix jusqu'à la gloire de la résurrection. Par le même Jésus-Christ, Notre Seigneur. Amen.`,
       source: 'Prière mariale',
     },
     {
@@ -87,7 +88,7 @@ const PRAYERS: Record<TimeOfDay, PrayerBlock[]> = {
   nuit: [
     {
       id: 'abandon',
-      title: 'Acte d\'abandon',
+      title: "Acte d'abandon",
       subtitle: 'Se remettre totalement à Dieu',
       text: `Père, je m'abandonne à toi ; fais de moi ce qu'il te plaira.\nQuoi que tu fasses de moi, je te remercie.\nJe suis prêt à tout, j'accepte tout.\nPourvu que ta volonté se fasse en moi et en toutes tes créatures,\nje ne désire rien d'autre, mon Dieu.\nJe remets mon âme entre tes mains.\nJe te la donne, mon Dieu, avec tout l'amour de mon cœur,\nparce que je t'aime,\net que c'est pour moi un besoin d'amour de me donner, de me remettre entre tes mains sans mesure,\navec une infinie confiance, car tu es mon Père. Amen.`,
       source: 'Charles de Foucauld',
@@ -101,11 +102,17 @@ const PRAYERS: Record<TimeOfDay, PrayerBlock[]> = {
   ],
 };
 
-const TIME_CONFIG: Record<TimeOfDay, { label: string; icon: React.ReactNode; color: string; bgClass: string; borderClass: string; hours: [number, number] }> = {
-  matin:  { label: 'Prières du Matin', icon: <Sun className="h-5 w-5" />, color: 'text-amber-500', bgClass: 'bg-amber-500/10', borderClass: 'border-amber-500/30', hours: [5, 12] },
-  midi:   { label: 'Prières de Midi',  icon: <Sunset className="h-5 w-5" />, color: 'text-orange-500', bgClass: 'bg-orange-500/10', borderClass: 'border-orange-500/30', hours: [12, 17] },
-  soir:   { label: 'Prières du Soir',  icon: <Moon className="h-5 w-5" />,   color: 'text-blue-500',   bgClass: 'bg-blue-500/10',   borderClass: 'border-blue-500/30',   hours: [17, 22] },
-  nuit:   { label: 'Prières de Nuit',  icon: <Star className="h-5 w-5" />,   color: 'text-violet-500', bgClass: 'bg-violet-500/10', borderClass: 'border-violet-500/30', hours: [22, 5] },
+const TIME_CONFIG: Record<TimeOfDay, {
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  bgClass: string;
+  borderClass: string;
+}> = {
+  matin: { label: 'Prières du Matin', icon: <Sun className="h-5 w-5" />,    color: 'text-amber-500',  bgClass: 'bg-amber-500/10',  borderClass: 'border-amber-500/30' },
+  midi:  { label: 'Prières de Midi',  icon: <Sunset className="h-5 w-5" />, color: 'text-orange-500', bgClass: 'bg-orange-500/10', borderClass: 'border-orange-500/30' },
+  soir:  { label: 'Prières du Soir',  icon: <Moon className="h-5 w-5" />,   color: 'text-blue-500',   bgClass: 'bg-blue-500/10',   borderClass: 'border-blue-500/30' },
+  nuit:  { label: 'Prières de Nuit',  icon: <Star className="h-5 w-5" />,   color: 'text-violet-500', bgClass: 'bg-violet-500/10', borderClass: 'border-violet-500/30' },
 };
 
 const getTimeOfDay = (): TimeOfDay => {
@@ -121,11 +128,42 @@ const PriereQuotidienne = () => {
   const [activeTime, setActiveTime] = useState<TimeOfDay>(suggested);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+
+  const { speak, stop, speaking, supported } = useSpeech(0.82);
 
   const config = TIME_CONFIG[activeTime];
   const prayers = PRAYERS[activeTime];
 
-  const toggleExpand = (id: string) => setExpanded((v) => (v === id ? null : id));
+  const toggleExpand = (id: string) => {
+    if (expanded === id) {
+      setExpanded(null);
+    } else {
+      setExpanded(id);
+      // Stop any running speech when collapsing
+      if (playingId && playingId !== id) {
+        stop();
+        setPlayingId(null);
+      }
+    }
+  };
+
+  const handlePlay = (p: PrayerBlock) => {
+    if (playingId === p.id && speaking) {
+      stop();
+      setPlayingId(null);
+    } else {
+      setPlayingId(p.id);
+      speak(p.text.replace(/\n/g, ' '));
+      // Track when speech ends
+      const check = setInterval(() => {
+        if (!window.speechSynthesis.speaking) {
+          setPlayingId(null);
+          clearInterval(check);
+        }
+      }, 500);
+    }
+  };
 
   const copyPrayer = async (text: string, id: string) => {
     await navigator.clipboard.writeText(text);
@@ -138,7 +176,7 @@ const PriereQuotidienne = () => {
     <div className="min-h-screen bg-background">
       <Helmet>
         <title>Prière du Jour — Voie Vérité Vie</title>
-        <meta name="description" content="Priez matin, midi, soir et nuit avec des prières traditionnelles catholiques adaptées à chaque moment de la journée." />
+        <meta name="description" content="Priez matin, midi, soir et nuit avec des prières traditionnelles catholiques adaptées à chaque moment." />
       </Helmet>
       <Navigation />
 
@@ -167,18 +205,14 @@ const PriereQuotidienne = () => {
             return (
               <button
                 key={key}
-                onClick={() => { setActiveTime(key); setExpanded(null); }}
+                onClick={() => { setActiveTime(key); setExpanded(null); stop(); setPlayingId(null); }}
                 className={`relative rounded-xl border p-3 text-center transition-all ${isActive ? `${c.bgClass} ${c.borderClass}` : 'border-border/60 hover:border-border bg-card'}`}
               >
                 {isSuggested && (
                   <div className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-cathedral-gold border-2 border-background" />
                 )}
-                <div className={`flex justify-center mb-1 ${isActive ? c.color : 'text-muted-foreground'}`}>
-                  {c.icon}
-                </div>
-                <div className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? c.color : 'text-muted-foreground'}`}>
-                  {key}
-                </div>
+                <div className={`flex justify-center mb-1 ${isActive ? c.color : 'text-muted-foreground'}`}>{c.icon}</div>
+                <div className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? c.color : 'text-muted-foreground'}`}>{key}</div>
               </button>
             );
           })}
@@ -193,15 +227,10 @@ const PriereQuotidienne = () => {
         <div className="space-y-3">
           {prayers.map((p) => {
             const isOpen = expanded === p.id;
+            const isPlaying = playingId === p.id && speaking;
             return (
-              <div
-                key={p.id}
-                className={`rounded-2xl border transition-all ${isOpen ? `${config.borderClass} bg-card` : 'border-border/60 bg-card hover:border-border/80'}`}
-              >
-                <button
-                  onClick={() => toggleExpand(p.id)}
-                  className="w-full flex items-center justify-between p-5 text-left"
-                >
+              <div key={p.id} className={`rounded-2xl border transition-all ${isOpen ? `${config.borderClass} bg-card` : 'border-border/60 bg-card hover:border-border/80'}`}>
+                <button onClick={() => toggleExpand(p.id)} className="w-full flex items-center justify-between p-5 text-left">
                   <div>
                     <div className="font-cinzel font-bold text-foreground">{p.title}</div>
                     {p.subtitle && <div className="text-xs text-muted-foreground mt-0.5">{p.subtitle}</div>}
@@ -220,21 +249,48 @@ const PriereQuotidienne = () => {
                         {p.text}
                       </p>
                     </div>
-                    <div className="flex items-center justify-between">
-                      {p.source && (
-                        <Badge variant="outline" className="text-xs rounded-full text-muted-foreground border-border">
-                          {p.source}
-                        </Badge>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1.5 text-xs text-muted-foreground hover:text-foreground ml-auto"
-                        onClick={() => copyPrayer(p.text, p.id)}
-                      >
-                        {copied === p.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                        Copier
-                      </Button>
+
+                    {/* Voice animation */}
+                    {isPlaying && (
+                      <div className="flex items-center gap-2 text-xs text-cathedral-gold">
+                        <span className="flex gap-0.5">
+                          {[0, 1, 2, 3].map((i) => (
+                            <span key={i} className="w-1 rounded-full bg-cathedral-gold animate-bounce" style={{ height: '10px', animationDelay: `${i * 0.12}s` }} />
+                          ))}
+                        </span>
+                        Lecture en cours...
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-2">
+                      {p.source ? (
+                        <Badge variant="outline" className="text-xs rounded-full text-muted-foreground border-border">{p.source}</Badge>
+                      ) : <div />}
+
+                      <div className="flex items-center gap-2">
+                        {/* Listen button */}
+                        {supported && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`gap-1.5 text-xs ${isPlaying ? 'text-cathedral-gold' : 'text-muted-foreground hover:text-foreground'}`}
+                            onClick={() => handlePlay(p)}
+                          >
+                            {isPlaying ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                            {isPlaying ? 'Arrêter' : 'Écouter'}
+                          </Button>
+                        )}
+                        {/* Copy button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => copyPrayer(p.text, p.id)}
+                        >
+                          {copied === p.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          Copier
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -243,11 +299,8 @@ const PriereQuotidienne = () => {
           })}
         </div>
 
-        {/* Tip */}
         <div className="rounded-2xl border border-cathedral-gold/20 bg-cathedral-gold/5 p-5 text-center">
-          <p className="text-sm text-muted-foreground italic">
-            « Priez sans cesse. »
-          </p>
+          <p className="text-sm text-muted-foreground italic">« Priez sans cesse. »</p>
           <p className="text-xs text-cathedral-gold font-semibold mt-1">1 Thessaloniciens 5, 17</p>
         </div>
       </main>
