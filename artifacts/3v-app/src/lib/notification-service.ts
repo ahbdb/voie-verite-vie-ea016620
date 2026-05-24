@@ -26,18 +26,7 @@ export const registerNotificationServiceWorker = async () => {
   }
 
   try {
-    // Remove any competing service worker registrations (e.g. firebase-messaging-sw.js)
-    // that share scope '/' — two SWs on the same scope cause a controllerchange
-    // event which makes mobile browsers reload the page in a loop.
-    const existing = await navigator.serviceWorker.getRegistrations();
-    for (const reg of existing) {
-      const swUrl = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || '';
-      if (swUrl.includes('firebase-messaging-sw')) {
-        await reg.unregister().catch(() => {});
-      }
-    }
-
-    return await navigator.serviceWorker.register(NOTIFICATION_SW_PATH, { scope: '/' });
+    return await navigator.serviceWorker.register(NOTIFICATION_SW_PATH, { scope: '/sw-local/' });
   } catch (error) {
     console.log('Service Worker déjà enregistré ou indisponible:', error);
     return navigator.serviceWorker.ready;

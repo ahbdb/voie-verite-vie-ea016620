@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       type:
-        description: 'Type de notification (morning, midday, evening, ou custom)'
+        description: 'Type (morning / midday / evening / custom)'
         required: true
         default: 'morning'
       title:
@@ -18,7 +18,7 @@ on:
         description: 'Message (si type=custom)'
         required: false
       url:
-        description: 'URL à ouvrir (si type=custom)'
+        description: "URL à ouvrir (si type=custom)"
         required: false
         default: '/'
 
@@ -32,15 +32,13 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install web-push @supabase/supabase-js
+        run: npm install firebase-admin @supabase/supabase-js
 
-      - name: Envoyer les notifications push
+      - name: Envoyer les notifications FCM
         env:
           SUPABASE_URL: https://kaddsojhnkyfavaulrfc.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          VAPID_PUBLIC_KEY: BDZP1G3CVzMfjpDGH7MGktPHySL1O1ZqqpP6B5QSgp09f8xu3lN9BLnQ527CZNXIY9q6KoISzbKbmbIAS8_I0AU
-          VAPID_PRIVATE_KEY: D1ktZQBYTUY6rCSctUvT93VIwfUAQj3AeiTIoyZY1ZU
-          VAPID_SUBJECT: mailto:contact@voie-verite-vie.com
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
           INPUT_TYPE: ${{ inputs.type }}
           INPUT_TITLE: ${{ inputs.title }}
@@ -48,15 +46,15 @@ jobs:
           INPUT_URL: ${{ inputs.url }}
         run: |
           node << 'SCRIPT'
-          const webpush = require('web-push');
+          const admin = require('firebase-admin');
           const { createClient } = require('@supabase/supabase-js');
 
-          webpush.setVapidDetails(
-            process.env.VAPID_SUBJECT,
-            process.env.VAPID_PUBLIC_KEY,
-            process.env.VAPID_PRIVATE_KEY,
-          );
+          // ── Initialiser Firebase Admin ────────────────────────────────────
+          const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+          admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+          const messaging = admin.messaging();
 
+          // ── Messages programmés ───────────────────────────────────────────
           const MESSAGES = {
             morning: {
               title: '🌅 Bonjour ! Que Dieu bénisse votre journée',
@@ -78,12 +76,12 @@ jobs:
             },
           };
 
-          // Déterminer le type selon le cron ou l'entrée manuelle
+          // ── Déterminer le type ────────────────────────────────────────────
           let type = process.env.INPUT_TYPE || 'morning';
           const schedule = process.env.GITHUB_EVENT_SCHEDULE;
-          if (schedule === '0 6 * * *') type = 'morning';
-          else if (schedule === '0 11 * * *') type = 'midday';
-          else if (schedule === '0 19 * * *') type = 'evening';
+          if (schedule === '0 6 * * *')  type = 'morning';
+          if (schedule === '0 11 * * *') type = 'midday';
+          if (schedule === '0 19 * * *') type = 'evening';
 
           let payload;
           if (type === 'custom') {
@@ -97,73 +95,112 @@ jobs:
             payload = MESSAGES[type] || MESSAGES.morning;
           }
 
-          console.log(`Type: ${type}`);
-          console.log(`Notification: "${payload.title}"`);
+          console.log(`Type: ${type} — "${payload.title}"`);
 
+          // ── Récupérer les tokens depuis Supabase ──────────────────────────
           const supabase = createClient(
             process.env.SUPABASE_URL,
             process.env.SUPABASE_SERVICE_ROLE_KEY,
           );
-
-          const { data: tokens, error } = await supabase
+          const { data: rows, error } = await supabase
             .from('fcm_tokens')
             .select('token, user_id');
 
           if (error) {
-            console.error('Erreur récupération tokens:', error.message);
+            console.error('Erreur Supabase:', error.message);
             process.exit(1);
           }
 
-          console.log(`Envoi vers ${tokens?.length ?? 0} appareils...`);
+          if (!rows || rows.length === 0) {
+            console.log('Aucun token enregistré.');
+            process.exit(0);
+          }
 
-          const notifPayload = JSON.stringify({
-            notification: {
-              title: payload.title,
-              body: payload.body,
-              icon: '/icon-192x192.png',
-              badge: '/badge-72x72.png',
-              tag: `scheduled-${type}-${Date.now()}`,
-              requireInteraction: false,
-              silent: false,
-              vibrate: [300, 100, 300],
-              data: { url: payload.url, action: payload.action },
-              actions: [
-                { action: 'open', title: 'Ouvrir' },
-                { action: 'dismiss', title: 'Fermer' },
-              ],
-            },
-          });
+          // ── Séparer FCM (strings) des Web Push (JSON avec endpoint) ──────
+          const fcmTokens = [];
+          for (const row of rows) {
+            try {
+              const parsed = JSON.parse(row.token);
+              if (parsed.endpoint) continue; // Web Push subscription — ignorer
+            } catch {
+              // Pas du JSON → c'est un token FCM simple
+              fcmTokens.push(row.token);
+            }
+          }
 
+          console.log(`Tokens FCM : ${fcmTokens.length} / ${rows.length} total`);
+
+          if (fcmTokens.length === 0) {
+            console.log('Aucun token FCM — les utilisateurs doivent rouvrir l\'app pour migrer.');
+            process.exit(0);
+          }
+
+          // ── Envoyer via Firebase Admin (par lots de 500) ─────────────────
+          const BATCH = 500;
           let sent = 0, failed = 0;
           const expired = [];
 
-          await Promise.allSettled((tokens || []).map(async (t) => {
-            let sub;
-            try { sub = JSON.parse(t.token); } catch { failed++; return; }
-            if (!sub?.endpoint || !sub?.keys) { failed++; return; }
+          for (let i = 0; i < fcmTokens.length; i += BATCH) {
+            const batch = fcmTokens.slice(i, i + BATCH);
+            const message = {
+              tokens: batch,
+              notification: {
+                title: payload.title,
+                body: payload.body,
+              },
+              webpush: {
+                notification: {
+                  icon: '/icon-192x192.png',
+                  badge: '/badge-72x72.png',
+                  requireInteraction: false,
+                  vibrate: [300, 100, 300],
+                },
+                fcmOptions: { link: payload.url },
+                data: {
+                  url: payload.url,
+                  action: payload.action,
+                },
+              },
+              android: {
+                notification: {
+                  icon: 'ic_notification',
+                  color: '#7c3aed',
+                  sound: 'default',
+                  channelId: 'default',
+                },
+                priority: 'high',
+              },
+              apns: {
+                payload: {
+                  aps: { sound: 'default', badge: 1 },
+                },
+              },
+            };
 
-            try {
-              await webpush.sendNotification(
-                { endpoint: sub.endpoint, keys: sub.keys },
-                notifPayload,
-                { TTL: 86400, urgency: 'normal' },
-              );
-              sent++;
-            } catch (err) {
-              failed++;
-              if (err.statusCode === 404 || err.statusCode === 410 || err.statusCode === 401) {
-                expired.push(t.token);
+            const result = await messaging.sendEachForMulticast(message);
+            sent += result.successCount;
+            failed += result.failureCount;
+
+            result.responses.forEach((resp, idx) => {
+              if (!resp.success) {
+                const code = resp.error?.code || '';
+                if (
+                  code.includes('registration-token-not-registered') ||
+                  code.includes('invalid-registration-token')
+                ) {
+                  expired.push(batch[idx]);
+                }
               }
-            }
-          }));
-
-          // Nettoyer les tokens expirés
-          if (expired.length > 0) {
-            await supabase.from('fcm_tokens').delete().in('token', expired);
-            console.log(`${expired.length} tokens expirés supprimés`);
+            });
           }
 
-          console.log(`✅ Résultat: ${sent} envoyés, ${failed} échoués`);
+          // ── Nettoyer les tokens expirés ───────────────────────────────────
+          if (expired.length > 0) {
+            await supabase.from('fcm_tokens').delete().in('token', expired);
+            console.log(`${expired.length} token(s) expirés supprimés`);
+          }
 
-          if (sent === 0 && failed > 0) process.exit(1);
+          console.log(`✅ Résultat: ${sent} envoyés, ${failed} échoués sur ${fcmTokens.length} appareils`);
+
+          if (sent === 0 && fcmTokens.length > 0) process.exit(1);
           SCRIPT

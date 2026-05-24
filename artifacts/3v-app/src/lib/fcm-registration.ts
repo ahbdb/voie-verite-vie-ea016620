@@ -1,80 +1,68 @@
+import { getToken } from 'firebase/messaging';
 import { supabase } from "@/integrations/supabase/client";
-import { VAPID_KEY, VAPID_KEY_VERSION } from "./firebase-config";
-
-const NOTIFICATION_SW_PATH = "/notification-sw.js";
-const VAPID_VERSION_KEY = "vapid_version";
+import { getFirebaseMessaging, FIREBASE_VAPID_KEY } from "./firebase-config";
 
 export async function registerFCMToken(): Promise<string | null> {
   try {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      console.log("Push notifications not supported");
+    if (!("serviceWorker" in navigator)) {
+      console.log("Service Worker not supported");
       return null;
     }
 
-    if (!VAPID_KEY) {
-      console.log("VAPID_KEY not configured");
-      return null;
-    }
-
-    let registration: ServiceWorkerRegistration;
-    try {
-      registration = await navigator.serviceWorker.register(NOTIFICATION_SW_PATH, { scope: "/" });
-      await navigator.serviceWorker.ready;
-    } catch {
-      try {
-        registration = await navigator.serviceWorker.ready;
-      } catch (err) {
-        console.log("SW registration failed:", err);
-        return null;
-      }
-    }
-
+    // Request notification permission
     if (Notification.permission === "default") {
       const perm = await Notification.requestPermission();
       if (perm !== "granted") return null;
     }
     if (Notification.permission !== "granted") return null;
 
-    // Force re-subscribe when VAPID key rotates
-    const storedVersion = localStorage.getItem(VAPID_VERSION_KEY);
-    if (storedVersion !== VAPID_KEY_VERSION) {
-      const existing = await registration.pushManager.getSubscription();
-      if (existing) await existing.unsubscribe().catch(() => {});
-      localStorage.setItem(VAPID_VERSION_KEY, VAPID_KEY_VERSION);
+    // Register the Firebase Messaging service worker
+    let swReg: ServiceWorkerRegistration;
+    try {
+      swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+      await navigator.serviceWorker.ready;
+    } catch {
+      swReg = await navigator.serviceWorker.ready;
     }
 
-    let subscription = await registration.pushManager.getSubscription();
-    if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_KEY),
-      });
+    // Get Firebase Messaging instance
+    const messaging = await getFirebaseMessaging();
+    if (!messaging) {
+      console.log("Firebase Messaging not supported on this browser");
+      return null;
     }
 
-    const token = JSON.stringify(subscription);
+    // Get FCM token
+    const token = await getToken(messaging, {
+      vapidKey: FIREBASE_VAPID_KEY || undefined,
+      serviceWorkerRegistration: swReg,
+    });
 
+    if (!token) {
+      console.log("No FCM token received");
+      return null;
+    }
+
+    // Save to Supabase
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return token;
-
-    const platform = detectPlatform();
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Paris";
 
     await supabase.from("fcm_tokens").upsert(
       {
         user_id: user.id,
         token,
-        platform,
+        platform: detectPlatform(),
         device_info: navigator.userAgent.substring(0, 200),
-        language: "fr",
-        timezone,
+        language: navigator.language?.substring(0, 2) || "fr",
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Douala",
       },
       { onConflict: "token" }
     );
 
-    console.log("✓ Push subscription registered");
+    console.log("✓ FCM token registered");
     return token;
   } catch (err) {
-    console.log("Push registration error:", err);
+    console.log("FCM registration error:", err);
     return null;
   }
 }
@@ -100,13 +88,4 @@ function detectPlatform(): string {
   if (/Mac/.test(ua)) return "macos";
   if (/Linux/.test(ua)) return "linux";
   return "web";
-}
-
-function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = atob(base64);
-  const output = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) output[i] = rawData.charCodeAt(i);
-  return output as unknown as Uint8Array<ArrayBuffer>;
 }
