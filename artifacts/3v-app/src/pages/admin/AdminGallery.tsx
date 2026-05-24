@@ -3,6 +3,7 @@ import { useAdmin } from '@/hooks/useAdmin';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
+import { notifyNewGallery } from '@/lib/auto-notification-triggers';
 import AdminLoadingSpinner from '@/components/admin/AdminLoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -154,6 +155,7 @@ const AdminGallery = () => {
       } else {
         console.log('✅ Images ajoutées');
         toast.success(`${imagesToInsert.length} image(s) ajoutée(s)`);
+        notifyNewGallery(formData.title);
       }
     }
     

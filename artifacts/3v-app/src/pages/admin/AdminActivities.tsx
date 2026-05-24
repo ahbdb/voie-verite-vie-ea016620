@@ -3,6 +3,7 @@ import { useAdmin } from '@/hooks/useAdmin';
 import { useEffect, useState, useRef } from 'react';
 import type { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
+import { notifyNewActivity } from '@/lib/auto-notification-triggers';
 import Navigation from '@/components/Navigation';
 import AdminLoadingSpinner from '@/components/admin/AdminLoadingSpinner';
 import { Button } from '@/components/ui/button';
@@ -172,6 +173,7 @@ const AdminActivities = () => {
         toast.error('Erreur lors de l\'ajout');
       } else {
         toast.success('Activité ajoutée');
+        notifyNewActivity(formData.title, formData.description);
       }
     }
     

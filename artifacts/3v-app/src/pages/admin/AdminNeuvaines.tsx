@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { notifyNewNeuvaine } from '@/lib/auto-notification-triggers';
 import AdminPageWrapper from '@/components/admin/AdminPageWrapper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -144,6 +145,7 @@ const AdminNeuvaines = () => {
       toast.error('Erreur: ' + error.message);
     } else {
       toast.success(editingId ? 'Neuvaine mise à jour !' : 'Neuvaine créée !');
+      if (!editingId) notifyNewNeuvaine(title.trim());
       setEditOpen(false);
       resetForm();
       fetchNeuvaines();

@@ -275,24 +275,15 @@ export const sendBroadcastNotification = async (broadcastId: string): Promise<bo
       // Edge Function not deployed yet — fall back to browser-side push
     }
 
-    if (!edgeSuccess) {
-      const { data: tokenRows } = await supabase.from('fcm_tokens').select('token');
-      if (tokenRows && tokenRows.length > 0) {
-        const tokens = tokenRows.map((r) => r.token);
-        const { sendWebPushToTokens } = await import('@/lib/web-push-client');
-        const result = await sendWebPushToTokens(tokens, pushPayload);
-        if (result.expired.length > 0) {
-          await supabase.from('fcm_tokens').delete().in('token', result.expired);
-        }
-        console.log(`Browser push: ${result.sent} sent, ${result.failed} failed, ${result.expired.length} cleaned`);
-      }
+    // Step 3: If Edge Function succeeded, mark as sent immediately.
+    // Otherwise leave is_sent=false — the GitHub Actions workflow will pick it up
+    // within 30 minutes and send via Firebase Admin SDK (FCM).
+    if (edgeSuccess) {
+      await supabase
+        .from('broadcast_notifications')
+        .update({ is_sent: true, sent_at: new Date().toISOString() })
+        .eq('id', broadcastId);
     }
-
-    // Step 3: Mark the broadcast as sent.
-    await supabase
-      .from('broadcast_notifications')
-      .update({ is_sent: true, sent_at: new Date().toISOString() })
-      .eq('id', broadcastId);
 
     return true;
   } catch (err) {
