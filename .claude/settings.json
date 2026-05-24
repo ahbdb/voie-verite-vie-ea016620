@@ -5,7 +5,8 @@
       "Bash(pnpm --version)",
       "Bash(dir node_modules)",
       "Bash(pnpm run *)",
-      "Bash(pnpm approve-builds *)"
+      "Bash(pnpm approve-builds *)",
+      "WebSearch"
     ]
   }
 }

@@ -1,3 +1,0 @@
-/neuvaines/*.pdf /neuvaines/:splat 200
-/reports/*.pdf /reports/:splat 200
-/* /index.html 200

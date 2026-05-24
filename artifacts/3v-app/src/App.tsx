@@ -29,7 +29,6 @@ import PrayerForum from "./pages/PrayerForum";
 import Careme2026 from "./pages/Careme2026";
 import Careme from "./pages/Careme";
 import CheminDeCroix from "./pages/CheminDeCroix";
-import ShareDebug from "./pages/ShareDebug";
 import ActivityReports from "./pages/ActivityReports";
 import CallsAndLives from "./pages/CallsAndLives";
 import Neuvaines from "./pages/Neuvaines";
@@ -64,7 +63,6 @@ import Creator from "./pages/Creator";
 import Settings from "./pages/Settings";
 import Documents3V from "./pages/Documents3V";
 import NotFound from "./pages/NotFound";
-import AdminDiagnostics from "@/components/AdminDiagnostics";
 import NotificationInitializer from "@/components/NotificationInitializer";
 import FloatingSupportButton from "@/components/FloatingSupportButton";
 
@@ -134,7 +132,6 @@ const App = () => {
                       <Route path="/careme" element={<Careme />} />
                       <Route path="/careme-2026" element={<Careme2026 />} />
                       <Route path="/chemin-de-croix" element={<CheminDeCroix />} />
-                      <Route path="/share-debug" element={<ShareDebug />} />
                       <Route path="/reports" element={<ActivityReports />} />
                       <Route path="/calls-lives" element={<CallsAndLives />} />
                       <Route path="/neuvaines" element={<Neuvaines />} />
@@ -171,7 +168,6 @@ const App = () => {
                       <Route path="/documents-3v" element={<Documents3V />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
-                    <AdminDiagnostics />
                   </AppNotificationInitializer>
                   </CallSessionProvider>
                 </BrowserRouter>

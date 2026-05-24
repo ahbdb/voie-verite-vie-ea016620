@@ -1,1 +1,0 @@
-DELETE FROM neuvaines WHERE id = '579e4590-a001-4ea8-a1b7-fd11aff0d823';
