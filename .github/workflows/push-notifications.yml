@@ -157,13 +157,26 @@ jobs:
           }
 
           // ── Récupérer les tokens FCM ─────────────────────────────────────────
+          // Accepte les tokens FCM simples (chaîne) ET les anciens tokens Web Push
+          // dont l'endpoint pointe vers fcm.googleapis.com (le FCM token est dans l'URL).
           async function getFCMTokens() {
             const { data: rows, error } = await supabase.from('fcm_tokens').select('token');
             if (error) { console.error('Supabase (fcm_tokens):', error.message); return []; }
             if (!rows || rows.length === 0) { console.log('Aucun token enregistré.'); return []; }
             const fcm = [];
             for (const r of rows) {
-              try { const p = JSON.parse(r.token); if (p.endpoint) continue; } catch { fcm.push(r.token); }
+              try {
+                const p = JSON.parse(r.token);
+                if (p.endpoint && p.endpoint.includes('fcm.googleapis.com/fcm/send/')) {
+                  // Extraire le token FCM depuis l'URL de l'endpoint Web Push
+                  const t = p.endpoint.split('fcm.googleapis.com/fcm/send/')[1];
+                  if (t) fcm.push(t);
+                }
+                // Autre endpoint (ex: Mozilla Push) → ignorer
+              } catch {
+                // Pas du JSON → token FCM natif
+                fcm.push(r.token);
+              }
             }
             return fcm;
           }
