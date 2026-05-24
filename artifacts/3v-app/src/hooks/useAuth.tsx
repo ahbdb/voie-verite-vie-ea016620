@@ -76,10 +76,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     });
 
-    // 2. Read the current session immediately (from localStorage — no network call).
-    //    This resolves quickly and unblocks the UI.
-    supabase.auth.getSession()
-      .then(({ data: { session: sess } }) => {
+    // 2. Read current session — race against a 2 s timeout so a slow
+    //    token-refresh on mobile never blocks the UI indefinitely.
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000));
+    Promise.race([supabase.auth.getSession(), timeout])
+      .then((result) => {
+        if (!result) return; // timeout won — onAuthStateChange will handle it
+        const { data: { session: sess } } = result as Awaited<ReturnType<typeof supabase.auth.getSession>>;
         setSession(sess);
         setSupabaseUser(sess?.user ?? null);
         if (sess?.user) {
@@ -92,8 +95,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
       });
 
-    // 3. Safety net: if nothing resolves in 6 s (e.g. auth server unreachable), unblock the UI.
-    const safetyTimer = setTimeout(() => setLoading(false), 6000);
+    // 3. Absolute safety net: unblock UI after 2 s no matter what.
+    const safetyTimer = setTimeout(() => setLoading(false), 2000);
 
     return () => {
       subscription.unsubscribe();
