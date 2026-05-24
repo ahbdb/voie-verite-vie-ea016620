@@ -37,7 +37,7 @@ jobs:
       - name: Envoyer les notifications FCM
         env:
           SUPABASE_URL: https://kaddsojhnkyfavaulrfc.supabase.co
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZGRzb2pobmt5ZmF2YXVscmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Njg1MjcsImV4cCI6MjA3NzM0NDUyN30.hFAbVxHmfDY1Xqkij62R8dTBfHw6ff5mSb3faq_4CPs
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
           INPUT_TYPE: ${{ inputs.type }}
@@ -100,7 +100,7 @@ jobs:
           // ── Récupérer les tokens depuis Supabase ──────────────────────────
           const supabase = createClient(
             process.env.SUPABASE_URL,
-            process.env.SUPABASE_SERVICE_ROLE_KEY,
+            process.env.SUPABASE_ANON_KEY,
           );
           const { data: rows, error } = await supabase
             .from('fcm_tokens')
