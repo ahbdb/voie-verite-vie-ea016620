@@ -243,29 +243,49 @@ export const sendBroadcastNotification = async (broadcastId: string): Promise<bo
       }
     }
 
-    // Step 2: Web Push to every subscribed device.
-    const { data: tokenRows } = await supabase
-      .from('fcm_tokens')
-      .select('token');
+    // Step 2: Web Push — prefer Edge Function (server-side, works even when app is closed).
+    // Falls back to browser-side VAPID if the Edge Function is not deployed yet.
+    const pushPayload = {
+      title: broadcast.title,
+      body: broadcast.body || '',
+      icon: broadcast.icon || '/icon-192x192.png',
+      badge: '/badge-72x72.png',
+      url: '/',
+      action: broadcast.type || 'announcement',
+      tag: `broadcast-${broadcastId}`,
+    };
 
-    if (tokenRows && tokenRows.length > 0) {
-      const tokens = tokenRows.map((r) => r.token);
-      const { sendWebPushToTokens } = await import('@/lib/web-push-client');
-      const result = await sendWebPushToTokens(tokens, {
-        title: broadcast.title,
-        body: broadcast.body || '',
-        icon: broadcast.icon || '/icon-192x192.png',
-        badge: '/badge-72x72.png',
-        url: '/',
-        action: broadcast.type || 'announcement',
-        tag: `broadcast-${broadcastId}`,
+    const edgeFnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-push`;
+    let edgeSuccess = false;
+    try {
+      const res = await fetch(edgeFnUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(pushPayload),
       });
-
-      if (result.expired.length > 0) {
-        await supabase.from('fcm_tokens').delete().in('token', result.expired);
+      if (res.ok) {
+        const result = await res.json();
+        console.log(`Edge push: ${result.sent} sent, ${result.failed} failed, ${result.cleaned} cleaned`);
+        edgeSuccess = true;
       }
+    } catch {
+      // Edge Function not deployed yet — fall back to browser-side push
+    }
 
-      console.log(`Push: ${result.sent} sent, ${result.failed} failed, ${result.expired.length} cleaned`);
+    if (!edgeSuccess) {
+      const { data: tokenRows } = await supabase.from('fcm_tokens').select('token');
+      if (tokenRows && tokenRows.length > 0) {
+        const tokens = tokenRows.map((r) => r.token);
+        const { sendWebPushToTokens } = await import('@/lib/web-push-client');
+        const result = await sendWebPushToTokens(tokens, pushPayload);
+        if (result.expired.length > 0) {
+          await supabase.from('fcm_tokens').delete().in('token', result.expired);
+        }
+        console.log(`Browser push: ${result.sent} sent, ${result.failed} failed, ${result.expired.length} cleaned`);
+      }
     }
 
     // Step 3: Mark the broadcast as sent.
