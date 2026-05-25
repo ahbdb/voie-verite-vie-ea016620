@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useSpeech } from '@/hooks/useSpeech';
+import { useAudio } from '@/hooks/useAudio';
 import { Volume2, Square, ChevronRight, ChevronLeft, BookOpen, RotateCcw, Play, Pause } from 'lucide-react';
 
 // ── Canonical prayer texts (Notre Père: réforme de la CEF 2017) ────────────
@@ -338,6 +338,20 @@ function totalSteps(total = 5): number {
   return 6 + total * 14 + 1;
 }
 
+function getAudioUrl(step: Step, setKey: string): string | null {
+  if (step === 'credo') return '/audio/chapelet/credo.mp3';
+  if (step === 'pater-intro') return '/audio/chapelet/notre-pere.mp3';
+  if (step === 'ave-intro-1' || step === 'ave-intro-2' || step === 'ave-intro-3') return '/audio/chapelet/ave-maria.mp3';
+  if (step === 'gloria-intro') return '/audio/chapelet/gloire.mp3';
+  if (step === 'salve') return '/audio/chapelet/salve-regina.mp3';
+  if (typeof step === 'object' && 'mystery' in step) return `/audio/chapelet/${setKey}-${step.mystery + 1}.mp3`;
+  if (typeof step === 'object' && 'pater' in step) return '/audio/chapelet/notre-pere.mp3';
+  if (typeof step === 'object' && 'ave' in step) return '/audio/chapelet/ave-maria.mp3';
+  if (typeof step === 'object' && 'gloria' in step) return '/audio/chapelet/gloire.mp3';
+  if (typeof step === 'object' && 'fatima' in step) return '/audio/chapelet/fatima.mp3';
+  return null;
+}
+
 function stepIndex(step: Step, total = 5): number {
   if (step === 'chooser' || step === 'credo') return 0;
   if (step === 'pater-intro') return 1;
@@ -359,7 +373,7 @@ function stepIndex(step: Step, total = 5): number {
 
 const Chapelet = () => {
   const { t } = useTranslation();
-  const { speak, stop, speaking, supported } = useSpeech(0.78);
+  const { play, stop, playing } = useAudio();
 
   const [mysterySet, setMysterySet] = useState<MysterySet>(() => getTodaySet());
   const [step, setStep] = useState<Step>('chooser');
@@ -384,18 +398,18 @@ const Chapelet = () => {
   }, [stop]);
 
   const handleListen = () => {
-    if (speaking) { stop(); return; }
-    const text = getStepText(step);
-    if (text) speak(text);
+    if (playing) { stop(); return; }
+    const url = getAudioUrl(step, mysterySet.key);
+    if (url) play(url);
   };
 
   useEffect(() => {
     if (!autoRead || step === 'chooser' || step === 'done') return;
-    const text = getStepText(step);
-    if (!text) return;
-    const id = setTimeout(() => speak(text), 400);
+    const url = getAudioUrl(step, mysterySet.key);
+    if (!url) return;
+    const id = setTimeout(() => play(url), 400);
     return () => clearTimeout(id);
-  }, [step, autoRead]);
+  }, [step, autoRead, mysterySet.key]);
 
   const toggleAutoRead = () => {
     const next = !autoRead;
@@ -500,10 +514,17 @@ const Chapelet = () => {
 
         {currentMystery && (
           <div className="rounded-2xl border border-cathedral-gold/30 bg-cathedral-gold/5 p-5 space-y-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2">
               <Badge variant="outline" className="rounded-full text-cathedral-gold border-cathedral-gold/40 text-xs">
                 {t('chapelet.mysteryOf', { n: (step as { mystery: number }).mystery + 1 })}
               </Badge>
+              <button
+                onClick={handleListen}
+                title={playing ? t('chapelet.stop') : t('chapelet.listen')}
+                className={`p-2 rounded-full transition-colors ${playing ? 'text-cathedral-gold bg-cathedral-gold/10' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+              >
+                {playing ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </button>
             </div>
             <h2 className="font-cinzel font-bold text-foreground text-lg">{currentMystery.title}</h2>
             <div className="grid grid-cols-2 gap-3">
@@ -526,15 +547,13 @@ const Chapelet = () => {
           <div className="rounded-2xl border border-border/60 bg-card p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-cinzel font-bold text-foreground text-base">{label}</h3>
-              {supported && (
-                <button
+              <button
                   onClick={handleListen}
-                  title={speaking ? t('chapelet.stop') : t('chapelet.listen')}
-                  className={`p-2 rounded-full transition-colors ${speaking ? 'text-cathedral-gold bg-cathedral-gold/10' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+                  title={playing ? t('chapelet.stop') : t('chapelet.listen')}
+                  className={`p-2 rounded-full transition-colors ${playing ? 'text-cathedral-gold bg-cathedral-gold/10' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
                 >
-                  {speaking ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                  {playing ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                 </button>
-              )}
             </div>
             <p className="text-foreground text-sm leading-loose whitespace-pre-line font-['Playfair_Display',serif]">
               {text}
