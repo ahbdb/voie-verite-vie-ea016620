@@ -116,6 +116,26 @@ export interface PeerStat {
   audioPacketsLost: number;
 }
 
+// ── Module-level session persistence ─────────────────────────────────────────
+// React refs are garbage-collected on component unmount, which closes every
+// RTCPeerConnection they hold. Saving to module-level prevents GC and keeps
+// audio/video flowing when the user navigates away without hanging up.
+interface PersistedSession {
+  roomId: string;
+  peerConns: Map<string, RTCPeerConnection>;
+  stream: MediaStream;
+  origVideoTrack: MediaStreamTrack | null;
+  audioCtx: AudioContext | null;
+  keepAliveOsc: OscillatorNode | null;
+  analysers: Map<string, AnalyserNode>;
+  sources: Map<string, MediaStreamAudioSourceNode>;
+  initiated: Set<string>;
+  pendingIce: Map<string, RTCIceCandidateInit[]>;
+  screenTrack: MediaStreamTrack | null;
+  remoteStreams: RemoteVideoStream[];
+}
+let _persist: PersistedSession | null = null;
+
 interface UseAdminVideoRoomOptions {
   roomId?: string;
   userId?: string;
@@ -177,6 +197,7 @@ export const useAdminVideoRoom = ({
   const analyserNodesRef = useRef<Map<string, AnalyserNode>>(new Map());
   const sourceNodesRef = useRef<Map<string, MediaStreamAudioSourceNode>>(new Map());
   const keepAliveNodeRef = useRef<OscillatorNode | null>(null);
+  const remoteStreamsRef = useRef<RemoteVideoStream[]>([]);
 
   const roomType = room?.room_type ?? 'unknown';
   const canShareScreen =
@@ -193,7 +214,25 @@ export const useAdminVideoRoom = ({
     canManageRoomRef.current = canManageRoom;
     roomRef.current = room;
     userIdRef.current = userId;
-  }, [participants, displayName, canManageRoom, room, userId]);
+    remoteStreamsRef.current = remoteStreams;
+  }, [participants, displayName, canManageRoom, room, userId, remoteStreams]);
+
+  // ── Auto-restore from soft leave ─────────────────────────────────────────────
+  // If a persisted session exists for this room, skip the "Rejoindre" button
+  // and restore directly without requiring another user tap.
+  useEffect(() => {
+    if (!enabled || !roomId || !userId || startRequested) return;
+    if (_persist) {
+      if (_persist.roomId === roomId) {
+        setStartRequested(true);
+      } else {
+        // Stale persisted session for a different room — release it
+        _persist.peerConns.forEach((pc) => pc.close());
+        _persist.stream.getTracks().forEach((t) => t.stop());
+        _persist = null;
+      }
+    }
+  }, [enabled, roomId, userId, startRequested]);
 
   // ── Audio level detection ───────────────────────────────────────────────────
 
@@ -825,8 +864,12 @@ export const useAdminVideoRoom = ({
       } catch { /* non-critical */ }
     }
 
-    // 2. Update DB as authoritative source of truth
-    await db.from('video_rooms').update({ status: 'ended', ended_at: new Date().toISOString() }).eq('id', roomId);
+    // 2. Update DB as authoritative source of truth — throw on failure so caller can toast
+    const { error: roomErr } = await db
+      .from('video_rooms')
+      .update({ status: 'ended', ended_at: new Date().toISOString() })
+      .eq('id', roomId);
+    if (roomErr) throw new Error(`Impossible de terminer la réunion : ${roomErr.message}`);
     await db.from('video_room_participants').update({ is_active: false, left_at: new Date().toISOString() }).eq('room_id', roomId);
     setIsConnected(false);
   }, [roomId]);
@@ -1042,6 +1085,64 @@ export const useAdminVideoRoom = ({
         const currentRoom = roomRef.current || (await loadRoom());
         if (!currentRoom) throw new Error('Salle introuvable.');
 
+        // ── Restore from soft leave ──────────────────────────────────────────
+        // We have a module-level snapshot of all WebRTC state from the previous
+        // soft leave. Restore refs, update React state, re-subscribe to signaling.
+        if (_persist && _persist.roomId === roomId) {
+          const saved = _persist;
+          _persist = null;
+
+          peerConnectionsRef.current = saved.peerConns;
+          localStreamRef.current = saved.stream;
+          originalVideoTrackRef.current = saved.origVideoTrack;
+          audioContextRef.current = saved.audioCtx;
+          keepAliveNodeRef.current = saved.keepAliveOsc;
+          analyserNodesRef.current = saved.analysers;
+          sourceNodesRef.current = saved.sources;
+          initiatedPeersRef.current = saved.initiated;
+          pendingIceCandidatesRef.current = saved.pendingIce;
+          screenTrackRef.current = saved.screenTrack;
+
+          setLocalStream(saved.stream);
+          setRemoteStreams(saved.remoteStreams);
+          setMicEnabled(saved.stream.getAudioTracks().some((t) => t.enabled));
+          setCameraEnabled(currentRoom.room_type !== 'audio' && Boolean(saved.origVideoTrack?.enabled));
+          setIsScreenSharing(Boolean(saved.screenTrack && saved.screenTrack.readyState === 'live'));
+
+          // Re-activate participant row without resetting joined_at
+          if (userId) {
+            await db
+              .from('video_room_participants')
+              .update({ is_active: true, left_at: null })
+              .eq('room_id', roomId)
+              .eq('user_id', userId);
+            joinedRef.current = true;
+          }
+
+          await Promise.all([loadParticipants(), loadMessages(), loadReactions()]);
+
+          if (!channelRef.current) {
+            const channel = db
+              .channel(`video-room:${roomId}`)
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'video_room_participants', filter: `room_id=eq.${roomId}` }, () => void loadParticipants())
+              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'video_room_signals', filter: `room_id=eq.${roomId}` }, (sig: { new: VideoSignalRecord }) => void handleIncomingSignal(sig.new))
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'video_room_messages', filter: `room_id=eq.${roomId}` }, () => void loadMessages())
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'video_message_reactions', filter: `room_id=eq.${roomId}` }, () => void loadReactions())
+              .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'video_rooms', filter: `id=eq.${roomId}` }, (ev: { new: VideoRoomRecord }) => setRoom(ev.new))
+              .on('broadcast', { event: 'session-ended' }, () => {
+                setRoom((prev) => (prev ? { ...prev, status: 'ended' } : prev));
+              })
+              .subscribe(async (status: string) => {
+                if (status === 'SUBSCRIBED') await fetchPendingSignals();
+              });
+            channelRef.current = channel;
+          }
+
+          if (active) setIsConnected(true);
+          return;
+        }
+
+        // ── Normal join path ─────────────────────────────────────────────────
         if (!localStreamRef.current) {
           localStreamRef.current = new MediaStream();
           setLocalStream(localStreamRef.current);
@@ -1117,11 +1218,25 @@ export const useAdminVideoRoom = ({
       softLeaveRef.current = false;
 
       if (!isHard) {
-        // ── Default / soft leave: keep peer connections + tracks alive so remote
-        //    peers still receive our audio (WhatsApp-style background mode).
-        //    This covers: back navigation, closing the tab, switching pages.
-        //    Orphaned WebRTC connections auto-close after DISCONNECT_TIMEOUT_MS
-        //    if the user does not return.
+        // ── Soft leave: save all WebRTC state to module-level so GC doesn't
+        //    close the RTCPeerConnections while the user browses other pages.
+        //    Connections are restored seamlessly when the user comes back.
+        if (localStreamRef.current && roomId) {
+          _persist = {
+            roomId,
+            peerConns: peerConnectionsRef.current,
+            stream: localStreamRef.current,
+            origVideoTrack: originalVideoTrackRef.current,
+            audioCtx: audioContextRef.current,
+            keepAliveOsc: keepAliveNodeRef.current,
+            analysers: analyserNodesRef.current,
+            sources: sourceNodesRef.current,
+            initiated: initiatedPeersRef.current,
+            pendingIce: pendingIceCandidatesRef.current,
+            screenTrack: screenTrackRef.current,
+            remoteStreams: remoteStreamsRef.current,
+          };
+        }
         return;
       }
 

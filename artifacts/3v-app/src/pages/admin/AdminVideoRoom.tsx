@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -619,7 +620,26 @@ const AdminVideoRoom = () => {
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/meeting/${roomId}`);
+      const url = `${window.location.origin}/meeting/${roomId}`;
+      if (!room) {
+        await navigator.clipboard.writeText(url);
+        toast.success('Lien copié !');
+        return;
+      }
+      const ref = room.started_at ? new Date(room.started_at) : new Date();
+      const dateStr = ref.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const timeStr = ref.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const typeLabel = room.room_type === 'audio' ? '🎙 Appel audio' : '📹 Réunion vidéo';
+      const lines = [
+        '✝ VOIE · VÉRITÉ · VIE',
+        '',
+        `📌 ${room.title}`,
+        `📅 ${dateStr} à ${timeStr}`,
+        typeLabel,
+      ];
+      if (room.description?.trim()) lines.push('', room.description.trim());
+      lines.push('', `🔗 Rejoindre : ${url}`);
+      await navigator.clipboard.writeText(lines.join('\n'));
       toast.success('Lien copié !');
     } catch { toast.error('Copie impossible'); }
   };
@@ -642,13 +662,18 @@ const AdminVideoRoom = () => {
 
   /** Admin end-room — confirmation required. */
   const handleEndRoom = async () => {
-    hardHangUpRef.current = true;
-    triggerHardLeave();
-    await endRoom();
-    callSession.endCallSession();
-    toast.success('Réunion terminée pour tous');
-    navigate('/admin/video');
-    setShowEndConfirm(false);
+    try {
+      hardHangUpRef.current = true;
+      triggerHardLeave();
+      await endRoom();
+      callSession.endCallSession();
+      toast.success('Réunion terminée pour tous');
+      navigate('/admin/video');
+      setShowEndConfirm(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Impossible de terminer la réunion';
+      toast.error(msg);
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -739,6 +764,20 @@ const AdminVideoRoom = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950">
+      {room && (
+        <Helmet>
+          <title>{room.title} — Voie Vérité Vie</title>
+          <meta property="og:title" content={room.title} />
+          <meta property="og:description" content={room.description || `Rejoignez la ${room.room_type === 'audio' ? 'réunion audio' : 'réunion vidéo'} sur Voie Vérité Vie`} />
+          <meta property="og:type" content="website" />
+          <meta property="og:url" content={`${window.location.origin}/meeting/${roomId}`} />
+          <meta property="og:site_name" content="Voie Vérité Vie" />
+          <meta name="twitter:card" content="summary" />
+          <meta name="twitter:title" content={room.title} />
+          <meta name="twitter:description" content={room.description || `Rejoignez la réunion sur Voie Vérité Vie`} />
+        </Helmet>
+      )}
+
       <Navigation />
 
       {/* ── End-room confirmation dialog ─────────────────────────────────── */}
@@ -1219,8 +1258,8 @@ const AdminVideoRoom = () => {
 
             <div className="w-px h-8 bg-zinc-700 mx-1" />
 
-            {/* Terminer — only the admin who CREATED this session */}
-            {room?.created_by === user?.id && (
+            {/* Terminer — any admin can end the session */}
+            {hasManagement && (
               <button
                 onClick={() => setShowEndConfirm(true)}
                 className="flex flex-col items-center gap-1 rounded-xl bg-red-500 px-3 py-2 text-white hover:bg-red-600 transition-colors min-w-[56px]"
