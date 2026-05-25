@@ -1,6 +1,6 @@
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Navigation from '@/components/Navigation';
 import HeroSection from '@/components/HeroSection';
@@ -17,7 +17,7 @@ import {
   Clock, BookOpen, MapPin, Globe, Newspaper, Plus, Play,
   ExternalLink, Image as ImageIcon, Loader2,
 } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -418,21 +418,19 @@ const SectionHeader = ({ icon, title, subtitle, href, linkLabel, external }: {
       {subtitle && <p className="text-[11px] text-muted-foreground mt-1 ml-9">{subtitle}</p>}
     </div>
     {href && linkLabel && (
-      <a href={external ? href : undefined}
-        {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-        {...(!external ? { as: Link, href: undefined } : {})}
-        className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium shrink-0 mt-1"
-      >
-        {external ? (
-          <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium">
+      external
+        ? (
+          <a href={href} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium shrink-0 mt-1">
             {linkLabel} <ExternalLink className="h-3 w-3" />
           </a>
-        ) : (
-          <Link to={href} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium">
+        )
+        : (
+          <Link to={href}
+            className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium shrink-0 mt-1">
             {linkLabel} <ChevronRight className="h-3.5 w-3.5" />
           </Link>
-        )}
-      </a>
+        )
     )}
   </div>
 );
