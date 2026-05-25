@@ -31,7 +31,6 @@ import { toast } from 'sonner';
 import {
   Activity,
   ArrowLeft,
-  Camera,
   Edit2,
   Link2,
   Loader2,
@@ -1000,8 +999,17 @@ const AdminVideoRoom = () => {
 
       {/* ── Floating bottom control bar ────────────────────────────────────── */}
       <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-2 bg-zinc-900/95 backdrop-blur border-t border-zinc-800 px-4 py-3">
-        {isConnected ? (
+        {/* Show controls as soon as we have a local stream — don't wait for full peer connection */}
+        {(isConnected || localStream) ? (
           <>
+            {/* Connecting indicator overlay when stream exists but not yet fully connected */}
+            {!isConnected && localStream && (
+              <div className="flex items-center gap-1.5 text-amber-400 text-[10px] mr-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Connexion…</span>
+              </div>
+            )}
+
             {/* Mic */}
             <button
               onClick={toggleMicrophone}

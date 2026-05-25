@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -29,7 +29,8 @@ import {
   Radio, Video, Mic, Calendar as CalendarIcon, Clock, Users, Play,
   Bell, Share2, Download, Trash2, Plus, Eye, Loader2, Crown, X,
   BookOpen, ChevronDown, ChevronUp, Phone, PhoneCall, Link2,
-  Settings2, Activity, TrendingUp,
+  Settings2, Activity, MicOff, VideoOff, CheckCircle2, AlertCircle,
+  PhoneOff, Sparkles, WifiOff,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -108,6 +109,194 @@ const Countdown = ({ targetDate, targetTime }: { targetDate: string; targetTime:
   );
 };
 
+// ── Pre-join Lobby ─────────────────────────────────────────────────────────────
+// Shows camera/mic preview before entering the room (Zoom-style lobby)
+
+interface PreJoinLobbyProps {
+  open: boolean;
+  callType: 'audio' | 'video' | 'live';
+  onClose: () => void;
+  onJoin: (micOn: boolean, camOn: boolean) => void;
+  starting: boolean;
+}
+
+const PreJoinLobby = ({ open, callType, onClose, onJoin, starting }: PreJoinLobbyProps) => {
+  const [micOn, setMicOn] = useState(true);
+  const [camOn, setCamOn] = useState(callType !== 'audio');
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [micLevel, setMicLevel] = useState(0);
+  const [permError, setPermError] = useState('');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const pollRef = useRef<number | null>(null);
+
+  const stopStream = useCallback(() => {
+    stream?.getTracks().forEach(t => t.stop());
+    setStream(null);
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = null;
+    try { audioCtxRef.current?.close(); } catch {}
+    audioCtxRef.current = null;
+  }, [stream]);
+
+  useEffect(() => {
+    if (!open) { stopStream(); setPermError(''); setMicLevel(0); return; }
+    const start = async () => {
+      try {
+        const media = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true },
+          video: callType !== 'audio' ? { facingMode: 'user' } : false,
+        });
+        setStream(media);
+        setPermError('');
+        // Mic level analyser
+        const ctx = new AudioContext();
+        audioCtxRef.current = ctx;
+        const src = ctx.createMediaStreamSource(media);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        src.connect(analyser);
+        analyserRef.current = analyser;
+        pollRef.current = window.setInterval(() => {
+          if (!analyserRef.current) return;
+          const buf = new Uint8Array(analyserRef.current.frequencyBinCount);
+          analyserRef.current.getByteFrequencyData(buf);
+          const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
+          setMicLevel(Math.min(100, avg * 3));
+        }, 100);
+      } catch {
+        setPermError('Microphone ou caméra refusés par le navigateur. Vérifiez les autorisations.');
+        setMicLevel(0);
+      }
+    };
+    void start();
+    return () => { stopStream(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, callType]);
+
+  // Attach stream to video element
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  // Toggle cam track
+  useEffect(() => {
+    stream?.getVideoTracks().forEach(t => { t.enabled = camOn; });
+  }, [camOn, stream]);
+
+  // Toggle mic track
+  useEffect(() => {
+    stream?.getAudioTracks().forEach(t => { t.enabled = micOn; });
+  }, [micOn, stream]);
+
+  const typeLabel = callType === 'audio' ? 'Audio' : callType === 'live' ? 'Live' : 'Vidéo';
+  const typeIcon = callType === 'audio' ? '🎙️' : callType === 'live' ? '📡' : '📹';
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v && !starting) { stopStream(); onClose(); } }}>
+      <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl bg-zinc-950 border border-zinc-800">
+        <DialogHeader className="px-6 pt-6 pb-0">
+          <DialogTitle className="font-cinzel text-lg text-white flex items-center gap-2">
+            {typeIcon} Préparer l'appel {typeLabel}
+          </DialogTitle>
+          <p className="text-xs text-zinc-500 mt-1">Vérifiez votre micro et caméra avant de rejoindre</p>
+        </DialogHeader>
+
+        <div className="p-5 space-y-4">
+          {/* Camera preview */}
+          {callType !== 'audio' && (
+            <div className="relative aspect-video rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800">
+              {stream && camOn ? (
+                <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <div className="flex flex-col items-center gap-2 text-zinc-600">
+                    <VideoOff className="h-10 w-10" />
+                    <span className="text-xs">Caméra désactivée</span>
+                  </div>
+                </div>
+              )}
+              {/* Camera toggle overlay */}
+              <button
+                onClick={() => setCamOn(v => !v)}
+                className={cn(
+                  'absolute bottom-3 right-3 h-9 w-9 rounded-full flex items-center justify-center transition-colors',
+                  camOn ? 'bg-zinc-800/90 text-white hover:bg-zinc-700' : 'bg-red-500/90 text-white hover:bg-red-600'
+                )}
+              >
+                {camOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+              </button>
+            </div>
+          )}
+
+          {/* Permission error */}
+          {permError && (
+            <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-4 py-3 text-sm text-amber-400">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{permError}</span>
+            </div>
+          )}
+
+          {/* Mic controls */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-zinc-400">Microphone</span>
+              <button
+                onClick={() => setMicOn(v => !v)}
+                className={cn(
+                  'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium transition-colors',
+                  micOn ? 'bg-zinc-800 text-white hover:bg-zinc-700' : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                )}
+              >
+                {micOn ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
+                {micOn ? 'Micro activé' : 'Micro coupé'}
+              </button>
+            </div>
+            {/* Mic level bar */}
+            <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all duration-100',
+                  micLevel > 60 ? 'bg-green-400' : micLevel > 20 ? 'bg-green-500/70' : 'bg-zinc-600'
+                )}
+                style={{ width: `${micLevel}%` }}
+              />
+            </div>
+            {!permError && micOn && (
+              <p className="text-[10px] text-zinc-600">
+                {micLevel > 15 ? '🎙️ Son détecté — votre micro fonctionne' : 'Parlez pour tester votre micro…'}
+              </p>
+            )}
+          </div>
+
+          {/* CTA */}
+          <div className="flex gap-2 pt-1">
+            <Button variant="ghost" onClick={() => { stopStream(); onClose(); }} disabled={starting} className="flex-1 rounded-xl border border-zinc-700 text-zinc-300">
+              Annuler
+            </Button>
+            <Button
+              onClick={() => onJoin(micOn, camOn)}
+              disabled={starting}
+              className={cn(
+                'flex-1 rounded-xl font-bold text-white',
+                callType === 'live' ? 'bg-red-600 hover:bg-red-700' :
+                callType === 'audio' ? 'bg-violet-600 hover:bg-violet-700' :
+                'bg-blue-600 hover:bg-blue-700'
+              )}
+            >
+              {starting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Phone className="h-4 w-4 mr-2 fill-white" />}
+              Rejoindre
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 const CallsAndLives = () => {
@@ -121,6 +310,7 @@ const CallsAndLives = () => {
   const [myReminders, setMyReminders] = useState<Set<string>>(new Set());
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [joinCode, setJoinCode] = useState('');
+  const [lobbyType, setLobbyType] = useState<'audio' | 'video' | 'live' | null>(null);
   const [startingType, setStartingType] = useState<string | null>(null);
   const [floatingEmojis, setFloatingEmojis] = useState<{id:number;emoji:string;x:number}[]>([]);
   const [sessionToEnd, setSessionToEnd] = useState<ScheduledSession | null>(null);
@@ -183,7 +373,8 @@ const CallsAndLives = () => {
     }
   };
 
-  const startQuickCall = async (type: 'audio' | 'video' | 'live') => {
+  // Called by lobby after mic/cam preview
+  const startCallAfterLobby = async (type: 'audio' | 'video' | 'live', _micOn: boolean, _camOn: boolean) => {
     if (!user) { toast.error(t('calls.loginRequired')); return; }
     setStartingType(type);
     try {
@@ -208,12 +399,18 @@ const CallsAndLives = () => {
       sendCallJoinNotification(title, room.id, user.name ?? user.email ?? undefined).catch(() => {});
       toast.success(t('calls.sessionStarted'));
       primeAudioPlayback();
+      setLobbyType(null);
       navigate(`/meeting/${room.id}`);
-    } catch (e: any) {
+    } catch {
       toast.error(t('common.error'));
     } finally {
       setStartingType(null);
     }
+  };
+
+  const openLobby = (type: 'audio' | 'video' | 'live') => {
+    if (!user) { toast.error(t('calls.loginRequired')); return; }
+    setLobbyType(type);
   };
 
   const joinByCode = () => {
@@ -246,21 +443,46 @@ const CallsAndLives = () => {
       </Helmet>
       <Navigation />
 
+      {/* Pre-join lobby */}
+      <PreJoinLobby
+        open={!!lobbyType}
+        callType={lobbyType ?? 'audio'}
+        onClose={() => setLobbyType(null)}
+        onJoin={(mic, cam) => lobbyType && startCallAfterLobby(lobbyType, mic, cam)}
+        starting={!!startingType}
+      />
+
       {/* ── Hero ── */}
-      <header className="relative overflow-hidden border-b border-cathedral-gold/20 bg-gradient-cathedral pt-28 pb-10 px-4">
-        <div className="absolute inset-0 bg-gradient-stained opacity-50 pointer-events-none" />
+      <header className="relative overflow-hidden border-b border-cathedral-gold/20 bg-gradient-cathedral pt-28 pb-12 px-4">
+        <div className="absolute inset-0 bg-gradient-stained opacity-40 pointer-events-none" />
+        {/* Decorative pulsing circles */}
+        {liveSessions.length > 0 && (
+          <>
+            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-64 w-64 rounded-full border border-red-500/10 animate-ping" style={{ animationDuration: '3s' }} />
+            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-48 w-48 rounded-full border border-red-500/20 animate-ping" style={{ animationDuration: '2.2s' }} />
+          </>
+        )}
         <div className="relative max-w-3xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cathedral-gold/40 bg-background/10 backdrop-blur-sm mb-5">
             <PhoneCall className="h-3.5 w-3.5 text-cathedral-gold" />
-            <span className="text-xs uppercase tracking-[0.2em] text-cathedral-gold font-medium">{t('calls.heroBadge', 'Communauté en direct')}</span>
+            <span className="text-xs uppercase tracking-[0.2em] text-cathedral-gold font-medium">Communauté en direct</span>
           </div>
           <h1 className="font-cinzel text-4xl sm:text-5xl font-bold text-white mb-3">{t('calls.pageTitle')}</h1>
           <div className="cathedral-line w-24 h-px mx-auto my-4" />
-          <p className="text-white/70 text-sm sm:text-base max-w-xl mx-auto">{t('calls.pageDescription')}</p>
-          {liveSessions.length > 0 && (
-            <div className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-500/90 text-white shadow-[0_0_40px_rgba(239,68,68,0.5)] animate-pulse">
-              <span className="relative flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"/><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"/></span>
-              <span className="text-xs font-black uppercase tracking-widest">{liveSessions.length} {t('calls.liveNow')}</span>
+          <p className="text-white/70 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">{t('calls.pageDescription')}</p>
+
+          {liveSessions.length > 0 ? (
+            <div className="mt-6 inline-flex items-center gap-3 px-6 py-3 rounded-full bg-red-500/90 text-white shadow-[0_0_50px_rgba(239,68,68,0.6)] animate-pulse">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"/>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"/>
+              </span>
+              <span className="text-sm font-black uppercase tracking-widest">{liveSessions.length} session{liveSessions.length > 1 ? 's' : ''} en direct</span>
+            </div>
+          ) : (
+            <div className="mt-6 inline-flex items-center gap-2 px-5 py-2 rounded-full border border-white/15 bg-white/5 text-white/50 text-sm">
+              <Sparkles className="h-3.5 w-3.5" />
+              Aucun live en ce moment — planifiez le prochain
             </div>
           )}
         </div>
@@ -268,62 +490,113 @@ const CallsAndLives = () => {
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-10">
 
-        {/* ── Quick actions ── */}
+        {/* ── Quick start ── */}
         <section>
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em] mb-4">{t('calls.quickStart', 'Démarrer')}</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em]">Démarrer</h2>
+            <span className="text-[10px] text-muted-foreground/60">Test micro/caméra avant l'appel</span>
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {/* Audio */}
-            <button onClick={() => startQuickCall('audio')} disabled={!!startingType} className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/15 hover:border-violet-500/60 transition-all active:scale-[0.97] disabled:opacity-60">
-              {startingType === 'audio' ? <Loader2 className="h-7 w-7 text-violet-400 animate-spin" /> : <Mic className="h-7 w-7 text-violet-400 group-hover:scale-110 transition-transform" />}
-              <span className="text-xs font-semibold text-foreground">{t('calls.startAudio')}</span>
+            <button
+              onClick={() => openLobby('audio')}
+              className="group relative flex flex-col items-center gap-3 p-5 rounded-2xl border border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/15 hover:border-violet-500/60 transition-all active:scale-[0.97]"
+            >
+              <div className="h-10 w-10 rounded-full bg-violet-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Mic className="h-5 w-5 text-violet-400" />
+              </div>
+              <div className="text-center">
+                <span className="text-xs font-semibold text-foreground block">Appel Audio</span>
+                <span className="text-[10px] text-muted-foreground">Voix uniquement</span>
+              </div>
             </button>
+
             {/* Video */}
-            <button onClick={() => startQuickCall('video')} disabled={!!startingType} className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/15 hover:border-blue-500/60 transition-all active:scale-[0.97] disabled:opacity-60">
-              {startingType === 'video' ? <Loader2 className="h-7 w-7 text-blue-400 animate-spin" /> : <Video className="h-7 w-7 text-blue-400 group-hover:scale-110 transition-transform" />}
-              <span className="text-xs font-semibold text-foreground">{t('calls.startVideo')}</span>
+            <button
+              onClick={() => openLobby('video')}
+              className="group relative flex flex-col items-center gap-3 p-5 rounded-2xl border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/15 hover:border-blue-500/60 transition-all active:scale-[0.97]"
+            >
+              <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Video className="h-5 w-5 text-blue-400" />
+              </div>
+              <div className="text-center">
+                <span className="text-xs font-semibold text-foreground block">Appel Vidéo</span>
+                <span className="text-[10px] text-muted-foreground">Caméra + micro</span>
+              </div>
             </button>
+
             {/* Join by code */}
             <Sheet>
               <SheetTrigger asChild>
                 <button className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 hover:border-emerald-500/60 transition-all active:scale-[0.97]">
-                  <Link2 className="h-7 w-7 text-emerald-400 group-hover:scale-110 transition-transform" />
-                  <span className="text-xs font-semibold text-foreground">{t('calls.joinByCode', 'Rejoindre')}</span>
+                  <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Link2 className="h-5 w-5 text-emerald-400" />
+                  </div>
+                  <div className="text-center">
+                    <span className="text-xs font-semibold text-foreground block">Rejoindre</span>
+                    <span className="text-[10px] text-muted-foreground">Par code ou lien</span>
+                  </div>
                 </button>
               </SheetTrigger>
               <SheetContent side="bottom" className="rounded-t-3xl pb-10">
                 <SheetHeader className="mb-5">
-                  <SheetTitle className="font-cinzel text-xl">{t('calls.joinByCode', 'Rejoindre un appel')}</SheetTitle>
+                  <SheetTitle className="font-cinzel text-xl">Rejoindre un appel</SheetTitle>
                 </SheetHeader>
+                <p className="text-sm text-muted-foreground mb-4">Entrez le code ou collez le lien d'invitation :</p>
                 <div className="flex gap-2 max-w-sm mx-auto">
                   <Input
-                    placeholder={t('calls.roomCodePlaceholder', 'Code ou lien de la réunion')}
+                    placeholder="Code ou lien de la réunion"
                     value={joinCode}
                     onChange={e => setJoinCode(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && joinByCode()}
                     className="rounded-xl text-base h-12"
+                    autoFocus
                   />
                   <Button onClick={joinByCode} disabled={!joinCode.trim()} className="rounded-xl h-12 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-                    {t('calls.join', 'Rejoindre')}
+                    <Phone className="h-4 w-4" />
                   </Button>
                 </div>
               </SheetContent>
             </Sheet>
+
             {/* Schedule (admin) or live (admin) */}
             {isAdmin ? (
-              <button onClick={() => startQuickCall('live')} disabled={!!startingType} className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-red-500/40 bg-red-500/5 hover:bg-red-500/15 hover:border-red-500/60 transition-all active:scale-[0.97] disabled:opacity-60">
-                {startingType === 'live' ? <Loader2 className="h-7 w-7 text-red-400 animate-spin" /> : <Radio className="h-7 w-7 text-red-400 group-hover:scale-110 transition-transform" />}
-                <span className="text-xs font-semibold text-foreground">{t('calls.startLive')}</span>
+              <button
+                onClick={() => openLobby('live')}
+                className="group relative flex flex-col items-center gap-3 p-5 rounded-2xl border border-red-500/40 bg-red-500/5 hover:bg-red-500/15 hover:border-red-500/60 transition-all active:scale-[0.97]"
+              >
+                <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Radio className="h-5 w-5 text-red-400" />
+                </div>
+                <div className="text-center">
+                  <span className="text-xs font-semibold text-foreground block">Live public</span>
+                  <span className="text-[10px] text-muted-foreground">Tout le monde</span>
+                </div>
               </button>
             ) : (
-              <button onClick={() => user ? setShowScheduleDialog(true) : toast.error(t('calls.loginRequired'))} className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-cathedral-gold/30 bg-cathedral-gold/5 hover:bg-cathedral-gold/15 hover:border-cathedral-gold/60 transition-all active:scale-[0.97]">
-                <CalendarIcon className="h-7 w-7 text-cathedral-gold group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-semibold text-foreground">{t('calls.scheduleNew')}</span>
+              <button
+                onClick={() => user ? setShowScheduleDialog(true) : toast.error(t('calls.loginRequired'))}
+                className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-cathedral-gold/30 bg-cathedral-gold/5 hover:bg-cathedral-gold/15 hover:border-cathedral-gold/60 transition-all active:scale-[0.97]"
+              >
+                <div className="h-10 w-10 rounded-full bg-cathedral-gold/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <CalendarIcon className="h-5 w-5 text-cathedral-gold" />
+                </div>
+                <div className="text-center">
+                  <span className="text-xs font-semibold text-foreground block">Planifier</span>
+                  <span className="text-[10px] text-muted-foreground">Session prévue</span>
+                </div>
               </button>
             )}
           </div>
+
+          {/* Admin: also show schedule button */}
           {isAdmin && (
-            <button onClick={() => setShowScheduleDialog(true)} className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/50 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <Plus className="h-4 w-4" /> {t('calls.scheduleNew')}
+            <button
+              onClick={() => setShowScheduleDialog(true)}
+              className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/50 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <CalendarIcon className="h-4 w-4" /> Planifier une session
             </button>
           )}
         </section>
@@ -332,8 +605,11 @@ const CallsAndLives = () => {
         {liveSessions.length > 0 && (
           <section>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-              <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"/><span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"/></span>
-              {t('calls.liveNow')}
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"/>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"/>
+              </span>
+              En direct maintenant
             </h2>
 
             <AlertDialog open={!!sessionToEnd} onOpenChange={open => !open && setSessionToEnd(null)}>
@@ -353,21 +629,25 @@ const CallsAndLives = () => {
               {liveSessions.map(session => {
                 const cfg = getTypeConfig(session.session_type);
                 return (
-                  <div key={session.id} className="relative overflow-hidden rounded-2xl border border-red-500/40 bg-gradient-to-br from-red-500/8 via-card to-background shadow-[0_0_50px_-15px_rgba(239,68,68,0.4)]">
+                  <div key={session.id} className="relative overflow-hidden rounded-2xl border border-red-500/40 bg-gradient-to-br from-red-500/8 via-card to-background shadow-[0_0_60px_-15px_rgba(239,68,68,0.45)]">
                     {/* Floating emojis */}
                     <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
                       {floatingEmojis.map(e => (
                         <span key={e.id} className="absolute text-3xl" style={{ left:`${e.x}%`, bottom:0, animation:'floatUp 2.2s ease-out forwards' }}>{e.emoji}</span>
                       ))}
                     </div>
-                    {/* Banner */}
+                    {/* Live banner */}
                     <div className="flex items-center gap-3 px-5 py-3 bg-red-500/90 text-white">
-                      <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"/><span className="relative inline-flex rounded-full h-3 w-3 bg-white"/></span>
+                      <span className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"/>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-white"/>
+                      </span>
                       <span className="font-black text-sm uppercase tracking-widest">EN DIRECT</span>
                       <span className="ml-auto flex items-center gap-1.5 text-sm font-bold bg-white/20 px-3 py-1 rounded-full">
                         <Eye className="h-3.5 w-3.5"/> {session.viewer_count || 0}
                       </span>
                     </div>
+
                     <div className="p-5 sm:p-6">
                       <span className={cn("inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium mb-3", cfg.bg, cfg.color, cfg.border)}>
                         <span className="h-3 w-3">{cfg.icon}</span>{cfg.label}
@@ -375,12 +655,16 @@ const CallsAndLives = () => {
                       <h3 className="font-cinzel text-xl sm:text-2xl font-bold text-foreground mb-1">{session.title}</h3>
                       {session.description && <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{session.description}</p>}
 
-                      <Button size="lg" onClick={() => joinSession(session)} className="w-full rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-base py-5 mb-4 shadow-[0_6px_25px_rgba(239,68,68,0.4)] hover:shadow-[0_8px_30px_rgba(239,68,68,0.5)] transition-all">
+                      <Button
+                        size="lg"
+                        onClick={() => joinSession(session)}
+                        className="w-full rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-base py-5 mb-4 shadow-[0_6px_30px_rgba(239,68,68,0.45)] hover:shadow-[0_8px_35px_rgba(239,68,68,0.55)] transition-all"
+                      >
                         <Phone className="h-5 w-5 mr-2 fill-white" /> Rejoindre maintenant
                       </Button>
 
                       {/* Reactions */}
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1 flex-wrap">
                         {EMOJI_REACTIONS.map(emoji => (
                           <button key={emoji} onClick={() => sendReaction(emoji)} className="text-xl p-2 rounded-full hover:bg-muted/70 transition-transform hover:scale-125 active:scale-90">{emoji}</button>
                         ))}
@@ -390,7 +674,7 @@ const CallsAndLives = () => {
                       {isAdmin && (
                         <div className="mt-4 pt-4 border-t border-border/50 flex gap-2 flex-wrap">
                           <Button size="sm" variant="destructive" onClick={() => setSessionToEnd(session)} className="rounded-lg gap-1.5">
-                            <X className="h-3.5 w-3.5" /> Terminer
+                            <PhoneOff className="h-3.5 w-3.5" /> Terminer
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => shareSession(session)} className="rounded-lg gap-1.5">
                             <Share2 className="h-3.5 w-3.5" /> Partager
@@ -405,21 +689,30 @@ const CallsAndLives = () => {
           </section>
         )}
 
-        {/* ── Upcoming ── */}
+        {/* ── Upcoming sessions ── */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em]">{t('calls.tabs.scheduled')} · {upcoming.length}</h2>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em]">Sessions planifiées · {upcoming.length}</h2>
             {isAdmin && (
               <Button size="sm" onClick={() => setShowScheduleDialog(true)} className="rounded-xl bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 gap-1.5 font-semibold">
-                <Plus className="h-3.5 w-3.5" /> {t('calls.scheduleNew')}
+                <Plus className="h-3.5 w-3.5" /> Planifier
               </Button>
             )}
           </div>
 
-          {upcoming.length === 0 ? (
-            <div className="text-center py-14 rounded-2xl border border-border/50 bg-muted/20">
-              <CalendarIcon className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">{t('calls.noScheduled')}</p>
+          {loading ? (
+            <div className="space-y-3">
+              {[1,2].map(i => <div key={i} className="h-20 rounded-2xl bg-muted/30 animate-pulse" />)}
+            </div>
+          ) : upcoming.length === 0 ? (
+            <div className="text-center py-14 rounded-2xl border border-dashed border-border/50">
+              <CalendarIcon className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Aucune session planifiée pour le moment</p>
+              {isAdmin && (
+                <Button size="sm" onClick={() => setShowScheduleDialog(true)} className="mt-3 rounded-xl gap-1.5">
+                  <Plus className="h-3.5 w-3.5" /> Créer la première session
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -436,7 +729,7 @@ const CallsAndLives = () => {
                     soon ? "border-cathedral-gold/40 bg-cathedral-gold/5" :
                            "border-border/60 bg-card hover:border-primary/30"
                   )}>
-                    {/* Left accent */}
+                    {/* Left color accent */}
                     <div className={cn("absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl", cfg.bg)} />
 
                     <div className="pl-5 pr-4 py-4 sm:py-5">
@@ -451,8 +744,14 @@ const CallsAndLives = () => {
                           {/* Badges */}
                           <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                             {now && <Badge className="bg-red-500 text-white text-[10px] animate-pulse">Commence maintenant</Badge>}
-                            {soon && !now && <Badge variant="outline" className="border-cathedral-gold/50 text-cathedral-gold bg-cathedral-gold/10 text-[10px] gap-1"><Countdown targetDate={session.scheduled_date} targetTime={session.scheduled_time}/></Badge>}
-                            {isToday(new Date(session.scheduled_date)) && !soon && !now && <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Aujourd'hui</Badge>}
+                            {soon && !now && (
+                              <Badge variant="outline" className="border-cathedral-gold/50 text-cathedral-gold bg-cathedral-gold/10 text-[10px] gap-1">
+                                <Countdown targetDate={session.scheduled_date} targetTime={session.scheduled_time}/>
+                              </Badge>
+                            )}
+                            {isToday(new Date(session.scheduled_date)) && !soon && !now && (
+                              <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Aujourd'hui</Badge>
+                            )}
                             <span className={cn("inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium", cfg.bg, cfg.color, cfg.border)}>
                               <span className="h-2.5 w-2.5">{cfg.icon}</span>{cfg.label}
                             </span>
@@ -475,9 +774,14 @@ const CallsAndLives = () => {
                             <Phone className="h-3.5 w-3.5 fill-white" /> Rejoindre
                           </Button>
                         ) : (
-                          <Button size="sm" variant={myReminders.has(session.id) ? "secondary" : "outline"} onClick={() => toggleReminder(session.id)} className="rounded-lg gap-1.5">
+                          <Button
+                            size="sm"
+                            variant={myReminders.has(session.id) ? "secondary" : "outline"}
+                            onClick={() => toggleReminder(session.id)}
+                            className="rounded-lg gap-1.5"
+                          >
                             <Bell className={cn("h-3.5 w-3.5", myReminders.has(session.id) && "fill-current")} />
-                            {myReminders.has(session.id) ? t('calls.reminded') : t('calls.remindMe')}
+                            {myReminders.has(session.id) ? 'Rappel activé' : 'Me rappeler'}
                           </Button>
                         )}
                         <Button size="sm" variant="ghost" onClick={() => shareSession(session)} className="rounded-lg gap-1.5">
@@ -510,6 +814,28 @@ const CallsAndLives = () => {
           )}
         </section>
 
+        {/* ── How it works (if no sessions) ── */}
+        {!loading && sessions.length === 0 && (
+          <section className="rounded-2xl border border-border/40 bg-muted/20 p-6">
+            <h2 className="font-cinzel text-base font-semibold text-foreground mb-4 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-primary" /> Comment ça marche
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[
+                { icon: '🎙️', title: 'Démarrez un appel', desc: 'Cliquez sur Audio ou Vidéo pour ouvrir un salon immédiat' },
+                { icon: '🔗', title: 'Partagez le lien', desc: 'Copiez et envoyez le code ou lien à vos frères et sœurs' },
+                { icon: '🙏', title: 'Priez ensemble', desc: 'Retrouvez-vous dans un espace de prière partagé' },
+              ].map(({ icon, title, desc }) => (
+                <div key={title} className="text-center space-y-2">
+                  <span className="text-3xl block">{icon}</span>
+                  <p className="text-sm font-semibold text-foreground">{title}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ── Recordings ── */}
         {recordings.length > 0 && (
           <section>
@@ -519,7 +845,6 @@ const CallsAndLives = () => {
                 const cfg = getTypeConfig(session.session_type);
                 return (
                   <div key={session.id} className="group rounded-2xl border border-border/60 bg-card overflow-hidden hover:border-primary/30 hover:shadow-[0_8px_30px_-10px_hsl(var(--primary)/0.2)] transition-all">
-                    {/* Thumbnail */}
                     <div className="aspect-video relative overflow-hidden bg-muted">
                       {session.thumbnail_url ? (
                         <img src={session.thumbnail_url} alt={session.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
@@ -559,7 +884,9 @@ const CallsAndLives = () => {
                             </Button>
                           </>
                         ) : (
-                          <span className="text-xs text-muted-foreground italic">Pas d'enregistrement</span>
+                          <span className="text-xs text-muted-foreground italic flex items-center gap-1.5">
+                            <WifiOff className="h-3 w-3" /> Pas d'enregistrement
+                          </span>
                         )}
                         {isAdmin && (
                           <Button size="sm" variant="ghost" className="rounded-lg text-destructive ml-auto" onClick={async () => {
@@ -582,14 +909,14 @@ const CallsAndLives = () => {
         {isAdmin && sessions.length > 0 && (
           <section className="rounded-2xl border border-cathedral-gold/20 bg-cathedral-gold/5 p-5">
             <h2 className="text-xs font-semibold text-cathedral-gold uppercase tracking-[0.2em] mb-4 flex items-center gap-1.5">
-              <Crown className="h-3.5 w-3.5" /> Tableau de bord admin
+              <Crown className="h-3.5 w-3.5" /> Tableau de bord
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { icon: <Activity className="h-4 w-4 text-blue-400"/>, value: sessions.length, label: 'Total sessions' },
-                { icon: <Radio className="h-4 w-4 text-red-400"/>,    value: liveSessions.length,  label: 'En direct' },
+                { icon: <Activity className="h-4 w-4 text-blue-400"/>, value: sessions.length, label: 'Total' },
+                { icon: <Radio className="h-4 w-4 text-red-400"/>, value: liveSessions.length, label: 'En direct' },
                 { icon: <CalendarIcon className="h-4 w-4 text-violet-400"/>, value: upcoming.length, label: 'Planifiées' },
-                { icon: <Users className="h-4 w-4 text-cathedral-gold"/>, value: sessions.reduce((s, r) => s + (r.viewer_count || 0), 0), label: 'Spectateurs total' },
+                { icon: <Users className="h-4 w-4 text-cathedral-gold"/>, value: sessions.reduce((s, r) => s + (r.viewer_count || 0), 0), label: 'Spectateurs' },
               ].map(({ icon, value, label }) => (
                 <div key={label} className="rounded-xl border border-border/50 bg-card p-4 text-center">
                   <div className="flex justify-center mb-1">{icon}</div>
@@ -600,18 +927,15 @@ const CallsAndLives = () => {
             </div>
           </section>
         )}
-
-        {/* Empty state */}
-        {!loading && sessions.length === 0 && liveSessions.length === 0 && upcoming.length === 0 && recordings.length === 0 && (
-          <div className="text-center py-20 px-4">
-            <Phone className="h-14 w-14 text-muted-foreground/30 mx-auto mb-4" />
-            <h3 className="font-cinzel text-xl font-semibold text-foreground mb-2">{t('calls.noLive')}</h3>
-            <p className="text-sm text-muted-foreground max-w-sm mx-auto">{t('calls.noLiveDesc')}</p>
-          </div>
-        )}
       </main>
 
-      <ScheduleSessionDialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog} onCreated={() => { fetchSessions(); setShowScheduleDialog(false); }} t={t} dateLocale={dateLocale} />
+      <ScheduleSessionDialog
+        open={showScheduleDialog}
+        onOpenChange={setShowScheduleDialog}
+        onCreated={() => { fetchSessions(); setShowScheduleDialog(false); }}
+        t={t}
+        dateLocale={dateLocale}
+      />
     </div>
   );
 };
@@ -744,7 +1068,6 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
             <label className="text-sm font-medium">{t('calls.form.tags')}</label>
             <Input value={tags} onChange={e => setTags(e.target.value)} placeholder={t('calls.form.tagsPlaceholder')} className="mt-1 rounded-lg" />
           </div>
-          {/* Associated text */}
           <div className="border border-border/60 rounded-xl overflow-hidden">
             <button type="button" onClick={() => setShowTextOption(!showTextOption)} className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-colors">
               <span className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-primary" /> Associer un texte liturgique</span>
