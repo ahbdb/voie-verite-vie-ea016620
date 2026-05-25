@@ -170,6 +170,9 @@ export const useAdminVideoRoom = ({
   const [startRequested, setStartRequested] = useState(false);
   const [mutedParticipants, setMutedParticipants] = useState<Set<string>>(new Set());
   const [activeSpeakers, setActiveSpeakers] = useState<Set<string>>(new Set());
+  const [participantMicState, setParticipantMicState] = useState<Map<string, boolean>>(new Map());
+  const [ejected, setEjected] = useState(false);
+  const [emojiReactions, setEmojiReactions] = useState<Map<string, Array<{ id: number; emoji: string }>>>(new Map());
   const [connectionQuality, setConnectionQuality] = useState<'good' | 'poor' | 'reconnecting'>('good');
   const [peerStats, setPeerStats] = useState<Map<string, PeerStat>>(new Map());
 
@@ -863,7 +866,8 @@ export const useAdminVideoRoom = ({
   }, [roomId, userId]);
 
   const endRoom = useCallback(async () => {
-    if (!roomId || !canManageRoomRef.current) return;
+    if (!roomId) return;
+    if (!canManageRoomRef.current) throw new Error('Vous n\'avez pas les droits pour terminer cette réunion.');
 
     const sendEnded = async () => {
       if (!channelRef.current) return;
@@ -917,6 +921,12 @@ export const useAdminVideoRoom = ({
 
   const requestJoin = useCallback(async () => {
     if (!enabled || !roomId || !userId || isJoining || startRequested) return;
+    // Check if this user was ejected from this room
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(`ejected:${roomId}`) === 'true') {
+      setMediaError('Vous avez été éjecté de cette session par un administrateur.');
+      setLoading(false);
+      return;
+    }
     setIsJoining(true);
     setLoading(true);
     setMediaError(null);
@@ -990,7 +1000,8 @@ export const useAdminVideoRoom = ({
     const next = !micEnabled;
     tracks.forEach((t) => { t.enabled = next; });
     setMicEnabled(next);
-  }, [micEnabled]);
+    void channelRef.current?.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: next } });
+  }, [micEnabled, userId]);
 
   const toggleCamera = useCallback(() => {
     if (roomType === 'audio') return;
@@ -1007,13 +1018,53 @@ export const useAdminVideoRoom = ({
 
   // ── Admin mute ────────────────────────────────────────────────────────────
 
-  const muteParticipant = useCallback((pid: string) => {
+  const muteParticipant = useCallback(async (pid: string) => {
+    const willBeMuted = !mutedParticipants.has(pid);
     setMutedParticipants((prev) => {
       const next = new Set(prev);
       if (next.has(pid)) next.delete(pid); else next.add(pid);
       return next;
     });
-  }, []);
+    try {
+      await channelRef.current?.send({
+        type: 'broadcast',
+        event: 'admin-mute',
+        payload: { targetUserId: pid, muted: willBeMuted },
+      });
+    } catch { /* non-critical */ }
+  }, [mutedParticipants]);
+
+  const ejectParticipant = useCallback(async (pid: string) => {
+    if (!roomId || !canManageRoomRef.current) return;
+    await db.from('video_room_participants')
+      .update({ is_active: false, left_at: new Date().toISOString() })
+      .eq('room_id', roomId)
+      .eq('user_id', pid);
+    try {
+      await channelRef.current?.send({ type: 'broadcast', event: 'admin-eject', payload: { targetUserId: pid } });
+    } catch { /* non-critical */ }
+  }, [roomId]);
+
+  const sendEmojiReaction = useCallback(async (emoji: string) => {
+    if (!userId) return;
+    const id = Date.now();
+    setEmojiReactions(prev => {
+      const next = new Map(prev);
+      next.set(userId, [...(next.get(userId) || []), { id, emoji }]);
+      return next;
+    });
+    setTimeout(() => {
+      setEmojiReactions(prev => {
+        const next = new Map(prev);
+        const remaining = (next.get(userId) || []).filter(r => r.id !== id);
+        if (remaining.length === 0) next.delete(userId); else next.set(userId, remaining);
+        return next;
+      });
+    }, 3500);
+    try {
+      await channelRef.current?.send({ type: 'broadcast', event: 'emoji-reaction', payload: { userId, emoji, id } });
+    } catch { /* non-critical */ }
+  }, [userId]);
 
   // ── Messages CRUD ─────────────────────────────────────────────────────────
 
@@ -1133,6 +1184,9 @@ export const useAdminVideoRoom = ({
           setCameraEnabled(currentRoom.room_type !== 'audio' && Boolean(saved.origVideoTrack?.enabled));
           setIsScreenSharing(Boolean(saved.screenTrack && saved.screenTrack.readyState === 'live'));
 
+          // Resume AudioContext — browsers suspend it when the page is hidden/backgrounded
+          if (saved.audioCtx?.state === 'suspended') void saved.audioCtx.resume();
+
           // Re-activate participant row without resetting joined_at
           if (userId) {
             await db
@@ -1156,8 +1210,66 @@ export const useAdminVideoRoom = ({
               .on('broadcast', { event: 'session-ended' }, () => {
                 setRoom((prev) => (prev ? { ...prev, status: 'ended' } : prev));
               })
+              // ── Admin-mute: disable/enable this client's own mic track ──────
+              .on('broadcast', { event: 'admin-mute' }, (ev: { payload: { targetUserId: string; muted: boolean } }) => {
+                if (ev.payload?.targetUserId !== userIdRef.current) return;
+                const shouldMute = ev.payload.muted;
+                localStreamRef.current?.getAudioTracks().forEach((t) => { t.enabled = !shouldMute; });
+                setMicEnabled(!shouldMute);
+              })
+              .on('broadcast', { event: 'mic-state' }, (ev: { payload: { userId: string; micEnabled: boolean } }) => {
+                if (!ev.payload?.userId) return;
+                setParticipantMicState(prev => { const next = new Map(prev); next.set(ev.payload.userId, ev.payload.micEnabled); return next; });
+              })
+              .on('broadcast', { event: 'admin-eject' }, (ev: { payload: { targetUserId: string } }) => {
+                if (ev.payload?.targetUserId !== userIdRef.current) return;
+                if (roomId) sessionStorage.setItem(`ejected:${roomId}`, 'true');
+                hardLeaveRef.current = true;
+                setEjected(true);
+              })
+              .on('broadcast', { event: 'emoji-reaction' }, (ev: { payload: { userId: string; emoji: string; id: number } }) => {
+                const { userId: uid, emoji, id } = ev.payload || {};
+                if (!uid || !emoji) return;
+                setEmojiReactions(prev => { const next = new Map(prev); next.set(uid, [...(next.get(uid) || []), { id, emoji }]); return next; });
+                setTimeout(() => {
+                  setEmojiReactions(prev => {
+                    const next = new Map(prev);
+                    const remaining = (next.get(uid) || []).filter(r => r.id !== id);
+                    if (remaining.length === 0) next.delete(uid); else next.set(uid, remaining);
+                    return next;
+                  });
+                }, 3500);
+              })
               .subscribe(async (status: string) => {
-                if (status === 'SUBSCRIBED') await fetchPendingSignals();
+                if (status === 'SUBSCRIBED') {
+                  await fetchPendingSignals();
+                  void channelRef.current?.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
+
+                  // Proactive ICE restart for any peer whose connection degraded while backgrounded.
+                  // Only the lexicographically-lower peer ID sends the offer to avoid both sides
+                  // simultaneously restarting (which would cause a glare condition).
+                  const uid = userIdRef.current;
+                  if (uid) {
+                    peerConnectionsRef.current.forEach((pc, pid) => {
+                      if (pc.connectionState === 'connected') return;
+                      if (uid.localeCompare(pid) >= 0) return;
+                      pc.createOffer({ iceRestart: true })
+                        .then(offer => pc.setLocalDescription(offer))
+                        .then(() => {
+                          if (pc.localDescription) {
+                            void db.from('video_room_signals').insert({
+                              room_id: roomId,
+                              sender_id: uid,
+                              recipient_id: pid,
+                              signal_type: 'offer',
+                              payload: pc.localDescription.toJSON?.() ?? pc.localDescription,
+                            });
+                          }
+                        })
+                        .catch(() => {});
+                    });
+                  }
+                }
               });
             channelRef.current = channel;
           }
@@ -1208,11 +1320,46 @@ export const useAdminVideoRoom = ({
             .on('broadcast', { event: 'session-ended' }, () => {
               setRoom((prev) => prev ? { ...prev, status: 'ended' } : prev);
             })
+            // ── Admin-mute: disable/enable this client's own mic track ──────
+            .on('broadcast', { event: 'admin-mute' }, (ev: { payload: { targetUserId: string; muted: boolean } }) => {
+              if (ev.payload?.targetUserId !== userIdRef.current) return;
+              const shouldMute = ev.payload.muted;
+              localStreamRef.current?.getAudioTracks().forEach((t) => { t.enabled = !shouldMute; });
+              setMicEnabled(!shouldMute);
+            })
+            // ── Mic state: track each participant's mic on/off ───────────────
+            .on('broadcast', { event: 'mic-state' }, (ev: { payload: { userId: string; micEnabled: boolean } }) => {
+              if (!ev.payload?.userId) return;
+              setParticipantMicState(prev => { const next = new Map(prev); next.set(ev.payload.userId, ev.payload.micEnabled); return next; });
+            })
+            // ── Admin eject: kick this client out ───────────────────────────
+            .on('broadcast', { event: 'admin-eject' }, (ev: { payload: { targetUserId: string } }) => {
+              if (ev.payload?.targetUserId !== userIdRef.current) return;
+              if (roomId) sessionStorage.setItem(`ejected:${roomId}`, 'true');
+              hardLeaveRef.current = true;
+              setEjected(true);
+            })
+            // ── Emoji reactions on video panels ─────────────────────────────
+            .on('broadcast', { event: 'emoji-reaction' }, (ev: { payload: { userId: string; emoji: string; id: number } }) => {
+              const { userId: uid, emoji, id } = ev.payload || {};
+              if (!uid || !emoji) return;
+              setEmojiReactions(prev => { const next = new Map(prev); next.set(uid, [...(next.get(uid) || []), { id, emoji }]); return next; });
+              setTimeout(() => {
+                setEmojiReactions(prev => {
+                  const next = new Map(prev);
+                  const remaining = (next.get(uid) || []).filter(r => r.id !== id);
+                  if (remaining.length === 0) next.delete(uid); else next.set(uid, remaining);
+                  return next;
+                });
+              }, 3500);
+            })
             .subscribe(async (status: string) => {
               if (status === 'SUBSCRIBED') {
                 // ★ KEY FIX: now that we're subscribed, fetch any signals
                 //   that were sent BEFORE our subscription was ready.
                 await fetchPendingSignals();
+                // Announce our initial mic state to other participants
+                void channelRef.current?.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
               }
             });
           channelRef.current = channel;
@@ -1337,6 +1484,11 @@ export const useAdminVideoRoom = ({
     deleteMessage,
     toggleReaction,
     muteParticipant,
+    ejectParticipant,
+    sendEmojiReaction,
+    participantMicState,
+    ejected,
+    emojiReactions,
     leaveRoom,
     endRoom,
     heartbeat,

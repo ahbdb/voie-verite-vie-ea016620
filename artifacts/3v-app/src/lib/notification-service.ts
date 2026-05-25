@@ -47,11 +47,13 @@ export const playAttentionTone = async () => {
     if (!AudioContextConstructor) return;
 
     const context = new AudioContextConstructor();
+    if (context.state === 'suspended') await context.resume();
+
     const scheduleBeep = (delay: number, duration: number, frequency: number) => {
       const oscillator = context.createOscillator();
       const gainNode = context.createGain();
 
-      oscillator.type = 'sine';
+      oscillator.type = 'triangle';
       oscillator.frequency.value = frequency;
       gainNode.gain.value = 0.0001;
 
@@ -60,7 +62,7 @@ export const playAttentionTone = async () => {
 
       const startAt = context.currentTime + delay;
       oscillator.start(startAt);
-      gainNode.gain.exponentialRampToValueAtTime(0.08, startAt + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.6, startAt + 0.02);
       gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
       oscillator.stop(startAt + duration + 0.02);
     };

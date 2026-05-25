@@ -27,9 +27,14 @@ import {
   FileText,
   Search,
   X,
+  Mic,
+  MicOff,
+  PhoneOff,
+  PhoneCall,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
+import { useCallSession } from '@/contexts/CallSessionContext';
 import { useSettings, type TextSize } from '@/hooks/useSettings';
 import siteLinks from '@/data/site-links';
 import { useToast } from '@/components/ui/use-toast';
@@ -87,9 +92,13 @@ const Navigation = () => {
   const { user, signOut, loading: authLoading } = useAuth();
   const { isAdmin } = useAdmin();
   const { settings, setTheme, setTextSize, isDarkMode } = useSettings();
+  const callSession = useCallSession();
+  const { activeCall, isMicEnabled, getMicToggleFn, getHangUpFn, getEndRoomFn } = callSession;
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
+  const isOnCallPage = activeCall != null && currentPath === `/meeting/${activeCall.roomId}`;
+  const showCallBanner = activeCall != null && !isOnCallPage;
   const { toast } = useToast();
 
   const textSizes: TextSize[] = ['small', 'normal', 'large', 'extra-large'];
@@ -249,6 +258,60 @@ const Navigation = () => {
           </div>
         </div>
       )}
+
+    {/* ── Persistent call banner — visible on every page while a call is active ─ */}
+    {showCallBanner && (
+      <div className="fixed top-16 left-0 right-0 z-40 flex items-center justify-between gap-2 bg-green-900/95 backdrop-blur border-b border-green-700 px-3 py-1.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse shrink-0" />
+          <PhoneCall className="h-3.5 w-3.5 text-green-300 shrink-0" />
+          <span className="text-green-100 text-xs font-medium truncate">{activeCall.roomTitle}</span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Mic toggle */}
+          <button
+            onClick={() => getMicToggleFn()?.()}
+            className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${
+              isMicEnabled ? 'bg-green-700/60 text-green-100 hover:bg-green-700' : 'bg-red-600/80 text-white hover:bg-red-600'
+            }`}
+            title={isMicEnabled ? 'Couper micro' : 'Activer micro'}
+          >
+            {isMicEnabled ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
+          </button>
+          {/* Return to call */}
+          <button
+            onClick={() => navigate(`/meeting/${activeCall.roomId}`)}
+            className="rounded-lg bg-green-600/80 hover:bg-green-600 px-2 py-1 text-xs font-medium text-white transition-colors"
+          >
+            Retourner
+          </button>
+          {/* End room — admin only */}
+          {activeCall.isAdmin && (
+            <button
+              onClick={async () => {
+                const fn = getEndRoomFn();
+                if (fn) await fn();
+              }}
+              className="rounded-lg bg-red-700 hover:bg-red-600 px-2 py-1 text-xs font-medium text-white transition-colors"
+              title="Terminer pour tous"
+            >
+              Terminer
+            </button>
+          )}
+          {/* Hang up */}
+          <button
+            onClick={async () => {
+              const fn = getHangUpFn();
+              if (fn) await fn();
+            }}
+            className="rounded-lg bg-red-600 hover:bg-red-500 px-2 py-1 text-xs font-medium text-white transition-colors"
+            title="Raccrocher"
+          >
+            <PhoneOff className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    )}
 
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border/50">
       <div className="container mx-auto px-4">

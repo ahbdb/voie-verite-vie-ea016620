@@ -61,9 +61,67 @@ export const useBroadcastNotifications = () => {
 
     void loadInitialNotifications();
 
+    // Common handler for call ring events (used by both subscriptions below)
+    const handleCallRing = (n: { id: string; title: string; message?: string; body?: string; type: string; link?: string | null }) => {
+      const isCall = n.type === 'call';
+      const url = n.link || '/calls-lives';
+
+      if (isCall) {
+        stopRinging();
+        void playAttentionTone();
+        let ringCount = 0;
+        ringIntervalRef.current = window.setInterval(() => {
+          ringCount += 1;
+          if (ringCount >= 12) { stopRinging(); return; }
+          void playAttentionTone();
+          void sendVisibleNotification({
+            title: n.title,
+            body: n.message || n.body || '',
+            tag: `call-${n.id}`,
+            action: 'call',
+            silent: false,
+            requireInteraction: true,
+            data: { url },
+          });
+        }, 3000);
+      }
+
+      void sendVisibleNotification({
+        title: n.title,
+        body: n.message || n.body || '',
+        tag: `${n.type}-${n.id}`,
+        action: isCall ? 'call' : 'reminder',
+        silent: false,
+        requireInteraction: isCall,
+        data: { url },
+      });
+
+      toast.custom(
+        (toastId) =>
+          createElement(NotificationToast, {
+            title: n.title,
+            message: n.message || n.body || '',
+            type: n.type as NotifType,
+            link: n.link || undefined,
+            isCall,
+            onOpen: () => {
+              stopRinging();
+              toast.dismiss(toastId);
+              if (n.link) window.location.href = n.link;
+            },
+            onDismiss: () => {
+              stopRinging();
+              toast.dismiss(toastId);
+            },
+          }),
+        { duration: isCall ? 20000 : 7000, position: 'top-right' }
+      );
+    };
+
     // S'abonner aux nouvelles notifications via Realtime
     const channel = supabase
       .channel(`user_notifications:${user.id}`)
+      // ── Subscription 1: personal user_notifications rows (created by RPC) ──
       .on(
         'postgres_changes',
         {
@@ -74,71 +132,27 @@ export const useBroadcastNotifications = () => {
         },
         (payload) => {
           const n = payload.new as any;
-          
-          if (lastSeenIdRef.current === null) {
-            lastSeenIdRef.current = n.id;
-            return;
-          }
-
+          if (lastSeenIdRef.current === null) { lastSeenIdRef.current = n.id; return; }
           if (n.id === lastSeenIdRef.current) return;
           lastSeenIdRef.current = n.id;
-
-          const isCall = n.type === 'call';
-          const url = n.link || '/';
-
-          if (isCall) {
-            stopRinging();
-            void playAttentionTone();
-            let ringCount = 0;
-            ringIntervalRef.current = window.setInterval(() => {
-              ringCount += 1;
-              if (ringCount >= 10 || document.visibilityState === 'visible') {
-                stopRinging();
-                return;
-              }
-              void playAttentionTone();
-              void sendVisibleNotification({
-                title: n.title,
-                body: n.message,
-                tag: `${n.type}-${n.id}`,
-                action: 'call',
-                silent: false,
-                requireInteraction: true,
-                data: { url },
-              });
-            }, 3500);
-          }
-
-          void sendVisibleNotification({
-            title: n.title,
-            body: n.message,
-            tag: `${n.type}-${n.id}`,
-            action: isCall ? 'call' : 'reminder',
-            silent: false,
-            requireInteraction: isCall,
-            data: { url },
-          });
-
-          toast.custom(
-            (toastId) =>
-              createElement(NotificationToast, {
-                title: n.title,
-                message: n.message,
-                type: n.type as NotifType,
-                link: n.link,
-                isCall,
-                onOpen: () => {
-                  stopRinging();
-                  toast.dismiss(toastId);
-                  if (n.link) window.location.href = n.link;
-                },
-                onDismiss: () => {
-                  stopRinging();
-                  toast.dismiss(toastId);
-                },
-              }),
-            { duration: isCall ? 20000 : 7000, position: 'top-right' }
-          );
+          handleCallRing(n);
+        }
+      )
+      // ── Subscription 2: broadcast_notifications (direct insert by admin) ──
+      // Fallback when the send_broadcast_notification RPC does not create
+      // individual user_notifications rows. All authenticated users receive
+      // this event directly from the admin's insert.
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'broadcast_notifications',
+        },
+        (payload) => {
+          const n = payload.new as any;
+          if (n.type !== 'call') return;
+          handleCallRing({ ...n, message: n.body });
         }
       )
       .subscribe();

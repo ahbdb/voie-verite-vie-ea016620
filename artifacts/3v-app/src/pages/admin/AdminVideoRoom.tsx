@@ -178,6 +178,7 @@ const VideoPanel = ({
   isMutedByAdmin = false,
   isSpeaking = false,
   isLocal = false,
+  reactions = [],
 }: {
   stream: MediaStream | null;
   title: string;
@@ -186,6 +187,7 @@ const VideoPanel = ({
   isMutedByAdmin?: boolean;
   isSpeaking?: boolean;
   isLocal?: boolean;
+  reactions?: Array<{ id: number; emoji: string }>;
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -268,6 +270,17 @@ const VideoPanel = ({
           </div>
         )}
       </div>
+
+      {/* Floating emoji reactions — animate upward like WhatsApp */}
+      {reactions.map((r) => (
+        <div
+          key={r.id}
+          className="pointer-events-none absolute bottom-10 left-1/2 -translate-x-1/2 text-3xl select-none"
+          style={{ animation: 'floatUp 3.5s ease-out forwards' }}
+        >
+          {r.emoji}
+        </div>
+      ))}
 
       {/* Bottom overlay */}
       <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
@@ -515,10 +528,12 @@ const AdminVideoRoom = () => {
     localStream, loading, mediaError, micEnabled, cameraEnabled,
     isScreenSharing, isJoining, isConnected, canShareScreen,
     mutedParticipants, activeSpeakers, connectionQuality, peerStats,
+    participantMicState, ejected, emojiReactions,
     requestJoin, toggleMicrophone, toggleCamera, flipCamera,
     startScreenShare, stopScreenShare,
     sendMessage, editMessage, deleteMessage, toggleReaction,
-    muteParticipant, leaveRoom, endRoom, heartbeat, softLeave, triggerHardLeave,
+    muteParticipant, ejectParticipant, sendEmojiReaction,
+    leaveRoom, endRoom, heartbeat, softLeave, triggerHardLeave,
   } = useAdminVideoRoom({
     roomId,
     userId: user?.id,
@@ -547,11 +562,20 @@ const AdminVideoRoom = () => {
       navigate('/');
     });
 
+    callSession.setEndRoomFn(async () => {
+      hardHangUpRef.current = true;
+      triggerHardLeave();
+      await endRoom();
+      callSession.endCallSession();
+      navigate('/');
+    });
+
     callSession.setMicToggleFn(toggleMicrophone);
 
     return () => {
       callSession.setHangUpFn(null);
       callSession.setMicToggleFn(null);
+      callSession.setEndRoomFn(null);
       if (hardHangUpRef.current) {
         callSession.endCallSession();
       }
@@ -601,8 +625,12 @@ const AdminVideoRoom = () => {
   }, []);
 
   // ── Clear background audio when this page is active ────────────────────────
+  // Delayed by 300 ms so BackgroundAudio elements in CallSessionContext stay alive
+  // until the VideoPanel <video> elements have had time to attach the same streams,
+  // preventing a brief audio dropout on soft-leave return.
   useEffect(() => {
-    callSession.clearBackgroundStreams();
+    const t = window.setTimeout(() => callSession.clearBackgroundStreams(), 300);
+    return () => window.clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
 
@@ -616,6 +644,16 @@ const AdminVideoRoom = () => {
     if (!room && !loading) return;
     primeAudioPlayback();
   }, [room, loading, roomId, user?.id, primeAudioPlayback]);
+
+  // ── Admin ejected this user from the call ────────────────────────────────
+  useEffect(() => {
+    if (!ejected) return;
+    hardHangUpRef.current = true;
+    callSession.endCallSession();
+    toast.error('Vous avez été éjecté de cette session par un administrateur.');
+    navigate('/');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ejected]);
 
   // ── Auto-eject all participants when admin ends the room ──────────────────
   // The hook's Supabase subscription updates `room.status` for everyone in real
@@ -1024,6 +1062,7 @@ const AdminVideoRoom = () => {
                     muted
                     isLocal
                     isSpeaking={activeSpeakers.has(user?.id || '')}
+                    reactions={emojiReactions.get(user?.id || '') || []}
                   />
                 )}
                 {remoteStreams.map((rs) => (
@@ -1034,6 +1073,7 @@ const AdminVideoRoom = () => {
                     avatarUrl={participantAvatarMap.get(rs.userId)}
                     isMutedByAdmin={mutedParticipants.has(rs.userId)}
                     isSpeaking={activeSpeakers.has(rs.userId)}
+                    reactions={emojiReactions.get(rs.userId) || []}
                   />
                 ))}
                 {isConnected && remoteStreams.length === 0 && (
@@ -1195,6 +1235,7 @@ const AdminVideoRoom = () => {
                         const isSelf = p.user_id === user.id;
                         const isMuted = mutedParticipants.has(p.user_id);
                         const speaking = activeSpeakers.has(p.user_id);
+                        const micOn = participantMicState.get(p.user_id) ?? true;
 
                         return (
                           <div
@@ -1234,19 +1275,38 @@ const AdminVideoRoom = () => {
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
+                              {/* Mic status indicator — visible to everyone */}
+                              <span title={micOn ? 'Micro actif' : 'Micro coupé'}>
+                                {micOn
+                                  ? <Mic className="h-3.5 w-3.5 text-green-400" />
+                                  : <MicOff className="h-3.5 w-3.5 text-red-400" />}
+                              </span>
                               {hasManagement && !isSelf && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className={cn(
-                                    'h-7 w-7',
-                                    isMuted ? 'text-red-400 hover:text-red-300' : 'text-zinc-400 hover:text-white'
-                                  )}
-                                  onClick={() => muteParticipant(p.user_id)}
-                                  title={isMuted ? 'Rétablir le son' : 'Mettre en sourdine'}
-                                >
-                                  {isMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-                                </Button>
+                                <>
+                                  {/* Admin mute / unmute */}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                      'h-7 w-7',
+                                      isMuted ? 'text-red-400 hover:text-red-300' : 'text-zinc-400 hover:text-white'
+                                    )}
+                                    onClick={() => void muteParticipant(p.user_id)}
+                                    title={isMuted ? 'Rétablir le son (admin)' : 'Mettre en sourdine (admin)'}
+                                  >
+                                    {isMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                                  </Button>
+                                  {/* Eject participant */}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-orange-400 hover:text-orange-300"
+                                    onClick={() => void ejectParticipant(p.user_id)}
+                                    title="Éjecter ce participant"
+                                  >
+                                    <LogOut className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>
                               )}
                             </div>
                           </div>
@@ -1336,7 +1396,21 @@ const AdminVideoRoom = () => {
               <span className="text-[9px] font-medium">Participants</span>
             </div>
 
-            <div className="w-px h-8 bg-zinc-700 mx-1" />
+            {/* Emoji reactions — WhatsApp-style floating emoji on your video tile */}
+            <div className="flex items-center gap-0.5">
+              {QUICK_REACTIONS.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => void sendEmojiReaction(emoji)}
+                  className="rounded-lg bg-zinc-800 hover:bg-zinc-700 px-1.5 py-1.5 text-sm transition-colors"
+                  title={`Réaction ${emoji}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+
+            <div className="w-px h-8 bg-zinc-700 mx-0.5" />
 
             {/* Re-ring — admin rings all participants again without restarting */}
             {hasManagement && (

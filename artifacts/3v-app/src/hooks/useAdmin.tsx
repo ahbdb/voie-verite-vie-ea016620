@@ -44,27 +44,42 @@ export const useAdmin = () => {
 
     setLoading(true);
 
-    // Récupérer le rôle depuis la table user_roles de Supabase
-    Promise.resolve(
-      supabase
+    // Récupérer le rôle via la RPC SECURITY DEFINER (bypasse le RLS)
+    // Fallback: lecture directe sur user_roles si la RPC échoue
+    const fetchRole = async (): Promise<AdminRole> => {
+      // Try the dedicated SECURITY DEFINER function first — not blocked by RLS
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_admin_role');
+      if (!rpcError && rpcData) {
+        const r = rpcData as string;
+        if (r === 'admin_principal') return 'admin_principal';
+        if (r === 'admin') return 'admin';
+        if (r === 'moderator') return 'moderator';
+      }
+      // Fallback: direct table read (may fail if RLS is restrictive)
+      const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .single()
-    )
-      .then(({ data, error }) => {
-        let adminRole: AdminRole = null;
+        .single();
+      if (!error && data) {
+        const r = data.role as string;
+        if (r === 'admin_principal') return 'admin_principal';
+        if (r === 'admin') return 'admin';
+        if (r === 'moderator') return 'moderator';
+      }
+      return null;
+    };
 
-        if (!error && data) {
-          const role = data.role;
-          if (role === 'admin_principal') adminRole = 'admin_principal';
-          else if (role === 'admin') adminRole = 'admin';
-          else if (role === 'moderator') adminRole = 'moderator';
+    fetchRole()
+      .then((resolvedRole) => {
+        // Only cache positive hits — never cache null so a failed/missing role
+        // is always re-checked on the next render cycle instead of staying
+        // stuck as "not admin" for 30 seconds.
+        if (resolvedRole !== null) {
+          roleCache.set(user.id, { role: resolvedRole, timestamp: Date.now() });
         }
-
-        roleCache.set(user.id, { role: adminRole, timestamp: Date.now() });
-        setAdminRole(adminRole);
-        setIsAdmin(adminRole !== null);
+        setAdminRole(resolvedRole);
+        setIsAdmin(resolvedRole !== null);
       })
       .catch(() => {
         setAdminRole(null);

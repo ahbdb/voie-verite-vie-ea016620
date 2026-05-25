@@ -80,6 +80,8 @@ interface CallSessionContextValue {
   setHangUpFn: (fn: (() => Promise<void>) | null) => void;
   getMicToggleFn: () => (() => void) | null;
   setMicToggleFn: (fn: (() => void) | null) => void;
+  getEndRoomFn: () => (() => Promise<void>) | null;
+  setEndRoomFn: (fn: (() => Promise<void>) | null) => void;
   /** Call this inside a user-gesture handler (e.g. "Join" click) so browsers
    *  allow the silent audio to autoplay later even when the page is hidden. */
   primeAudioPlayback: () => void;
@@ -105,6 +107,8 @@ const CallSessionContext = createContext<CallSessionContextValue>({
   setHangUpFn: () => {},
   getMicToggleFn: () => null,
   setMicToggleFn: () => {},
+  getEndRoomFn: () => null,
+  setEndRoomFn: () => {},
   primeAudioPlayback: () => {},
   setBackgroundStreams: () => {},
   clearBackgroundStreams: () => {},
@@ -122,6 +126,7 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
   const softLeaveCallbackRef = useRef<(() => void) | null>(null);
   const hangUpFnRef = useRef<(() => Promise<void>) | null>(null);
   const micToggleFnRef = useRef<(() => void) | null>(null);
+  const endRoomFnRef = useRef<(() => Promise<void>) | null>(null);
 
   // ── Silent audio keepalive ─────────────────────────────────────────────────
   // A real DOM <audio> element (rendered below) keeps the browser's audio
@@ -236,6 +241,7 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
     softLeaveCallbackRef.current = null;
     hangUpFnRef.current = null;
     micToggleFnRef.current = null;
+    endRoomFnRef.current = null;
     stopSilentAudio();
   }, [stopSilentAudio]);
 
@@ -271,6 +277,8 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
   const setHangUpFn = useCallback((fn: (() => Promise<void>) | null) => { hangUpFnRef.current = fn; }, []);
   const getMicToggleFn = useCallback(() => micToggleFnRef.current, []);
   const setMicToggleFn = useCallback((fn: (() => void) | null) => { micToggleFnRef.current = fn; }, []);
+  const getEndRoomFn = useCallback(() => endRoomFnRef.current, []);
+  const setEndRoomFn = useCallback((fn: (() => Promise<void>) | null) => { endRoomFnRef.current = fn; }, []);
 
   return (
     <CallSessionContext.Provider value={{
@@ -288,6 +296,8 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
       setHangUpFn,
       getMicToggleFn,
       setMicToggleFn,
+      getEndRoomFn,
+      setEndRoomFn,
       primeAudioPlayback,
       setBackgroundStreams,
       clearBackgroundStreams,
