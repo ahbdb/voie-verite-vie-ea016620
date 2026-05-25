@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -27,10 +27,9 @@ import { sendCallJoinNotification } from '@/lib/notification-service';
 import { useCallSession } from '@/contexts/CallSessionContext';
 import {
   Radio, Video, Mic, Calendar as CalendarIcon, Clock, Users, Play,
-  Bell, Share2, Download, Trash2, Plus, Eye, Loader2, Crown, X,
+  Bell, Share2, Download, Trash2, Plus, Eye, Loader2, Crown,
   BookOpen, ChevronDown, ChevronUp, Phone, PhoneCall, Link2,
-  Settings2, Activity, MicOff, VideoOff, CheckCircle2, AlertCircle,
-  PhoneOff, Sparkles, WifiOff,
+  Activity, CheckCircle2, PhoneOff, Sparkles, WifiOff,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -71,9 +70,9 @@ const ASSOCIATED_TEXT_SOURCES = [
 
 function getTypeConfig(type: string) {
   switch (type) {
-    case 'audio': return { label: 'Audio', emoji: '🎙️', icon: <Mic className="h-full w-full" />, color: 'text-violet-400', bg: 'bg-violet-500/15', border: 'border-violet-500/30', glow: 'shadow-violet-500/20' };
-    case 'live':  return { label: 'Live',  emoji: '🔴',  icon: <Radio className="h-full w-full" />, color: 'text-red-400',    bg: 'bg-red-500/15',    border: 'border-red-500/30',    glow: 'shadow-red-500/20' };
-    default:      return { label: 'Vidéo', emoji: '📹',  icon: <Video className="h-full w-full" />, color: 'text-blue-400',   bg: 'bg-blue-500/15',   border: 'border-blue-500/30',   glow: 'shadow-blue-500/20' };
+    case 'audio': return { label: 'Audio', emoji: '🎙️', icon: <Mic className="h-full w-full" />, color: 'text-violet-400', bg: 'bg-violet-500/15', border: 'border-violet-500/30' };
+    case 'live':  return { label: 'Live',  emoji: '🔴',  icon: <Radio className="h-full w-full" />, color: 'text-red-400',    bg: 'bg-red-500/15',    border: 'border-red-500/30' };
+    default:      return { label: 'Vidéo', emoji: '📹',  icon: <Video className="h-full w-full" />, color: 'text-blue-400',   bg: 'bg-blue-500/15',   border: 'border-blue-500/30' };
   }
 }
 
@@ -109,366 +108,7 @@ const Countdown = ({ targetDate, targetTime }: { targetDate: string; targetTime:
   );
 };
 
-// ── Pre-join Lobby ─────────────────────────────────────────────────────────────
-
-type PermErrorKind = 'denied' | 'notfound' | 'busy' | 'notsupported' | null;
-
-function detectPlatform(): 'ios-pwa' | 'android-pwa' | 'ios' | 'android' | 'desktop' {
-  const ua = navigator.userAgent;
-  const isIOS = /iPhone|iPad|iPod/i.test(ua);
-  const isAndroid = /Android/i.test(ua);
-  const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
-  if (isIOS && isPWA) return 'ios-pwa';
-  if (isAndroid && isPWA) return 'android-pwa';
-  if (isIOS) return 'ios';
-  if (isAndroid) return 'android';
-  return 'desktop';
-}
-
-function getPermInstructions(kind: PermErrorKind): { title: string; steps: string[] } | null {
-  if (!kind || kind === 'notfound') return null;
-  const platform = detectPlatform();
-
-  if (kind === 'notsupported') {
-    return {
-      title: 'Navigateur non compatible',
-      steps: ['Utilisez Chrome, Firefox ou Safari récent.', 'Assurez-vous d\'être sur HTTPS (pas HTTP).'],
-    };
-  }
-  if (kind === 'busy') {
-    return {
-      title: 'Micro/caméra déjà utilisé',
-      steps: ['Fermez les autres onglets ou apps qui utilisent la caméra/micro.', 'Rechargez cette page et réessayez.'],
-    };
-  }
-
-  // denied
-  switch (platform) {
-    case 'ios-pwa':
-      return {
-        title: 'Autorisation refusée (PWA iOS)',
-        steps: [
-          '1. Ouvrez Réglages sur votre iPhone/iPad.',
-          '2. Descendez jusqu\'à Safari (ou l\'app "Voie Vérité Vie").',
-          '3. Touchez Microphone et/ou Caméra → Autoriser.',
-          '4. Revenez ici et touchez "Réessayer".',
-        ],
-      };
-    case 'android-pwa':
-      return {
-        title: 'Autorisation refusée (PWA Android)',
-        steps: [
-          '1. Appuyez longuement sur l\'icône de l\'app → Infos app.',
-          '2. Allez dans Autorisations.',
-          '3. Activez Microphone et Caméra.',
-          '4. Revenez ici et touchez "Réessayer".',
-        ],
-      };
-    case 'ios':
-      return {
-        title: 'Autorisation refusée (Safari iOS)',
-        steps: [
-          '1. Ouvrez Réglages → Safari.',
-          '2. Descendez jusqu\'à Microphone / Caméra → Autoriser.',
-          '3. Revenez sur cette page et touchez "Réessayer".',
-        ],
-      };
-    case 'android':
-      return {
-        title: 'Autorisation refusée (Chrome Android)',
-        steps: [
-          '1. Touchez l\'icône 🔒 dans la barre d\'adresse.',
-          '2. Touchez Paramètres du site.',
-          '3. Activez Microphone et Caméra.',
-          '4. Rechargez la page et réessayez.',
-        ],
-      };
-    default:
-      return {
-        title: 'Autorisation refusée',
-        steps: [
-          '1. Cliquez sur l\'icône 🔒 ou 📷 dans la barre d\'adresse.',
-          '2. Autorisez le Microphone et la Caméra pour ce site.',
-          '3. Cliquez "Réessayer" ci-dessous.',
-        ],
-      };
-  }
-}
-
-interface PreJoinLobbyProps {
-  open: boolean;
-  callType: 'audio' | 'video' | 'live';
-  onClose: () => void;
-  onJoin: (micOn: boolean, camOn: boolean) => void;
-  starting: boolean;
-}
-
-const PreJoinLobby = ({ open, callType, onClose, onJoin, starting }: PreJoinLobbyProps) => {
-  const [micOn, setMicOn] = useState(true);
-  const [camOn, setCamOn] = useState(callType !== 'audio');
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [micLevel, setMicLevel] = useState(0);
-  const [permErrorKind, setPermErrorKind] = useState<PermErrorKind>(null);
-  const [audioOnly, setAudioOnly] = useState(false);
-  const [retrying, setRetrying] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const pollRef = useRef<number | null>(null);
-
-  const stopStream = useCallback(() => {
-    stream?.getTracks().forEach(t => t.stop());
-    setStream(null);
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = null;
-    try { audioCtxRef.current?.close(); } catch {}
-    audioCtxRef.current = null;
-    setMicLevel(0);
-  }, [stream]);
-
-  const startStream = useCallback(async (forceAudioOnly = false) => {
-    setRetrying(true);
-    setPermErrorKind(null);
-    const wantVideo = callType !== 'audio' && !forceAudioOnly;
-    try {
-      let media: MediaStream | null = null;
-      try {
-        media = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-          video: wantVideo ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } : false,
-        });
-        if (forceAudioOnly) setAudioOnly(true);
-      } catch (err: any) {
-        const name: string = err?.name ?? '';
-        if (wantVideo && (name === 'NotAllowedError' || name === 'NotFoundError' || name === 'OverconstrainedError')) {
-          // Camera failed — try audio only
-          media = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-            video: false,
-          });
-          setAudioOnly(true);
-        } else {
-          throw err;
-        }
-      }
-      setStream(media);
-      // Mic analyser
-      try {
-        const ctx = new AudioContext();
-        audioCtxRef.current = ctx;
-        const src = ctx.createMediaStreamSource(media);
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 256;
-        analyser.smoothingTimeConstant = 0.4;
-        src.connect(analyser);
-        analyserRef.current = analyser;
-        pollRef.current = window.setInterval(() => {
-          if (!analyserRef.current) return;
-          const buf = new Uint8Array(analyserRef.current.frequencyBinCount);
-          analyserRef.current.getByteFrequencyData(buf);
-          const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
-          setMicLevel(Math.min(100, avg * 3.5));
-        }, 80);
-      } catch { /* audio context not critical */ }
-    } catch (err: any) {
-      const name: string = err?.name ?? '';
-      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') setPermErrorKind('denied');
-      else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') setPermErrorKind('notfound');
-      else if (name === 'NotReadableError' || name === 'TrackStartError') setPermErrorKind('busy');
-      else if (name === 'NotSupportedError' || name === 'TypeError' || !navigator.mediaDevices) setPermErrorKind('notsupported');
-      else setPermErrorKind('denied');
-    } finally {
-      setRetrying(false);
-    }
-  }, [callType]);
-
-  useEffect(() => {
-    if (!open) {
-      stopStream();
-      setPermErrorKind(null);
-      setAudioOnly(false);
-      return;
-    }
-    void startStream();
-    return () => { stopStream(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  useEffect(() => {
-    if (videoRef.current && stream) videoRef.current.srcObject = stream;
-  }, [stream]);
-
-  useEffect(() => {
-    stream?.getVideoTracks().forEach(t => { t.enabled = camOn; });
-  }, [camOn, stream]);
-
-  useEffect(() => {
-    stream?.getAudioTracks().forEach(t => { t.enabled = micOn; });
-  }, [micOn, stream]);
-
-  const instructions = getPermInstructions(permErrorKind);
-  const hasMic = !!stream?.getAudioTracks().length;
-  const showVideo = callType !== 'audio' && !audioOnly;
-  const typeLabel = callType === 'audio' ? 'Audio' : callType === 'live' ? 'Live' : 'Vidéo';
-  const typeIcon = callType === 'audio' ? '🎙️' : callType === 'live' ? '📡' : '📹';
-
-  return (
-    <Dialog open={open} onOpenChange={v => { if (!v && !starting) { stopStream(); onClose(); } }}>
-      <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl bg-zinc-950 border border-zinc-800">
-        <DialogHeader className="px-6 pt-6 pb-0">
-          <DialogTitle className="font-cinzel text-lg text-white flex items-center gap-2">
-            {typeIcon} Préparer l'appel {typeLabel}
-          </DialogTitle>
-          <p className="text-xs text-zinc-500 mt-1">Vérifiez votre micro {showVideo ? 'et caméra ' : ''}avant de rejoindre</p>
-        </DialogHeader>
-
-        <div className="p-5 space-y-4">
-          {/* Camera preview */}
-          {showVideo && (
-            <div className="relative aspect-video rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800">
-              {stream && camOn && stream.getVideoTracks().length > 0 ? (
-                <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <div className="flex flex-col items-center gap-2 text-zinc-600">
-                    <VideoOff className="h-10 w-10" />
-                    <span className="text-xs">{audioOnly ? 'Caméra indisponible' : 'Caméra désactivée'}</span>
-                  </div>
-                </div>
-              )}
-              {!audioOnly && (
-                <button
-                  onClick={() => setCamOn(v => !v)}
-                  className={cn(
-                    'absolute bottom-3 right-3 h-9 w-9 rounded-full flex items-center justify-center transition-colors',
-                    camOn ? 'bg-zinc-800/90 text-white hover:bg-zinc-700' : 'bg-red-500/90 text-white hover:bg-red-600'
-                  )}
-                >
-                  {camOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Permission error block */}
-          {permErrorKind && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 overflow-hidden">
-              <div className="flex items-start gap-2 px-4 py-3">
-                <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-amber-400">
-                    {permErrorKind === 'notfound' ? 'Aucun micro/caméra détecté' :
-                     permErrorKind === 'busy' ? 'Périphérique occupé' :
-                     permErrorKind === 'notsupported' ? 'Non compatible' :
-                     'Accès refusé'}
-                  </p>
-                  {instructions && (
-                    <div className="mt-2 space-y-1">
-                      <p className="text-xs font-medium text-amber-300">{instructions.title}</p>
-                      {instructions.steps.map((s, i) => (
-                        <p key={i} className="text-xs text-amber-400/80 leading-relaxed">{s}</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-2 px-4 pb-3">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-lg border-amber-500/40 text-amber-400 hover:bg-amber-500/10 gap-1.5"
-                  onClick={() => { stopStream(); void startStream(); }}
-                  disabled={retrying}
-                >
-                  {retrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Settings2 className="h-3.5 w-3.5" />}
-                  Réessayer
-                </Button>
-                {permErrorKind !== 'notsupported' && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="rounded-lg text-zinc-400 hover:text-white text-xs"
-                    onClick={() => onJoin(false, false)}
-                    disabled={starting}
-                  >
-                    Continuer sans micro →
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Mic status */}
-          {!permErrorKind && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-400">Microphone</span>
-                <button
-                  onClick={() => setMicOn(v => !v)}
-                  disabled={!hasMic}
-                  className={cn(
-                    'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium transition-colors disabled:opacity-40',
-                    micOn ? 'bg-zinc-800 text-white hover:bg-zinc-700' : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                  )}
-                >
-                  {micOn ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
-                  {micOn ? 'Micro activé' : 'Micro coupé'}
-                </button>
-              </div>
-              <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
-                <div
-                  className={cn(
-                    'h-full rounded-full transition-all duration-75',
-                    micLevel > 55 ? 'bg-green-400' : micLevel > 15 ? 'bg-green-500/70' : 'bg-zinc-600'
-                  )}
-                  style={{ width: `${micLevel}%` }}
-                />
-              </div>
-              <p className="text-[10px] text-zinc-600">
-                {retrying ? 'Connexion au micro…' :
-                 !hasMic ? 'Aucun micro détecté' :
-                 micOn && micLevel > 15 ? '✅ Son détecté — micro opérationnel' :
-                 micOn ? 'Parlez pour tester votre micro…' : 'Micro désactivé'}
-              </p>
-              {audioOnly && callType !== 'audio' && (
-                <p className="text-[10px] text-amber-400">⚠️ Caméra indisponible — l'appel sera en audio uniquement</p>
-              )}
-            </div>
-          )}
-
-          {/* Join / Cancel buttons */}
-          {!permErrorKind && (
-            <div className="flex gap-2 pt-1">
-              <Button
-                variant="ghost"
-                onClick={() => { stopStream(); onClose(); }}
-                disabled={starting}
-                className="flex-1 rounded-xl border border-zinc-700 text-zinc-300"
-              >
-                Annuler
-              </Button>
-              <Button
-                onClick={() => onJoin(micOn && hasMic, camOn && !audioOnly)}
-                disabled={starting || retrying}
-                className={cn(
-                  'flex-1 rounded-xl font-bold text-white',
-                  callType === 'live' ? 'bg-red-600 hover:bg-red-700' :
-                  callType === 'audio' ? 'bg-violet-600 hover:bg-violet-700' :
-                  'bg-blue-600 hover:bg-blue-700'
-                )}
-              >
-                {starting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Phone className="h-4 w-4 mr-2 fill-white" />}
-                Rejoindre
-              </Button>
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main component ─────────────────────────────────────────────────────────────
 
 const CallsAndLives = () => {
   const { t, i18n } = useTranslation();
@@ -481,16 +121,15 @@ const CallsAndLives = () => {
   const [myReminders, setMyReminders] = useState<Set<string>>(new Set());
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [joinCode, setJoinCode] = useState('');
-  const [lobbyType, setLobbyType] = useState<'audio' | 'video' | 'live' | null>(null);
   const [startingType, setStartingType] = useState<string | null>(null);
   const [floatingEmojis, setFloatingEmojis] = useState<{id:number;emoji:string;x:number}[]>([]);
   const [sessionToEnd, setSessionToEnd] = useState<ScheduledSession | null>(null);
 
   const dateLocale = i18n.language === 'fr' ? fr : i18n.language === 'it' ? it : enUS;
 
-  const liveSessions    = useMemo(() => sessions.filter(s => s.status === 'live'), [sessions]);
-  const upcoming        = useMemo(() => sessions.filter(s => s.status === 'scheduled').sort((a,b) => `${a.scheduled_date}${a.scheduled_time}`.localeCompare(`${b.scheduled_date}${b.scheduled_time}`)), [sessions]);
-  const recordings      = useMemo(() => sessions.filter(s => s.status === 'ended'), [sessions]);
+  const liveSessions = useMemo(() => sessions.filter(s => s.status === 'live'), [sessions]);
+  const upcoming     = useMemo(() => sessions.filter(s => s.status === 'scheduled').sort((a,b) => `${a.scheduled_date}${a.scheduled_time}`.localeCompare(`${b.scheduled_date}${b.scheduled_time}`)), [sessions]);
+  const recordings   = useMemo(() => sessions.filter(s => s.status === 'ended'), [sessions]);
 
   useEffect(() => {
     fetchSessions();
@@ -544,8 +183,9 @@ const CallsAndLives = () => {
     }
   };
 
-  // Called by lobby after mic/cam preview
-  const startCallAfterLobby = async (type: 'audio' | 'video' | 'live', _micOn: boolean, _camOn: boolean) => {
+  // Direct start — no lobby. getUserMedia is called by AdminVideoRoom after navigation,
+  // which is a direct user gesture and works correctly on all PWAs.
+  const startQuickCall = async (type: 'audio' | 'video' | 'live') => {
     if (!user) { toast.error(t('calls.loginRequired')); return; }
     setStartingType(type);
     try {
@@ -570,18 +210,12 @@ const CallsAndLives = () => {
       sendCallJoinNotification(title, room.id, user.name ?? user.email ?? undefined).catch(() => {});
       toast.success(t('calls.sessionStarted'));
       primeAudioPlayback();
-      setLobbyType(null);
       navigate(`/meeting/${room.id}`);
     } catch {
       toast.error(t('common.error'));
     } finally {
       setStartingType(null);
     }
-  };
-
-  const openLobby = (type: 'audio' | 'video' | 'live') => {
-    if (!user) { toast.error(t('calls.loginRequired')); return; }
-    setLobbyType(type);
   };
 
   const joinByCode = () => {
@@ -614,19 +248,9 @@ const CallsAndLives = () => {
       </Helmet>
       <Navigation />
 
-      {/* Pre-join lobby */}
-      <PreJoinLobby
-        open={!!lobbyType}
-        callType={lobbyType ?? 'audio'}
-        onClose={() => setLobbyType(null)}
-        onJoin={(mic, cam) => lobbyType && startCallAfterLobby(lobbyType, mic, cam)}
-        starting={!!startingType}
-      />
-
       {/* ── Hero ── */}
       <header className="relative overflow-hidden border-b border-cathedral-gold/20 bg-gradient-cathedral pt-28 pb-12 px-4">
         <div className="absolute inset-0 bg-gradient-stained opacity-40 pointer-events-none" />
-        {/* Decorative pulsing circles */}
         {liveSessions.length > 0 && (
           <>
             <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-64 w-64 rounded-full border border-red-500/10 animate-ping" style={{ animationDuration: '3s' }} />
@@ -641,7 +265,6 @@ const CallsAndLives = () => {
           <h1 className="font-cinzel text-4xl sm:text-5xl font-bold text-white mb-3">{t('calls.pageTitle')}</h1>
           <div className="cathedral-line w-24 h-px mx-auto my-4" />
           <p className="text-white/70 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">{t('calls.pageDescription')}</p>
-
           {liveSessions.length > 0 ? (
             <div className="mt-6 inline-flex items-center gap-3 px-6 py-3 rounded-full bg-red-500/90 text-white shadow-[0_0_50px_rgba(239,68,68,0.6)] animate-pulse">
               <span className="relative flex h-2.5 w-2.5">
@@ -653,7 +276,7 @@ const CallsAndLives = () => {
           ) : (
             <div className="mt-6 inline-flex items-center gap-2 px-5 py-2 rounded-full border border-white/15 bg-white/5 text-white/50 text-sm">
               <Sparkles className="h-3.5 w-3.5" />
-              Aucun live en ce moment — planifiez le prochain
+              Aucun live en ce moment
             </div>
           )}
         </div>
@@ -663,36 +286,35 @@ const CallsAndLives = () => {
 
         {/* ── Quick start ── */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em]">Démarrer</h2>
-            <span className="text-[10px] text-muted-foreground/60">Test micro/caméra avant l'appel</span>
-          </div>
-
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em] mb-4">Démarrer</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
             {/* Audio */}
             <button
-              onClick={() => openLobby('audio')}
-              className="group relative flex flex-col items-center gap-3 p-5 rounded-2xl border border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/15 hover:border-violet-500/60 transition-all active:scale-[0.97]"
+              onClick={() => startQuickCall('audio')}
+              disabled={!!startingType}
+              className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/15 hover:border-violet-500/60 transition-all active:scale-[0.97] disabled:opacity-60"
             >
-              <div className="h-10 w-10 rounded-full bg-violet-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Mic className="h-5 w-5 text-violet-400" />
-              </div>
+              {startingType === 'audio'
+                ? <Loader2 className="h-7 w-7 text-violet-400 animate-spin" />
+                : <Mic className="h-7 w-7 text-violet-400 group-hover:scale-110 transition-transform" />}
               <div className="text-center">
-                <span className="text-xs font-semibold text-foreground block">Appel Audio</span>
+                <span className="text-xs font-semibold text-foreground block">{t('calls.startAudio')}</span>
                 <span className="text-[10px] text-muted-foreground">Voix uniquement</span>
               </div>
             </button>
 
             {/* Video */}
             <button
-              onClick={() => openLobby('video')}
-              className="group relative flex flex-col items-center gap-3 p-5 rounded-2xl border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/15 hover:border-blue-500/60 transition-all active:scale-[0.97]"
+              onClick={() => startQuickCall('video')}
+              disabled={!!startingType}
+              className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/15 hover:border-blue-500/60 transition-all active:scale-[0.97] disabled:opacity-60"
             >
-              <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Video className="h-5 w-5 text-blue-400" />
-              </div>
+              {startingType === 'video'
+                ? <Loader2 className="h-7 w-7 text-blue-400 animate-spin" />
+                : <Video className="h-7 w-7 text-blue-400 group-hover:scale-110 transition-transform" />}
               <div className="text-center">
-                <span className="text-xs font-semibold text-foreground block">Appel Vidéo</span>
+                <span className="text-xs font-semibold text-foreground block">{t('calls.startVideo')}</span>
                 <span className="text-[10px] text-muted-foreground">Caméra + micro</span>
               </div>
             </button>
@@ -701,11 +323,9 @@ const CallsAndLives = () => {
             <Sheet>
               <SheetTrigger asChild>
                 <button className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 hover:border-emerald-500/60 transition-all active:scale-[0.97]">
-                  <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Link2 className="h-5 w-5 text-emerald-400" />
-                  </div>
+                  <Link2 className="h-7 w-7 text-emerald-400 group-hover:scale-110 transition-transform" />
                   <div className="text-center">
-                    <span className="text-xs font-semibold text-foreground block">Rejoindre</span>
+                    <span className="text-xs font-semibold text-foreground block">{t('calls.joinByCode', 'Rejoindre')}</span>
                     <span className="text-[10px] text-muted-foreground">Par code ou lien</span>
                   </div>
                 </button>
@@ -714,10 +334,9 @@ const CallsAndLives = () => {
                 <SheetHeader className="mb-5">
                   <SheetTitle className="font-cinzel text-xl">Rejoindre un appel</SheetTitle>
                 </SheetHeader>
-                <p className="text-sm text-muted-foreground mb-4">Entrez le code ou collez le lien d'invitation :</p>
                 <div className="flex gap-2 max-w-sm mx-auto">
                   <Input
-                    placeholder="Code ou lien de la réunion"
+                    placeholder={t('calls.roomCodePlaceholder', 'Code ou lien de la réunion')}
                     value={joinCode}
                     onChange={e => setJoinCode(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && joinByCode()}
@@ -731,18 +350,19 @@ const CallsAndLives = () => {
               </SheetContent>
             </Sheet>
 
-            {/* Schedule (admin) or live (admin) */}
+            {/* Live (admin) or Schedule (user) */}
             {isAdmin ? (
               <button
-                onClick={() => openLobby('live')}
-                className="group relative flex flex-col items-center gap-3 p-5 rounded-2xl border border-red-500/40 bg-red-500/5 hover:bg-red-500/15 hover:border-red-500/60 transition-all active:scale-[0.97]"
+                onClick={() => startQuickCall('live')}
+                disabled={!!startingType}
+                className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-red-500/40 bg-red-500/5 hover:bg-red-500/15 hover:border-red-500/60 transition-all active:scale-[0.97] disabled:opacity-60"
               >
-                <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Radio className="h-5 w-5 text-red-400" />
-                </div>
+                {startingType === 'live'
+                  ? <Loader2 className="h-7 w-7 text-red-400 animate-spin" />
+                  : <Radio className="h-7 w-7 text-red-400 group-hover:scale-110 transition-transform" />}
                 <div className="text-center">
-                  <span className="text-xs font-semibold text-foreground block">Live public</span>
-                  <span className="text-[10px] text-muted-foreground">Tout le monde</span>
+                  <span className="text-xs font-semibold text-foreground block">{t('calls.startLive')}</span>
+                  <span className="text-[10px] text-muted-foreground">Live public</span>
                 </div>
               </button>
             ) : (
@@ -750,24 +370,20 @@ const CallsAndLives = () => {
                 onClick={() => user ? setShowScheduleDialog(true) : toast.error(t('calls.loginRequired'))}
                 className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-cathedral-gold/30 bg-cathedral-gold/5 hover:bg-cathedral-gold/15 hover:border-cathedral-gold/60 transition-all active:scale-[0.97]"
               >
-                <div className="h-10 w-10 rounded-full bg-cathedral-gold/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <CalendarIcon className="h-5 w-5 text-cathedral-gold" />
-                </div>
+                <CalendarIcon className="h-7 w-7 text-cathedral-gold group-hover:scale-110 transition-transform" />
                 <div className="text-center">
-                  <span className="text-xs font-semibold text-foreground block">Planifier</span>
+                  <span className="text-xs font-semibold text-foreground block">{t('calls.scheduleNew')}</span>
                   <span className="text-[10px] text-muted-foreground">Session prévue</span>
                 </div>
               </button>
             )}
           </div>
-
-          {/* Admin: also show schedule button */}
           {isAdmin && (
             <button
               onClick={() => setShowScheduleDialog(true)}
               className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/50 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <CalendarIcon className="h-4 w-4" /> Planifier une session
+              <Plus className="h-4 w-4" /> {t('calls.scheduleNew')}
             </button>
           )}
         </section>
@@ -780,7 +396,7 @@ const CallsAndLives = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"/>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"/>
               </span>
-              En direct maintenant
+              {t('calls.liveNow')}
             </h2>
 
             <AlertDialog open={!!sessionToEnd} onOpenChange={open => !open && setSessionToEnd(null)}>
@@ -800,14 +416,12 @@ const CallsAndLives = () => {
               {liveSessions.map(session => {
                 const cfg = getTypeConfig(session.session_type);
                 return (
-                  <div key={session.id} className="relative overflow-hidden rounded-2xl border border-red-500/40 bg-gradient-to-br from-red-500/8 via-card to-background shadow-[0_0_60px_-15px_rgba(239,68,68,0.45)]">
-                    {/* Floating emojis */}
+                  <div key={session.id} className="relative overflow-hidden rounded-2xl border border-red-500/40 bg-gradient-to-br from-red-500/8 via-card to-background shadow-[0_0_50px_-15px_rgba(239,68,68,0.4)]">
                     <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
                       {floatingEmojis.map(e => (
                         <span key={e.id} className="absolute text-3xl" style={{ left:`${e.x}%`, bottom:0, animation:'floatUp 2.2s ease-out forwards' }}>{e.emoji}</span>
                       ))}
                     </div>
-                    {/* Live banner */}
                     <div className="flex items-center gap-3 px-5 py-3 bg-red-500/90 text-white">
                       <span className="relative flex h-3 w-3">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"/>
@@ -818,30 +432,20 @@ const CallsAndLives = () => {
                         <Eye className="h-3.5 w-3.5"/> {session.viewer_count || 0}
                       </span>
                     </div>
-
                     <div className="p-5 sm:p-6">
                       <span className={cn("inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium mb-3", cfg.bg, cfg.color, cfg.border)}>
                         <span className="h-3 w-3">{cfg.icon}</span>{cfg.label}
                       </span>
                       <h3 className="font-cinzel text-xl sm:text-2xl font-bold text-foreground mb-1">{session.title}</h3>
                       {session.description && <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{session.description}</p>}
-
-                      <Button
-                        size="lg"
-                        onClick={() => joinSession(session)}
-                        className="w-full rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-base py-5 mb-4 shadow-[0_6px_30px_rgba(239,68,68,0.45)] hover:shadow-[0_8px_35px_rgba(239,68,68,0.55)] transition-all"
-                      >
+                      <Button size="lg" onClick={() => joinSession(session)} className="w-full rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-base py-5 mb-4 shadow-[0_6px_25px_rgba(239,68,68,0.4)]">
                         <Phone className="h-5 w-5 mr-2 fill-white" /> Rejoindre maintenant
                       </Button>
-
-                      {/* Reactions */}
-                      <div className="flex items-center gap-1 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {EMOJI_REACTIONS.map(emoji => (
                           <button key={emoji} onClick={() => sendReaction(emoji)} className="text-xl p-2 rounded-full hover:bg-muted/70 transition-transform hover:scale-125 active:scale-90">{emoji}</button>
                         ))}
                       </div>
-
-                      {/* Admin controls */}
                       {isAdmin && (
                         <div className="mt-4 pt-4 border-t border-border/50 flex gap-2 flex-wrap">
                           <Button size="sm" variant="destructive" onClick={() => setSessionToEnd(session)} className="rounded-lg gap-1.5">
@@ -860,13 +464,13 @@ const CallsAndLives = () => {
           </section>
         )}
 
-        {/* ── Upcoming sessions ── */}
+        {/* ── Upcoming ── */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em]">Sessions planifiées · {upcoming.length}</h2>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em]">{t('calls.tabs.scheduled')} · {upcoming.length}</h2>
             {isAdmin && (
               <Button size="sm" onClick={() => setShowScheduleDialog(true)} className="rounded-xl bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 gap-1.5 font-semibold">
-                <Plus className="h-3.5 w-3.5" /> Planifier
+                <Plus className="h-3.5 w-3.5" /> {t('calls.scheduleNew')}
               </Button>
             )}
           </div>
@@ -878,12 +482,7 @@ const CallsAndLives = () => {
           ) : upcoming.length === 0 ? (
             <div className="text-center py-14 rounded-2xl border border-dashed border-border/50">
               <CalendarIcon className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Aucune session planifiée pour le moment</p>
-              {isAdmin && (
-                <Button size="sm" onClick={() => setShowScheduleDialog(true)} className="mt-3 rounded-xl gap-1.5">
-                  <Plus className="h-3.5 w-3.5" /> Créer la première session
-                </Button>
-              )}
+              <p className="text-sm text-muted-foreground">{t('calls.noScheduled')}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -895,41 +494,28 @@ const CallsAndLives = () => {
                 const cfg  = getTypeConfig(session.session_type);
                 return (
                   <div key={session.id} className={cn(
-                    "relative rounded-2xl border overflow-hidden transition-all group",
+                    "relative rounded-2xl border overflow-hidden transition-all",
                     now  ? "border-red-500/50 bg-red-500/5 shadow-[0_0_20px_-5px_rgba(239,68,68,0.3)]" :
                     soon ? "border-cathedral-gold/40 bg-cathedral-gold/5" :
                            "border-border/60 bg-card hover:border-primary/30"
                   )}>
-                    {/* Left color accent */}
                     <div className={cn("absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl", cfg.bg)} />
-
                     <div className="pl-5 pr-4 py-4 sm:py-5">
                       <div className="flex items-start gap-3">
-                        {/* Date block */}
                         <div className="hidden sm:flex flex-col items-center justify-center shrink-0 w-12 h-12 rounded-xl border border-border/60 bg-muted/40">
                           <span className="text-lg font-black font-cinzel text-foreground leading-none">{format(new Date(session.scheduled_date), 'd')}</span>
                           <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{format(new Date(session.scheduled_date), 'MMM', { locale: dateLocale })}</span>
                         </div>
-
                         <div className="flex-1 min-w-0">
-                          {/* Badges */}
                           <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                             {now && <Badge className="bg-red-500 text-white text-[10px] animate-pulse">Commence maintenant</Badge>}
-                            {soon && !now && (
-                              <Badge variant="outline" className="border-cathedral-gold/50 text-cathedral-gold bg-cathedral-gold/10 text-[10px] gap-1">
-                                <Countdown targetDate={session.scheduled_date} targetTime={session.scheduled_time}/>
-                              </Badge>
-                            )}
-                            {isToday(new Date(session.scheduled_date)) && !soon && !now && (
-                              <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Aujourd'hui</Badge>
-                            )}
+                            {soon && !now && <Badge variant="outline" className="border-cathedral-gold/50 text-cathedral-gold bg-cathedral-gold/10 text-[10px] gap-1"><Countdown targetDate={session.scheduled_date} targetTime={session.scheduled_time}/></Badge>}
+                            {isToday(new Date(session.scheduled_date)) && !soon && !now && <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Aujourd'hui</Badge>}
                             <span className={cn("inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium", cfg.bg, cfg.color, cfg.border)}>
                               <span className="h-2.5 w-2.5">{cfg.icon}</span>{cfg.label}
                             </span>
                           </div>
-
                           <h3 className="font-cinzel font-bold text-foreground text-base leading-snug truncate">{session.title}</h3>
-
                           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                             <span className="flex items-center gap-1"><Clock className="h-3 w-3"/>{fmtTime(session.scheduled_time)}</span>
                             {session.estimated_duration && <span>⏱ {session.estimated_duration} min</span>}
@@ -937,22 +523,15 @@ const CallsAndLives = () => {
                           </div>
                         </div>
                       </div>
-
-                      {/* Actions */}
                       <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/40 flex-wrap">
                         {now ? (
                           <Button size="sm" onClick={() => joinSession(session)} className="rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold gap-1.5">
                             <Phone className="h-3.5 w-3.5 fill-white" /> Rejoindre
                           </Button>
                         ) : (
-                          <Button
-                            size="sm"
-                            variant={myReminders.has(session.id) ? "secondary" : "outline"}
-                            onClick={() => toggleReminder(session.id)}
-                            className="rounded-lg gap-1.5"
-                          >
+                          <Button size="sm" variant={myReminders.has(session.id) ? "secondary" : "outline"} onClick={() => toggleReminder(session.id)} className="rounded-lg gap-1.5">
                             <Bell className={cn("h-3.5 w-3.5", myReminders.has(session.id) && "fill-current")} />
-                            {myReminders.has(session.id) ? 'Rappel activé' : 'Me rappeler'}
+                            {myReminders.has(session.id) ? t('calls.reminded') : t('calls.remindMe')}
                           </Button>
                         )}
                         <Button size="sm" variant="ghost" onClick={() => shareSession(session)} className="rounded-lg gap-1.5">
@@ -985,7 +564,7 @@ const CallsAndLives = () => {
           )}
         </section>
 
-        {/* ── How it works (if no sessions) ── */}
+        {/* ── How it works (empty state) ── */}
         {!loading && sessions.length === 0 && (
           <section className="rounded-2xl border border-border/40 bg-muted/20 p-6">
             <h2 className="font-cinzel text-base font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -1025,9 +604,7 @@ const CallsAndLives = () => {
                         </div>
                       )}
                       {session.estimated_duration && (
-                        <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-0.5 rounded font-bold">
-                          {session.estimated_duration} min
-                        </div>
+                        <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-0.5 rounded font-bold">{session.estimated_duration} min</div>
                       )}
                       {session.recording_url && (
                         <a href={session.recording_url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -1076,7 +653,7 @@ const CallsAndLives = () => {
           </section>
         )}
 
-        {/* ── Admin stats panel ── */}
+        {/* ── Admin stats ── */}
         {isAdmin && sessions.length > 0 && (
           <section className="rounded-2xl border border-cathedral-gold/20 bg-cathedral-gold/5 p-5">
             <h2 className="text-xs font-semibold text-cathedral-gold uppercase tracking-[0.2em] mb-4 flex items-center gap-1.5">
