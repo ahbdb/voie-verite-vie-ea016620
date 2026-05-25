@@ -893,7 +893,11 @@
       "donations": "Dons & Offrandes",
       "donationsDesc": "Suivre et confirmer les dons",
       "feastDays": "Fêtes Chrétiennes",
-      "feastDaysDesc": "Gérer les fêtes et solennités du calendrier liturgique"
+      "feastDaysDesc": "Gérer les fêtes et solennités du calendrier liturgique",
+      "chapelet": "Chapelet & Rosaire",
+      "chapeletDesc": "Aperçu des mystères et prières du Rosaire",
+      "dailyPrayer": "Prière Quotidienne",
+      "dailyPrayerDesc": "Aperçu de l'Évangile du jour et des créneaux de prière"
     },
     "accessDenied": "Accès refusé",
     "principalOnly": "Cette page est réservée à l'Admin Principal",

@@ -4,11 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { useAdmin } from '@/hooks/useAdmin';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import FixSuperadminRole from '@/components/admin/FixSuperadminRole';
 import {
   Home, Info, Calendar, BookOpen, MessageSquare,
-  Image, HelpCircle, Mail, Bot, Settings, Users, Shield, Flame, Cross, User, Palette, Bell, Clock, Video, CalendarDays, Heart, DollarSign
+  Image, HelpCircle, Mail, Bot, Settings, Users, Shield, Flame, Cross, User, Palette, Bell, Clock, Video, CalendarDays, Heart, DollarSign, Orbit, Sun
 } from 'lucide-react';
 
 const adminSectionKeys = [
@@ -32,6 +32,8 @@ const adminSectionKeys = [
   { titleKey: 'admin.sections.users', descKey: 'admin.sections.usersDesc', icon: Users, path: '/admin/users' },
   { titleKey: 'admin.sections.testimonials', descKey: 'admin.sections.testimonialsDesc', icon: Heart, path: '/admin/testimonials' },
   { titleKey: 'admin.sections.donations', descKey: 'admin.sections.donationsDesc', icon: DollarSign, path: '/admin/donations' },
+  { titleKey: 'admin.sections.chapelet', descKey: 'admin.sections.chapeletDesc', icon: Orbit, path: '/admin/chapelet' },
+  { titleKey: 'admin.sections.dailyPrayer', descKey: 'admin.sections.dailyPrayerDesc', icon: Sun, path: '/admin/daily-prayer' },
 ];
 
 interface Stats {

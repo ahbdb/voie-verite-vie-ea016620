@@ -893,7 +893,13 @@
       "testimonials": "Testimonials",
       "testimonialsDesc": "Moderate testimonials",
       "donations": "Donations",
-      "donationsDesc": "Track and confirm donations"
+      "donationsDesc": "Track and confirm donations",
+      "feastDays": "Christian Feast Days",
+      "feastDaysDesc": "Manage feasts and solemnities of the liturgical calendar",
+      "chapelet": "Rosary",
+      "chapeletDesc": "Overview of rosary mysteries and prayers",
+      "dailyPrayer": "Daily Prayer",
+      "dailyPrayerDesc": "Preview today's Gospel and prayer time slots"
     },
     "accessDenied": "Access denied",
     "principalOnly": "This page is reserved for the Principal Admin",

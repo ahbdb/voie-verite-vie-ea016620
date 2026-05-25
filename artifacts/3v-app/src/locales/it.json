@@ -893,7 +893,13 @@
       "testimonials": "Testimonianze",
       "testimonialsDesc": "Moderare le testimonianze",
       "donations": "Donazioni & Offerte",
-      "donationsDesc": "Seguire e confermare le donazioni"
+      "donationsDesc": "Seguire e confermare le donazioni",
+      "feastDays": "Feste Cristiane",
+      "feastDaysDesc": "Gestire le feste e solennità del calendario liturgico",
+      "chapelet": "Rosario",
+      "chapeletDesc": "Panoramica dei misteri e delle preghiere del Rosario",
+      "dailyPrayer": "Preghiera Quotidiana",
+      "dailyPrayerDesc": "Anteprima del Vangelo del giorno e degli orari di preghiera"
     },
     "accessDenied": "Accesso negato",
     "principalOnly": "Questa pagina è riservata all'Admin Principale",

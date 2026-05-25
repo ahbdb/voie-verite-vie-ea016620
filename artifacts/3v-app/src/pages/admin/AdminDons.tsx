@@ -192,85 +192,144 @@ const AdminDons = () => {
         ) : displayed.length === 0 ? (
           <p className="text-center text-muted-foreground py-16">Aucun don dans cette catégorie.</p>
         ) : (
-          <Card>
-            <CardContent className="p-0 overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Donateur</TableHead>
-                    <TableHead>Montant</TableHead>
-                    <TableHead>Cause</TableHead>
-                    <TableHead>Méthode</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayed.map((d) => {
-                    const meta = parseMessage(d.message);
-                    const statusCfg = STATUS_CFG[d.status] ?? { label: d.status, color: 'bg-muted text-muted-foreground border-border' };
-                    return (
-                      <TableRow key={d.id}>
-                        <TableCell className="font-medium">
-                          <div className="text-sm">{d.donor_name ?? 'Anonyme'}</div>
-                          {d.donor_email && <div className="text-xs text-muted-foreground">{d.donor_email}</div>}
-                        </TableCell>
-                        <TableCell className="font-bold text-foreground">
-                          {fmtAmt(d.amount, d.currency)}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {CAUSE_LABELS[meta.cause] ?? meta.cause ?? '—'}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {METHOD_LABELS[meta.method] ?? meta.method ?? '—'}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={`text-xs rounded-full ${statusCfg.color}`}>
-                            {statusCfg.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                          {format(new Date(d.created_at), 'dd MMM yyyy', { locale: fr })}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button size="sm" variant="outline" title="Voir" onClick={() => setSelected(d)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {d.status !== 'confirmed' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                title="Confirmer"
-                                className="text-emerald-600 hover:bg-emerald-50 text-xs px-2"
-                                disabled={updating === d.id}
-                                onClick={() => updateStatus(d.id, 'confirmed')}
-                              >
-                                ✓
+          <>
+            {/* Desktop table */}
+            <Card className="hidden md:block">
+              <CardContent className="p-0 overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Donateur</TableHead>
+                      <TableHead>Montant</TableHead>
+                      <TableHead>Cause</TableHead>
+                      <TableHead>Méthode</TableHead>
+                      <TableHead>Statut</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {displayed.map((d) => {
+                      const meta = parseMessage(d.message);
+                      const statusCfg = STATUS_CFG[d.status] ?? { label: d.status, color: 'bg-muted text-muted-foreground border-border' };
+                      return (
+                        <TableRow key={d.id}>
+                          <TableCell className="font-medium">
+                            <div className="text-sm">{d.donor_name ?? 'Anonyme'}</div>
+                            {d.donor_email && <div className="text-xs text-muted-foreground">{d.donor_email}</div>}
+                          </TableCell>
+                          <TableCell className="font-bold text-foreground">
+                            {fmtAmt(d.amount, d.currency)}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {CAUSE_LABELS[meta.cause] ?? meta.cause ?? '—'}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {METHOD_LABELS[meta.method] ?? meta.method ?? '—'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={`text-xs rounded-full ${statusCfg.color}`}>
+                              {statusCfg.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(d.created_at), 'dd MMM yyyy', { locale: fr })}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button size="sm" variant="outline" title="Voir" onClick={() => setSelected(d)}>
+                                <Eye className="h-4 w-4" />
                               </Button>
-                            )}
-                            {d.status !== 'failed' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                title="Marquer échoué"
-                                className="text-red-500 hover:bg-red-50 text-xs px-2"
-                                disabled={updating === d.id}
-                                onClick={() => updateStatus(d.id, 'failed')}
-                              >
-                                ✗
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                              {d.status !== 'confirmed' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-emerald-600 hover:bg-emerald-50 text-xs px-2"
+                                  disabled={updating === d.id}
+                                  onClick={() => updateStatus(d.id, 'confirmed')}
+                                >
+                                  ✓
+                                </Button>
+                              )}
+                              {d.status !== 'failed' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-500 hover:bg-red-50 text-xs px-2"
+                                  disabled={updating === d.id}
+                                  onClick={() => updateStatus(d.id, 'failed')}
+                                >
+                                  ✗
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-3">
+              {displayed.map((d) => {
+                const meta = parseMessage(d.message);
+                const statusCfg = STATUS_CFG[d.status] ?? { label: d.status, color: 'bg-muted text-muted-foreground border-border' };
+                return (
+                  <Card key={d.id} className="border border-border">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-sm text-foreground">{d.donor_name ?? 'Anonyme'}</p>
+                          {d.donor_email && <p className="text-xs text-muted-foreground">{d.donor_email}</p>}
+                        </div>
+                        <Badge variant="outline" className={`text-xs rounded-full shrink-0 ${statusCfg.color}`}>
+                          {statusCfg.label}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                        <div>
+                          <span className="font-medium text-foreground text-sm">{fmtAmt(d.amount, d.currency)}</span>
+                        </div>
+                        <div className="text-right">{format(new Date(d.created_at), 'dd MMM yyyy', { locale: fr })}</div>
+                        {meta.cause && <div>{CAUSE_LABELS[meta.cause] ?? meta.cause}</div>}
+                        {meta.method && <div>{METHOD_LABELS[meta.method] ?? meta.method}</div>}
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => setSelected(d)}>
+                          <Eye className="h-3.5 w-3.5 mr-1" /> Voir
+                        </Button>
+                        {d.status !== 'confirmed' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-emerald-600 hover:bg-emerald-50 text-xs"
+                            disabled={updating === d.id}
+                            onClick={() => updateStatus(d.id, 'confirmed')}
+                          >
+                            ✓ Confirmer
+                          </Button>
+                        )}
+                        {d.status !== 'failed' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-red-500 hover:bg-red-50 text-xs"
+                            disabled={updating === d.id}
+                            onClick={() => updateStatus(d.id, 'failed')}
+                          >
+                            ✗ Échoué
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </>
         )}
 
         <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>

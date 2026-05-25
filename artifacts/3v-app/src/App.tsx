@@ -59,6 +59,9 @@ import AdminVideo from "./pages/admin/AdminVideo";
 import AdminVideoRoom from "./pages/admin/AdminVideoRoom";
 import AdminTemoignages from "./pages/admin/AdminTemoignages";
 import AdminDons from "./pages/admin/AdminDons";
+import AdminFeastDays from "./pages/admin/AdminFeastDays";
+import AdminChapelet from "./pages/admin/AdminChapelet";
+import AdminPriereQuotidienne from "./pages/admin/AdminPriereQuotidienne";
 import AdminRepair from "./pages/AdminRepair";
 import Profile from "./pages/Profile";
 import Creator from "./pages/Creator";
@@ -176,6 +179,9 @@ const App = () => {
                       <Route path="/admin/admins" element={<AdminManagement />} />
                       <Route path="/admin/testimonials" element={<AdminTemoignages />} />
                       <Route path="/admin/donations" element={<AdminDons />} />
+                      <Route path="/admin/feast-days" element={<AdminFeastDays />} />
+                      <Route path="/admin/chapelet" element={<AdminChapelet />} />
+                      <Route path="/admin/daily-prayer" element={<AdminPriereQuotidienne />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/documents-3v" element={<Documents3V />} />
                       <Route path="*" element={<NotFound />} />
