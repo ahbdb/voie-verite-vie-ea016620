@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { db } from '@/lib/supabase';
 
 // ── Background audio player ───────────────────────────────────────────────────
 // Renders a hidden <audio> element for one remote stream while the call page
@@ -237,6 +238,30 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
     micToggleFnRef.current = null;
     stopSilentAudio();
   }, [stopSilentAudio]);
+
+  // ── Global room-ended subscription ────────────────────────────────────────
+  // Works for ALL users regardless of whether the call page is mounted.
+  // This is the safety net that ejects soft-leave users when an admin
+  // clicks "Terminer": their call page is unmounted (no hook subscription),
+  // but this context is always alive and will receive the DB change.
+  const endCallSessionRef = useRef(endCallSession);
+  useEffect(() => { endCallSessionRef.current = endCallSession; }, [endCallSession]);
+
+  useEffect(() => {
+    if (!activeCall?.roomId) return;
+    const roomId = activeCall.roomId;
+    const channel = db
+      .channel(`ctx-ended:${roomId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'video_rooms', filter: `id=eq.${roomId}` },
+        (ev: { new: { status: string } }) => {
+          if (ev.new?.status === 'ended') endCallSessionRef.current();
+        },
+      )
+      .subscribe();
+    return () => { void db.removeChannel(channel); };
+  }, [activeCall?.roomId]);
 
   const notifyConnected = useCallback((v: boolean) => setIsConnected(v), []);
   const notifyMic = useCallback((v: boolean) => setIsMicEnabled(v), []);

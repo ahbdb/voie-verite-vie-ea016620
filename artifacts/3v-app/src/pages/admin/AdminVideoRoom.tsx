@@ -8,6 +8,7 @@ import {
   useAdminVideoRoom,
   type VideoMessageReactionRecord,
   type PeerStat,
+  type RemoteVideoStream,
 } from '@/hooks/useAdminVideoRoom';
 import { useCallSession } from '@/contexts/CallSessionContext';
 import { useCallKeepAlive } from '@/hooks/useCallKeepAlive';
@@ -491,6 +492,8 @@ const AdminVideoRoom = () => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const autoJoinedRef = useRef(false);
   const hardHangUpRef = useRef(false);
+  // Tracks latest remote streams for unmount cleanup (stale closure prevention)
+  const latestRemoteStreamsRef = useRef<RemoteVideoStream[]>([]);
 
   const {
     room, roomType, participants, remoteStreams, messages, reactions,
@@ -565,9 +568,24 @@ const AdminVideoRoom = () => {
   // Android PWA: keeps screen on so Chrome stays in foreground audio mode.
   useCallWakeLock(isConnected);
 
+  // Keep latest remote streams accessible at unmount time
+  useEffect(() => { latestRemoteStreamsRef.current = remoteStreams; }, [remoteStreams]);
+
+  // ── Automatic background audio on any navigation away ───────────────────────
+  // Fires on EVERY unmount (back button, link tap, route change). If it is not
+  // a hard hang-up, hand remote streams to the context so the user keeps hearing
+  // others while browsing other pages (liturgical texts, chapelet, etc.).
+  useEffect(() => {
+    return () => {
+      if (!hardHangUpRef.current) {
+        const streams = latestRemoteStreamsRef.current.map((rs) => rs.stream).filter(Boolean);
+        if (streams.length > 0) callSession.setBackgroundStreams(streams);
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Clear background audio when this page is active ────────────────────────
-  // VideoPanel <audio> elements handle playback here; the context's hidden
-  // <audio> elements (used during soft leave) must be removed to avoid doubling.
   useEffect(() => {
     callSession.clearBackgroundStreams();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -652,12 +670,11 @@ const AdminVideoRoom = () => {
     } catch { toast.error('Copie impossible'); }
   };
 
-  /** Soft leave — navigates away but keeps audio flowing in both directions. */
+  /** Soft leave — navigates away but keeps audio flowing in both directions.
+   *  Background audio transfer happens automatically via the unmount effect. */
   const handleSoftLeave = () => {
     hardHangUpRef.current = false;
-    // Hand remote streams to the context so it plays them while we're away
-    callSession.setBackgroundStreams(remoteStreams.map((rs) => rs.stream));
-    softLeave(); // marks hook: skip full cleanup on unmount
+    softLeave();
     navigate(hasManagement ? '/admin/video' : '/');
   };
 

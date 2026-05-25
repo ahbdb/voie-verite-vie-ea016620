@@ -852,25 +852,29 @@ export const useAdminVideoRoom = ({
   const endRoom = useCallback(async () => {
     if (!roomId || !canManageRoomRef.current) return;
 
-    // 1. Broadcast instantly (<100ms) so all active subscribers react immediately
-    //    — much faster than Postgres Changes which can take several seconds.
-    if (channelRef.current) {
+    const sendEnded = async () => {
+      if (!channelRef.current) return;
       try {
-        await channelRef.current.send({
-          type: 'broadcast',
-          event: 'session-ended',
-          payload: { roomId },
-        });
+        await channelRef.current.send({ type: 'broadcast', event: 'session-ended', payload: { roomId } });
       } catch { /* non-critical */ }
-    }
+    };
 
-    // 2. Update DB as authoritative source of truth — throw on failure so caller can toast
+    // 1. Broadcast immediately — active subscribers react in <100ms
+    await sendEnded();
+
+    // 2. Update DB — authoritative; triggers postgres_changes for everyone
+    //    including soft-leave users via the CallSessionContext subscription.
     const { error: roomErr } = await db
       .from('video_rooms')
       .update({ status: 'ended', ended_at: new Date().toISOString() })
       .eq('id', roomId);
     if (roomErr) throw new Error(`Impossible de terminer la réunion : ${roomErr.message}`);
+
     await db.from('video_room_participants').update({ is_active: false, left_at: new Date().toISOString() }).eq('room_id', roomId);
+
+    // 3. Broadcast again after DB update — catches clients who missed the first
+    await sendEnded();
+
     setIsConnected(false);
   }, [roomId]);
 
@@ -1088,6 +1092,13 @@ export const useAdminVideoRoom = ({
         // ── Restore from soft leave ──────────────────────────────────────────
         // We have a module-level snapshot of all WebRTC state from the previous
         // soft leave. Restore refs, update React state, re-subscribe to signaling.
+        // First: discard if the room was ended while the user was away.
+        if (_persist && _persist.roomId === roomId && currentRoom.status === 'ended') {
+          _persist.peerConns.forEach((pc) => pc.close());
+          _persist.stream.getTracks().forEach((t) => t.stop());
+          _persist = null;
+        }
+
         if (_persist && _persist.roomId === roomId) {
           const saved = _persist;
           _persist = null;
