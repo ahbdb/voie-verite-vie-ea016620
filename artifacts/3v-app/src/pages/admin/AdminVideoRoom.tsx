@@ -565,6 +565,14 @@ const AdminVideoRoom = () => {
   // Android PWA: keeps screen on so Chrome stays in foreground audio mode.
   useCallWakeLock(isConnected);
 
+  // ── Clear background audio when this page is active ────────────────────────
+  // VideoPanel <audio> elements handle playback here; the context's hidden
+  // <audio> elements (used during soft leave) must be removed to avoid doubling.
+  useEffect(() => {
+    callSession.clearBackgroundStreams();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
+
   // ── Prime audio on mount (unlocks autoplay without touching camera/mic) ────
   // requestJoin() is NOT called here because on installed PWA (iOS/Android),
   // getUserMedia MUST originate from a direct user tap — a useEffect does not
@@ -644,9 +652,11 @@ const AdminVideoRoom = () => {
     } catch { toast.error('Copie impossible'); }
   };
 
-  /** Soft leave — navigates away but keeps audio flowing to remote peers. */
+  /** Soft leave — navigates away but keeps audio flowing in both directions. */
   const handleSoftLeave = () => {
     hardHangUpRef.current = false;
+    // Hand remote streams to the context so it plays them while we're away
+    callSession.setBackgroundStreams(remoteStreams.map((rs) => rs.stream));
     softLeave(); // marks hook: skip full cleanup on unmount
     navigate(hasManagement ? '/admin/video' : '/');
   };

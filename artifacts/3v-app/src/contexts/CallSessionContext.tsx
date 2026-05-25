@@ -7,6 +7,29 @@ import React, {
   useState,
 } from 'react';
 
+// ── Background audio player ───────────────────────────────────────────────────
+// Renders a hidden <audio> element for one remote stream while the call page
+// is unmounted. Keeps the soft-leaver able to hear others while browsing.
+const BackgroundAudio = React.memo(({ stream }: { stream: MediaStream }) => {
+  const ref = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.srcObject = stream;
+    el.play().catch(() => {});
+    return () => { el.srcObject = null; };
+  }, [stream]);
+  return (
+    <audio
+      ref={ref}
+      autoPlay
+      playsInline
+      aria-hidden="true"
+      style={{ display: 'none', position: 'absolute', width: 0, height: 0 }}
+    />
+  );
+});
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Builds a Blob URL for a 100ms silent WAV. Returns null on failure. */
@@ -59,6 +82,11 @@ interface CallSessionContextValue {
   /** Call this inside a user-gesture handler (e.g. "Join" click) so browsers
    *  allow the silent audio to autoplay later even when the page is hidden. */
   primeAudioPlayback: () => void;
+  /** Pass remote MediaStreams so the context plays them while the call page
+   *  is unmounted (soft leave — user browsing other pages). */
+  setBackgroundStreams: (streams: MediaStream[]) => void;
+  /** Remove background audio elements — call when the call page remounts. */
+  clearBackgroundStreams: () => void;
 }
 
 const CallSessionContext = createContext<CallSessionContextValue>({
@@ -77,6 +105,8 @@ const CallSessionContext = createContext<CallSessionContextValue>({
   getMicToggleFn: () => null,
   setMicToggleFn: () => {},
   primeAudioPlayback: () => {},
+  setBackgroundStreams: () => {},
+  clearBackgroundStreams: () => {},
 });
 
 export const useCallSession = () => useContext(CallSessionContext);
@@ -86,6 +116,7 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
   const [isConnected, setIsConnected] = useState(false);
   const [isMicEnabled, setIsMicEnabled] = useState(true);
   const [participantCount, setParticipantCount] = useState(0);
+  const [backgroundStreams, setBackgroundStreamsState] = useState<MediaStream[]>([]);
 
   const softLeaveCallbackRef = useRef<(() => void) | null>(null);
   const hangUpFnRef = useRef<(() => Promise<void>) | null>(null);
@@ -188,10 +219,19 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
     setParticipantCount(0);
   }, []);
 
+  const setBackgroundStreams = useCallback((streams: MediaStream[]) => {
+    setBackgroundStreamsState(streams);
+  }, []);
+
+  const clearBackgroundStreams = useCallback(() => {
+    setBackgroundStreamsState([]);
+  }, []);
+
   const endCallSession = useCallback(() => {
     setActiveCall(null);
     setIsConnected(false);
     setParticipantCount(0);
+    setBackgroundStreamsState([]);
     softLeaveCallbackRef.current = null;
     hangUpFnRef.current = null;
     micToggleFnRef.current = null;
@@ -224,13 +264,13 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
       getMicToggleFn,
       setMicToggleFn,
       primeAudioPlayback,
+      setBackgroundStreams,
+      clearBackgroundStreams,
     }}>
       {children}
       {/*
-        This hidden <audio> element is the audio keepalive.
-        It MUST be in the DOM (not just `new Audio()`) so iOS treats it as a
-        real media session and allows it to continue in the background.
-        playsInline prevents iOS from forcing fullscreen on play.
+        Silent keepalive — keeps browser audio session alive in background.
+        Must be DOM-attached with playsInline so iOS allows background play.
       */}
       <audio
         ref={silentAudioElRef}
@@ -239,6 +279,10 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
         aria-hidden="true"
         style={{ display: 'none', position: 'absolute', width: 0, height: 0 }}
       />
+      {/* Background audio for remote peers — active only while soft-leaving */}
+      {backgroundStreams.map((stream) => (
+        <BackgroundAudio key={stream.id} stream={stream} />
+      ))}
     </CallSessionContext.Provider>
   );
 };
