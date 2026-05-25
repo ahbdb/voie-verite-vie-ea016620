@@ -47,9 +47,33 @@ export async function registerFCMToken(): Promise<string | null> {
       swReg = await navigator.serviceWorker.ready;
     }
 
+    // Check if DB already has a valid Web Push JSON token for this user.
+    // If it doesn't (old Firebase string token), force re-subscription so the
+    // Edge Function can deliver pushes with our VAPID key.
+    let forceRefresh = false;
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser) {
+      const { data: row } = await supabase
+        .from('fcm_tokens')
+        .select('token')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!row?.token) {
+        forceRefresh = true;
+      } else {
+        try {
+          const p = JSON.parse(row.token);
+          if (!p?.endpoint || !p?.keys?.p256dh) forceRefresh = true;
+        } catch { forceRefresh = true; }
+      }
+    }
+
     // Get existing subscription or create a new one
     let subscription = await swReg.pushManager.getSubscription();
-    if (!subscription) {
+    if (!subscription || forceRefresh) {
+      if (subscription && forceRefresh) await subscription.unsubscribe();
       subscription = await swReg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),

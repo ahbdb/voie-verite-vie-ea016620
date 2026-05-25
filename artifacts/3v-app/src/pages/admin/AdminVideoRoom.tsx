@@ -179,6 +179,7 @@ const VideoPanel = ({
   isSpeaking = false,
   isLocal = false,
   reactions = [],
+  onReact,
 }: {
   stream: MediaStream | null;
   title: string;
@@ -188,9 +189,11 @@ const VideoPanel = ({
   isSpeaking?: boolean;
   isLocal?: boolean;
   reactions?: Array<{ id: number; emoji: string }>;
+  onReact?: (emoji: string) => void;
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const hasVideo = Boolean(stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled));
   const hasAudio = Boolean(stream?.getAudioTracks().some((t) => t.readyState === 'live'));
 
@@ -281,6 +284,32 @@ const VideoPanel = ({
           {r.emoji}
         </div>
       ))}
+
+      {/* Emoji reaction trigger — top-right corner */}
+      {onReact && (
+        <div className="absolute right-2 top-2 z-10">
+          <button
+            onClick={() => setShowEmojiPicker((v) => !v)}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-base backdrop-blur-sm transition-opacity hover:bg-black/70"
+            title="Réagir"
+          >
+            😊
+          </button>
+          {showEmojiPicker && (
+            <div className="absolute right-0 top-9 flex gap-1 rounded-xl bg-black/80 p-1.5 backdrop-blur-sm shadow-lg">
+              {QUICK_REACTIONS.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => { onReact(emoji); setShowEmojiPicker(false); }}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-xl transition-transform hover:scale-125 active:scale-110"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bottom overlay */}
       <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
@@ -1070,6 +1099,7 @@ const AdminVideoRoom = () => {
                     isLocal
                     isSpeaking={activeSpeakers.has(user?.id || '')}
                     reactions={emojiReactions.get(user?.id || '') || []}
+                    onReact={(emoji) => void sendEmojiReaction(emoji)}
                   />
                 )}
                 {remoteStreams.map((rs) => (
@@ -1081,6 +1111,7 @@ const AdminVideoRoom = () => {
                     isMutedByAdmin={mutedParticipants.has(rs.userId)}
                     isSpeaking={activeSpeakers.has(rs.userId)}
                     reactions={emojiReactions.get(rs.userId) || []}
+                    onReact={(emoji) => void sendEmojiReaction(emoji)}
                   />
                 ))}
                 {isConnected && remoteStreams.length === 0 && (

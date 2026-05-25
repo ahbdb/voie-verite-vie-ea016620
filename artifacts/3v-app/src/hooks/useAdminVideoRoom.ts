@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useCallSession } from '@/contexts/CallSessionContext';
 
 const db = supabase as any;
 
@@ -187,6 +188,8 @@ export const useAdminVideoRoom = ({
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
   const participantsRef = useRef<VideoParticipantRecord[]>([]);
   const disconnectTimersRef = useRef<Map<string, number>>(new Map());
+  /** Debounce timer — only show 'poor' after being disconnected for 5 s. */
+  const qualityTimerRef = useRef<number | null>(null);
   const displayNameRef = useRef(displayName || 'Participant');
   const canManageRoomRef = useRef(canManageRoom);
   const roomRef = useRef<VideoRoomRecord | null>(null);
@@ -226,6 +229,13 @@ export const useAdminVideoRoom = ({
 
   // Keep micEnabledRef in sync so toggleMicrophone never reads stale state
   useEffect(() => { micEnabledRef.current = micEnabled; }, [micEnabled]);
+
+  // notifyMic from context — stored in a ref so toggleMicrophone can call it even
+  // when AdminVideoRoom is unmounted (soft leave). This keeps FloatingCallBanner
+  // icon in sync with the actual track state.
+  const { notifyMic } = useCallSession();
+  const notifyMicContextRef = useRef(notifyMic);
+  useEffect(() => { notifyMicContextRef.current = notifyMic; }, [notifyMic]);
 
   // ── Auto-restore from soft leave ─────────────────────────────────────────────
   // If a persisted session exists for this room, skip the "Rejoindre" button
@@ -591,12 +601,22 @@ export const useAdminVideoRoom = ({
 
         if (state === 'connected') {
           if (existingTimer) { window.clearTimeout(existingTimer); disconnectTimersRef.current.delete(pid); }
+          // Cancel any pending 'poor' quality timer — connection recovered
+          if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
           setConnectionQuality('good');
           return;
         }
 
         if (state === 'disconnected') {
-          setConnectionQuality('poor');
+          // Don't immediately show "Connexion faible" — transient disconnects during network
+          // handoff or page backgrounding often recover within a few seconds.
+          // Only set 'poor' if still disconnected after 5 s.
+          if (!qualityTimerRef.current) {
+            qualityTimerRef.current = window.setTimeout(() => {
+              qualityTimerRef.current = null;
+              if (pc.connectionState === 'disconnected') setConnectionQuality('poor');
+            }, 5_000);
+          }
           // Give extra time if page is hidden (user switched app)
           const timeout = isPageHiddenRef.current ? DISCONNECT_TIMEOUT_MS * 2 : DISCONNECT_TIMEOUT_MS;
           if (!existingTimer) {
@@ -612,6 +632,7 @@ export const useAdminVideoRoom = ({
         }
 
         if (state === 'failed') {
+          if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
           setConnectionQuality('reconnecting');
           if (existingTimer) { window.clearTimeout(existingTimer); disconnectTimersRef.current.delete(pid); }
           // Try ICE restart before giving up
@@ -822,6 +843,9 @@ export const useAdminVideoRoom = ({
         existing.close();
         peerConnectionsRef.current.delete(p.user_id);
         initiatedPeersRef.current.delete(p.user_id);
+        // Optimistically reset quality — the new connection will update it once established
+        if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
+        setConnectionQuality('good');
       }
       if (!peerConnectionsRef.current.has(p.user_id)) {
         createPeerConnection(p.user_id);
@@ -1014,6 +1038,9 @@ export const useAdminVideoRoom = ({
     tracks.forEach((t) => { t.enabled = next; });
     micEnabledRef.current = next;
     setMicEnabled(next);
+    // Update CallSessionContext so FloatingCallBanner icon reflects the new state
+    // even when AdminVideoRoom is unmounted (soft leave).
+    notifyMicContextRef.current(next);
     void channelRef.current?.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: next } });
   }, [userId]); // Stable ref — reads micEnabledRef, no stale closure after soft leave
 

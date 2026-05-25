@@ -41,13 +41,39 @@ const buildNotificationOptions = (payload: NotificationPayload) => ({
   },
 });
 
+/**
+ * Shared AudioContext — created lazily and reused across calls.
+ * Call primeNotificationAudio() from a user-gesture handler (e.g. join button)
+ * so the context is already running when a push arrives in a non-gesture context.
+ */
+let _sharedAudioCtx: AudioContext | null = null;
+
+export function primeNotificationAudio(): void {
+  try {
+    const AC = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AC) return;
+    if (!_sharedAudioCtx || _sharedAudioCtx.state === 'closed') {
+      _sharedAudioCtx = new AC();
+    }
+    if (_sharedAudioCtx.state === 'suspended') {
+      _sharedAudioCtx.resume().catch(() => {});
+    }
+  } catch { /* ignore */ }
+}
+
 export const playAttentionTone = async () => {
   try {
-    const AudioContextConstructor = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextConstructor) return;
+    const AC = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AC) return;
 
-    const context = new AudioContextConstructor();
-    if (context.state === 'suspended') await context.resume();
+    // Reuse primed context if available; otherwise create a new one.
+    if (!_sharedAudioCtx || _sharedAudioCtx.state === 'closed') {
+      _sharedAudioCtx = new AC();
+    }
+    const context = _sharedAudioCtx;
+    if (context.state === 'suspended') {
+      try { await context.resume(); } catch { return; }
+    }
 
     const scheduleBeep = (delay: number, duration: number, frequency: number) => {
       const oscillator = context.createOscillator();

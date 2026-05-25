@@ -7,6 +7,7 @@ import React, {
   useState,
 } from 'react';
 import { supabase as db } from '@/integrations/supabase/client';
+import { primeNotificationAudio } from '@/lib/notification-service';
 
 // ── Background audio player ───────────────────────────────────────────────────
 // Renders a hidden <audio> element for one remote stream while the call page
@@ -192,6 +193,9 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
     if (!ensureSrc()) return;
     // Intentionally do NOT pause — we want this to keep playing as the keepalive.
     el.play().catch(() => {});
+    // Also prime the notification AudioContext so incoming call tones play
+    // in the same user-gesture context that unlocked audio.
+    primeNotificationAudio();
   }, [ensureSrc]);
 
   // Start / stop in sync with the WebRTC connection state
