@@ -375,11 +375,43 @@ const Chapelet = () => {
   const { t } = useTranslation();
   const { play, stop, playing } = useAudio();
 
-  const [mysterySet, setMysterySet] = useState<MysterySet>(() => getTodaySet());
-  const [step, setStep] = useState<Step>('chooser');
+  const [mysterySet, setMysterySet] = useState<MysterySet>(() => {
+    try {
+      const saved = localStorage.getItem('chapelet-state');
+      if (saved) {
+        const { setKey } = JSON.parse(saved);
+        const found = MYSTERY_SETS.find((s) => s.key === setKey);
+        if (found) return found;
+      }
+    } catch {}
+    return getTodaySet();
+  });
+
+  const [step, setStep] = useState<Step>(() => {
+    try {
+      const saved = localStorage.getItem('chapelet-state');
+      if (saved) {
+        const { step: s } = JSON.parse(saved);
+        if (s && s !== 'done' && s !== 'chooser') return s as Step;
+      }
+    } catch {}
+    return 'chooser';
+  });
+
   const [autoRead, setAutoRead] = useState<boolean>(() => {
     try { return localStorage.getItem('chapelet-autoread') === 'true'; } catch { return false; }
   });
+
+  // Persist progress so user can resume after navigating away
+  useEffect(() => {
+    if (step === 'chooser' || step === 'done') {
+      try { localStorage.removeItem('chapelet-state'); } catch {}
+      return;
+    }
+    try {
+      localStorage.setItem('chapelet-state', JSON.stringify({ setKey: mysterySet.key, step }));
+    } catch {}
+  }, [step, mysterySet.key]);
 
   const mysteries = mysterySet.mysteries;
   const total = mysteries.length;
@@ -418,7 +450,11 @@ const Chapelet = () => {
     if (!next) stop();
   };
 
-  const restart = () => { stop(); setStep('chooser'); };
+  const restart = () => {
+    stop();
+    try { localStorage.removeItem('chapelet-state'); } catch {}
+    setStep('chooser');
+  };
 
   const idx = stepIndex(step, total);
   const tot = totalSteps(total);
@@ -447,6 +483,31 @@ const Chapelet = () => {
         </header>
 
         <main className="max-w-xl mx-auto px-4 py-10 space-y-4">
+          {(() => {
+            try {
+              const saved = localStorage.getItem('chapelet-state');
+              if (saved) {
+                const { setKey } = JSON.parse(saved);
+                const found = MYSTERY_SETS.find((s) => s.key === setKey);
+                if (found) return (
+                  <div className="rounded-xl border border-cathedral-gold/40 bg-cathedral-gold/10 p-4 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{t('chapelet.resumeTitle')}</p>
+                      <p className="text-xs text-muted-foreground">{found.label}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-cathedral-gold hover:bg-cathedral-gold/90 text-black font-bold rounded-lg shrink-0"
+                      onClick={() => { setMysterySet(found); setStep(JSON.parse(saved).step); }}
+                    >
+                      {t('chapelet.resume')}
+                    </Button>
+                  </div>
+                );
+              }
+            } catch {}
+            return null;
+          })()}
           <h2 className="font-cinzel font-bold text-foreground text-base">{t('chapelet.chooseSet')}</h2>
           {MYSTERY_SETS.map((ms) => (
             <button

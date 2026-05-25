@@ -15,7 +15,12 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = join(__dirname, '../public/audio/chapelet');
+
+// Accept --out <path> so the script can run from any working directory
+const outArgIdx = process.argv.indexOf('--out');
+const OUT_DIR = outArgIdx !== -1
+  ? process.argv[outArgIdx + 1]
+  : join(__dirname, '../public/audio/chapelet');
 
 if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
 

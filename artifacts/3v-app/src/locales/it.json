@@ -1246,7 +1246,9 @@
     "done": "Rosario completato!",
     "doneDesc": "Che la Vergine Maria interceda per voi e per tutti coloro per cui avete pregato.",
     "doneVerse": "« Ave Maria, piena di grazia »",
-    "newChapelet": "Nuovo rosario"
+    "newChapelet": "Nuovo rosario",
+    "resumeTitle": "Sessione in corso",
+    "resume": "Riprendi"
   },
   "dailyPrayer": {
     "title": "Preghiera del Giorno",

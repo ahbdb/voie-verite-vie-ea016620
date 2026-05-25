@@ -1244,7 +1244,9 @@
     "done": "Chapelet terminé !",
     "doneDesc": "Que la Vierge Marie intercède pour vous et pour tous ceux pour qui vous avez prié.",
     "doneVerse": "« Je vous salue, Marie, pleine de grâce »",
-    "newChapelet": "Nouveau chapelet"
+    "newChapelet": "Nouveau chapelet",
+    "resumeTitle": "Session en cours",
+    "resume": "Reprendre"
   },
   "dailyPrayer": {
     "title": "Prière du Jour",

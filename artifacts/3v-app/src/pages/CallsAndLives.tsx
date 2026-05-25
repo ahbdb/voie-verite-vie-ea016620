@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -6,7 +6,6 @@ import Navigation from '@/components/Navigation';
 import { supabase } from '@/integrations/supabase/client';
 import { useAdmin } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,44 +13,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { format, isToday, differenceInMinutes, differenceInSeconds } from 'date-fns';
+import { format, differenceInSeconds, differenceInMinutes, isToday } from 'date-fns';
 import { fr, enUS, it } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { sendCallJoinNotification } from '@/lib/notification-service';
 import { useCallSession } from '@/contexts/CallSessionContext';
-
-const buildShareUrl = (session: ScheduledSession) => {
-  const base = 'https://voie-verite-vie.netlify.app/calls-lives';
-  const params = new URLSearchParams({
-    session: session.id,
-    title: session.title,
-    date: session.scheduled_date,
-    time: session.scheduled_time,
-    type: session.session_type,
-  });
-  return `${base}?${params.toString()}`;
-};
-
-const formatGmtTime = (timeStr: string) => {
-  if (!timeStr) return '';
-  const [h, m] = timeStr.split(':');
-  return `${h}:${m} GMT`;
-};
-
 import {
   Radio, Video, Mic, Calendar as CalendarIcon, Clock, Users, Play,
-  Bell, Share2, Download, Trash2, Plus, Eye,
-  Loader2, Sparkles, Crown, X,
-  BookOpen, ChevronDown, ChevronUp, TrendingUp, Activity,
+  Bell, Share2, Download, Trash2, Plus, Eye, Loader2, Crown, X,
+  BookOpen, ChevronDown, ChevronUp, Phone, PhoneCall, Link2,
+  Settings2, Activity, TrendingUp,
 } from 'lucide-react';
 
-const EMOJI_REACTIONS = ['👏', '🙏', '❤️', '🔥', '😂', '🕊️'];
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ScheduledSession {
   id: string;
@@ -76,123 +57,100 @@ interface ScheduledSession {
   created_at: string;
 }
 
-/* ─── Countdown timer ─── */
-const CountdownTimer = ({ targetDate, targetTime }: { targetDate: string; targetTime: string }) => {
-  const [secsLeft, setSecsLeft] = useState(0);
+const EMOJI_REACTIONS = ['🙏', '❤️', '🔥', '👏', '😂', '🕊️'];
 
+const ASSOCIATED_TEXT_SOURCES = [
+  { value: 'liturgy', label: '📖 Textes liturgiques du jour', href: '/messe-office' },
+  { value: 'biblical', label: '📚 Lecture biblique annuelle', href: '/biblical-reading' },
+  { value: 'novena', label: '🕯️ Neuvaine du moment', href: '/neuvaines' },
+  { value: 'careme', label: '✝️ Réflexion du Carême', href: '/careme' },
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getTypeConfig(type: string) {
+  switch (type) {
+    case 'audio': return { label: 'Audio', emoji: '🎙️', icon: <Mic className="h-full w-full" />, color: 'text-violet-400', bg: 'bg-violet-500/15', border: 'border-violet-500/30', glow: 'shadow-violet-500/20' };
+    case 'live':  return { label: 'Live',  emoji: '🔴',  icon: <Radio className="h-full w-full" />, color: 'text-red-400',    bg: 'bg-red-500/15',    border: 'border-red-500/30',    glow: 'shadow-red-500/20' };
+    default:      return { label: 'Vidéo', emoji: '📹',  icon: <Video className="h-full w-full" />, color: 'text-blue-400',   bg: 'bg-blue-500/15',   border: 'border-blue-500/30',   glow: 'shadow-blue-500/20' };
+  }
+}
+
+function fmtTime(timeStr: string) {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':');
+  return `${h}:${m} GMT`;
+}
+
+function buildShareUrl(s: ScheduledSession) {
+  const p = new URLSearchParams({ session: s.id, title: s.title, date: s.scheduled_date, time: s.scheduled_time, type: s.session_type });
+  return `https://voie-verite-vie.netlify.app/calls-lives?${p}`;
+}
+
+// ── Countdown ─────────────────────────────────────────────────────────────────
+
+const Countdown = ({ targetDate, targetTime }: { targetDate: string; targetTime: string }) => {
+  const [secs, setSecs] = useState(0);
   useEffect(() => {
-    const calc = () => {
-      const target = new Date(`${targetDate}T${targetTime}`);
-      setSecsLeft(Math.max(0, differenceInSeconds(target, new Date())));
-    };
+    const calc = () => setSecs(Math.max(0, differenceInSeconds(new Date(`${targetDate}T${targetTime}`), new Date())));
     calc();
     const id = setInterval(calc, 1000);
     return () => clearInterval(id);
   }, [targetDate, targetTime]);
-
-  if (secsLeft <= 0) return null;
-
-  const h = Math.floor(secsLeft / 3600);
-  const m = Math.floor((secsLeft % 3600) / 60);
-  const s = secsLeft % 60;
-
+  if (secs <= 0) return null;
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
   return (
-    <div className="inline-flex items-center gap-1 font-mono text-xs font-bold tabular-nums">
-      {h > 0 && (
-        <>
-          <span className="px-1.5 py-0.5 rounded bg-muted/80">{String(h).padStart(2, '0')}</span>
-          <span className="text-muted-foreground">h</span>
-        </>
-      )}
-      <span className="px-1.5 py-0.5 rounded bg-muted/80">{String(m).padStart(2, '0')}</span>
-      <span className="text-muted-foreground">m</span>
-      <span className="px-1.5 py-0.5 rounded bg-muted/80">{String(s).padStart(2, '0')}</span>
-      <span className="text-muted-foreground">s</span>
-    </div>
+    <span className="inline-flex items-center gap-0.5 font-mono text-xs font-bold tabular-nums text-cathedral-gold">
+      {h > 0 && <><span>{String(h).padStart(2,'0')}</span><span className="opacity-50">h</span></>}
+      <span>{String(m).padStart(2,'0')}</span><span className="opacity-50">m</span>
+      <span>{String(s).padStart(2,'0')}</span><span className="opacity-50">s</span>
+    </span>
   );
 };
 
-/* ─── Session type helpers ─── */
-function getTypeConfig(type: string) {
-  switch (type) {
-    case 'audio': return {
-      label: 'Audio', emoji: '🎙️',
-      iconEl: <Mic className="h-full w-full" />,
-      colorClass: 'text-violet-400',
-      bgClass: 'bg-violet-500/15',
-      borderClass: 'border-violet-500/30',
-      gradientClass: 'from-violet-500/10 to-transparent',
-      glowClass: 'shadow-violet-500/20',
-    };
-    case 'live': return {
-      label: 'Live', emoji: '🔴',
-      iconEl: <Radio className="h-full w-full" />,
-      colorClass: 'text-red-400',
-      bgClass: 'bg-red-500/15',
-      borderClass: 'border-red-500/30',
-      gradientClass: 'from-red-500/10 to-transparent',
-      glowClass: 'shadow-red-500/20',
-    };
-    default: return {
-      label: 'Vidéo', emoji: '📹',
-      iconEl: <Video className="h-full w-full" />,
-      colorClass: 'text-blue-400',
-      bgClass: 'bg-blue-500/15',
-      borderClass: 'border-blue-500/30',
-      gradientClass: 'from-blue-500/10 to-transparent',
-      glowClass: 'shadow-blue-500/20',
-    };
-  }
-}
+// ── Main component ────────────────────────────────────────────────────────────
 
 const CallsAndLives = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { isAdmin } = useAdmin();
   const { user } = useAuth();
+  const { primeAudioPlayback } = useCallSession();
   const [sessions, setSessions] = useState<ScheduledSession[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('live');
-  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [myReminders, setMyReminders] = useState<Set<string>>(new Set());
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
+  const [startingType, setStartingType] = useState<string | null>(null);
+  const [floatingEmojis, setFloatingEmojis] = useState<{id:number;emoji:string;x:number}[]>([]);
+  const [sessionToEnd, setSessionToEnd] = useState<ScheduledSession | null>(null);
 
   const dateLocale = i18n.language === 'fr' ? fr : i18n.language === 'it' ? it : enUS;
+
+  const liveSessions    = useMemo(() => sessions.filter(s => s.status === 'live'), [sessions]);
+  const upcoming        = useMemo(() => sessions.filter(s => s.status === 'scheduled').sort((a,b) => `${a.scheduled_date}${a.scheduled_time}`.localeCompare(`${b.scheduled_date}${b.scheduled_time}`)), [sessions]);
+  const recordings      = useMemo(() => sessions.filter(s => s.status === 'ended'), [sessions]);
 
   useEffect(() => {
     fetchSessions();
     if (user) fetchReminders();
-
-    const channel = supabase
-      .channel('scheduled-sessions-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'scheduled_sessions' }, () => {
-        fetchSessions();
-      })
+    const channel = supabase.channel('calls-lives-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'scheduled_sessions' }, fetchSessions)
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   const fetchSessions = async () => {
-    const { data, error } = await supabase
-      .from('scheduled_sessions' as any)
-      .select('*')
-      .order('scheduled_date', { ascending: true });
+    const { data, error } = await supabase.from('scheduled_sessions' as any).select('*').order('scheduled_date', { ascending: true });
     if (!error && data) setSessions(data as any);
     setLoading(false);
   };
 
   const fetchReminders = async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('session_reminders' as any)
-      .select('session_id')
-      .eq('user_id', user.id);
+    const { data } = await supabase.from('session_reminders' as any).select('session_id').eq('user_id', user.id);
     if (data) setMyReminders(new Set((data as any[]).map((r: any) => r.session_id)));
   };
-
-  const liveSessions = useMemo(() => sessions.filter(s => s.status === 'live'), [sessions]);
-  const scheduledSessions = useMemo(() => sessions.filter(s => s.status === 'scheduled'), [sessions]);
-  const endedSessions = useMemo(() => sessions.filter(s => s.status === 'ended'), [sessions]);
 
   const toggleReminder = async (sessionId: string) => {
     if (!user) { toast.error(t('calls.loginRequired')); return; }
@@ -207,30 +165,14 @@ const CallsAndLives = () => {
     }
   };
 
-  const copyShareLink = async (session: ScheduledSession) => {
+  const shareSession = async (session: ScheduledSession) => {
     const link = buildShareUrl(session);
-    const statusEmoji = session.status === 'live' ? '🔴 EN DIRECT' : '📅';
-    const text = `${statusEmoji} ${session.title}\n${formatScheduledFull(session)}\n\n${link}`;
     if (navigator.share) {
-      try {
-        await navigator.share({ title: session.title, text, url: link });
-        return;
-      } catch { /* fall through */ }
+      try { await navigator.share({ title: session.title, url: link }); return; } catch {}
     }
-    try {
-      await navigator.clipboard.writeText(link);
-      toast.success(t('calls.linkCopied'));
-    } catch {
-      toast.error(t('common.error'));
-    }
+    await navigator.clipboard.writeText(link).catch(() => {});
+    toast.success(t('calls.linkCopied'));
   };
-
-  const formatScheduledFull = (session: ScheduledSession) => {
-    const d = new Date(`${session.scheduled_date}T${session.scheduled_time}`);
-    return `${format(d, 'PPP', { locale: dateLocale })} • ${formatGmtTime(session.scheduled_time)}`;
-  };
-
-  const { primeAudioPlayback } = useCallSession();
 
   const joinSession = (session: ScheduledSession) => {
     if (session.video_room_id) {
@@ -239,6 +181,61 @@ const CallsAndLives = () => {
     } else {
       toast.info(t('calls.sessionNotStarted'));
     }
+  };
+
+  const startQuickCall = async (type: 'audio' | 'video' | 'live') => {
+    if (!user) { toast.error(t('calls.loginRequired')); return; }
+    setStartingType(type);
+    try {
+      const title = type === 'audio' ? t('calls.quickAudioCall') : type === 'video' ? t('calls.quickVideoCall') : t('calls.quickLiveStream');
+      const { data: room, error: roomErr } = await supabase.from('video_rooms').insert({
+        title, room_type: type === 'live' ? 'broadcast' : type, status: 'active',
+        created_by: user.id, started_at: new Date().toISOString(),
+      }).select('id').single();
+      if (roomErr) throw roomErr;
+
+      if (isAdmin) {
+        await supabase.from('scheduled_sessions' as any).insert({
+          title, session_type: type,
+          scheduled_date: format(new Date(), 'yyyy-MM-dd'),
+          scheduled_time: format(new Date(), 'HH:mm:ss'),
+          estimated_duration: 60, access_type: 'open', recurrence: 'once',
+          status: 'live', created_by: user.id, video_room_id: room.id,
+        } as any);
+        fetchSessions();
+      }
+
+      sendCallJoinNotification(title, room.id, user.name ?? user.email ?? undefined).catch(() => {});
+      toast.success(t('calls.sessionStarted'));
+      primeAudioPlayback();
+      navigate(`/meeting/${room.id}`);
+    } catch (e: any) {
+      toast.error(t('common.error'));
+    } finally {
+      setStartingType(null);
+    }
+  };
+
+  const joinByCode = () => {
+    const code = joinCode.trim();
+    if (!code) return;
+    primeAudioPlayback();
+    navigate(`/meeting/${code}`);
+  };
+
+  const sendReaction = (emoji: string) => {
+    const id = Date.now();
+    setFloatingEmojis(prev => [...prev, { id, emoji, x: 10 + Math.random() * 80 }]);
+    setTimeout(() => setFloatingEmojis(prev => prev.filter(e => e.id !== id)), 2200);
+  };
+
+  const endSession = async (session: ScheduledSession) => {
+    await supabase.from('scheduled_sessions' as any).update({ status: 'ended' } as any).eq('id', session.id);
+    if (session.video_room_id) {
+      await supabase.from('video_rooms').update({ status: 'ended', ended_at: new Date().toISOString() }).eq('id', session.video_room_id);
+    }
+    toast.success(t('calls.sessionEnded'));
+    fetchSessions();
   };
 
   return (
@@ -250,116 +247,368 @@ const CallsAndLives = () => {
       <Navigation />
 
       {/* ── Hero ── */}
-      <header className="relative overflow-hidden border-b border-cathedral-gold/20 bg-gradient-cathedral">
-        <div className="absolute inset-0 bg-gradient-stained opacity-60 pointer-events-none" />
-        <div className="absolute inset-0 stained-shimmer opacity-40 pointer-events-none" />
-
-        {/* Decorative circles */}
-        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-12 -left-12 h-48 w-48 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-
-        <div className="relative container mx-auto px-4 pt-28 pb-10 max-w-5xl text-center">
+      <header className="relative overflow-hidden border-b border-cathedral-gold/20 bg-gradient-cathedral pt-28 pb-10 px-4">
+        <div className="absolute inset-0 bg-gradient-stained opacity-50 pointer-events-none" />
+        <div className="relative max-w-3xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cathedral-gold/40 bg-background/10 backdrop-blur-sm mb-5">
-            <Sparkles className="h-3.5 w-3.5 text-cathedral-gold" />
-            <span className="text-xs uppercase tracking-[0.2em] text-cathedral-gold font-medium">
-              {t('calls.heroBadge', 'Communauté en direct')}
-            </span>
+            <PhoneCall className="h-3.5 w-3.5 text-cathedral-gold" />
+            <span className="text-xs uppercase tracking-[0.2em] text-cathedral-gold font-medium">{t('calls.heroBadge', 'Communauté en direct')}</span>
           </div>
-
-          <h1 className="font-cinzel text-4xl sm:text-5xl md:text-6xl font-bold text-white tracking-tight drop-shadow-lg">
-            {t('calls.pageTitle')}
-          </h1>
-          <div className="cathedral-line w-32 h-px mx-auto my-5" />
-          <p className="text-white/70 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
-            {t('calls.pageDescription')}
-          </p>
-
-          {/* Live badge */}
+          <h1 className="font-cinzel text-4xl sm:text-5xl font-bold text-white mb-3">{t('calls.pageTitle')}</h1>
+          <div className="cathedral-line w-24 h-px mx-auto my-4" />
+          <p className="text-white/70 text-sm sm:text-base max-w-xl mx-auto">{t('calls.pageDescription')}</p>
           {liveSessions.length > 0 && (
-            <div className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-accent/90 text-accent-foreground shadow-[0_0_40px_hsl(var(--accent)/0.6)] animate-pulse">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
-              </span>
-              <span className="text-xs font-bold uppercase tracking-widest">
-                {liveSessions.length} {t('calls.liveNow')}
-              </span>
-            </div>
-          )}
-
-          {/* Stats strip */}
-          {!loading && (
-            <div className="mt-8 flex items-center justify-center gap-3 flex-wrap">
-              {[
-                { icon: <Radio className="h-3.5 w-3.5" />, count: liveSessions.length, label: 'En direct' },
-                { icon: <CalendarIcon className="h-3.5 w-3.5" />, count: scheduledSessions.length, label: 'Planifiés' },
-                { icon: <Play className="h-3.5 w-3.5" />, count: endedSessions.length, label: 'Enregistrements' },
-              ].map(({ icon, count, label }) => (
-                <div key={label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white/80 text-xs">
-                  {icon}
-                  <span className="font-bold text-white">{count}</span>
-                  <span>{label}</span>
-                </div>
-              ))}
+            <div className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-red-500/90 text-white shadow-[0_0_40px_rgba(239,68,68,0.5)] animate-pulse">
+              <span className="relative flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"/><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"/></span>
+              <span className="text-xs font-black uppercase tracking-widest">{liveSessions.length} {t('calls.liveNow')}</span>
             </div>
           )}
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-10 max-w-5xl">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className={cn(
-            "w-full h-auto grid gap-1.5 bg-muted/40 p-1.5 rounded-xl border border-border/60",
-            isAdmin ? "grid-cols-4" : "grid-cols-3"
-          )}>
-            <TabsTrigger value="live" className="flex items-center gap-2 text-xs sm:text-sm py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary rounded-lg transition-all">
-              <Radio className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{t('calls.tabs.live')}</span>
-              <span className="sm:hidden">Live</span>
-              {liveSessions.length > 0 && (
-                <span className="relative flex h-2 w-2 ml-0.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="scheduled" className="flex items-center gap-2 text-xs sm:text-sm py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary rounded-lg transition-all">
-              <CalendarIcon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{t('calls.tabs.scheduled')}</span>
-              <span className="sm:hidden">{t('calls.tabs.scheduledShort')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="recordings" className="flex items-center gap-2 text-xs sm:text-sm py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary rounded-lg transition-all">
-              <Play className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{t('calls.tabs.recordings')}</span>
-              <span className="sm:hidden">{t('calls.tabs.recordingsShort')}</span>
-            </TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger value="admin" className="flex items-center gap-2 text-xs sm:text-sm py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:text-primary rounded-lg transition-all">
-                <Crown className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{t('calls.tabs.admin')}</span>
-                <span className="sm:hidden">Admin</span>
-              </TabsTrigger>
+      <main className="max-w-3xl mx-auto px-4 py-8 space-y-10">
+
+        {/* ── Quick actions ── */}
+        <section>
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em] mb-4">{t('calls.quickStart', 'Démarrer')}</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {/* Audio */}
+            <button onClick={() => startQuickCall('audio')} disabled={!!startingType} className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/15 hover:border-violet-500/60 transition-all active:scale-[0.97] disabled:opacity-60">
+              {startingType === 'audio' ? <Loader2 className="h-7 w-7 text-violet-400 animate-spin" /> : <Mic className="h-7 w-7 text-violet-400 group-hover:scale-110 transition-transform" />}
+              <span className="text-xs font-semibold text-foreground">{t('calls.startAudio')}</span>
+            </button>
+            {/* Video */}
+            <button onClick={() => startQuickCall('video')} disabled={!!startingType} className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/15 hover:border-blue-500/60 transition-all active:scale-[0.97] disabled:opacity-60">
+              {startingType === 'video' ? <Loader2 className="h-7 w-7 text-blue-400 animate-spin" /> : <Video className="h-7 w-7 text-blue-400 group-hover:scale-110 transition-transform" />}
+              <span className="text-xs font-semibold text-foreground">{t('calls.startVideo')}</span>
+            </button>
+            {/* Join by code */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <button className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 hover:border-emerald-500/60 transition-all active:scale-[0.97]">
+                  <Link2 className="h-7 w-7 text-emerald-400 group-hover:scale-110 transition-transform" />
+                  <span className="text-xs font-semibold text-foreground">{t('calls.joinByCode', 'Rejoindre')}</span>
+                </button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="rounded-t-3xl pb-10">
+                <SheetHeader className="mb-5">
+                  <SheetTitle className="font-cinzel text-xl">{t('calls.joinByCode', 'Rejoindre un appel')}</SheetTitle>
+                </SheetHeader>
+                <div className="flex gap-2 max-w-sm mx-auto">
+                  <Input
+                    placeholder={t('calls.roomCodePlaceholder', 'Code ou lien de la réunion')}
+                    value={joinCode}
+                    onChange={e => setJoinCode(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && joinByCode()}
+                    className="rounded-xl text-base h-12"
+                  />
+                  <Button onClick={joinByCode} disabled={!joinCode.trim()} className="rounded-xl h-12 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                    {t('calls.join', 'Rejoindre')}
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+            {/* Schedule (admin) or live (admin) */}
+            {isAdmin ? (
+              <button onClick={() => startQuickCall('live')} disabled={!!startingType} className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-red-500/40 bg-red-500/5 hover:bg-red-500/15 hover:border-red-500/60 transition-all active:scale-[0.97] disabled:opacity-60">
+                {startingType === 'live' ? <Loader2 className="h-7 w-7 text-red-400 animate-spin" /> : <Radio className="h-7 w-7 text-red-400 group-hover:scale-110 transition-transform" />}
+                <span className="text-xs font-semibold text-foreground">{t('calls.startLive')}</span>
+              </button>
+            ) : (
+              <button onClick={() => user ? setShowScheduleDialog(true) : toast.error(t('calls.loginRequired'))} className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-cathedral-gold/30 bg-cathedral-gold/5 hover:bg-cathedral-gold/15 hover:border-cathedral-gold/60 transition-all active:scale-[0.97]">
+                <CalendarIcon className="h-7 w-7 text-cathedral-gold group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-semibold text-foreground">{t('calls.scheduleNew')}</span>
+              </button>
             )}
-          </TabsList>
-
-          <TabsContent value="live" className="mt-6">
-            <LiveNowTab sessions={liveSessions} isAdmin={isAdmin} onJoin={joinSession} onRefresh={fetchSessions} t={t} dateLocale={dateLocale} />
-          </TabsContent>
-
-          <TabsContent value="scheduled" className="mt-6">
-            <ScheduledTab sessions={scheduledSessions} isAdmin={isAdmin} myReminders={myReminders} onToggleReminder={toggleReminder} onCopyLink={copyShareLink} onJoin={joinSession} onScheduleNew={() => setShowScheduleDialog(true)} t={t} dateLocale={dateLocale} />
-          </TabsContent>
-
-          <TabsContent value="recordings" className="mt-6">
-            <RecordingsTab sessions={endedSessions} isAdmin={isAdmin} t={t} dateLocale={dateLocale} onRefresh={fetchSessions} />
-          </TabsContent>
-
+          </div>
           {isAdmin && (
-            <TabsContent value="admin" className="mt-6">
-              <AdminControlTab sessions={sessions} onRefresh={fetchSessions} t={t} />
-            </TabsContent>
+            <button onClick={() => setShowScheduleDialog(true)} className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/50 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <Plus className="h-4 w-4" /> {t('calls.scheduleNew')}
+            </button>
           )}
-        </Tabs>
+        </section>
+
+        {/* ── Live now ── */}
+        {liveSessions.length > 0 && (
+          <section>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+              <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"/><span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"/></span>
+              {t('calls.liveNow')}
+            </h2>
+
+            <AlertDialog open={!!sessionToEnd} onOpenChange={open => !open && setSessionToEnd(null)}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Terminer la session ?</AlertDialogTitle>
+                  <AlertDialogDescription>La session « {sessionToEnd?.title} » sera terminée et les participants déconnectés.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => { if (sessionToEnd) { endSession(sessionToEnd); setSessionToEnd(null); } }} className="bg-red-600 hover:bg-red-700 text-white">Terminer</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <div className="space-y-4">
+              {liveSessions.map(session => {
+                const cfg = getTypeConfig(session.session_type);
+                return (
+                  <div key={session.id} className="relative overflow-hidden rounded-2xl border border-red-500/40 bg-gradient-to-br from-red-500/8 via-card to-background shadow-[0_0_50px_-15px_rgba(239,68,68,0.4)]">
+                    {/* Floating emojis */}
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
+                      {floatingEmojis.map(e => (
+                        <span key={e.id} className="absolute text-3xl" style={{ left:`${e.x}%`, bottom:0, animation:'floatUp 2.2s ease-out forwards' }}>{e.emoji}</span>
+                      ))}
+                    </div>
+                    {/* Banner */}
+                    <div className="flex items-center gap-3 px-5 py-3 bg-red-500/90 text-white">
+                      <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"/><span className="relative inline-flex rounded-full h-3 w-3 bg-white"/></span>
+                      <span className="font-black text-sm uppercase tracking-widest">EN DIRECT</span>
+                      <span className="ml-auto flex items-center gap-1.5 text-sm font-bold bg-white/20 px-3 py-1 rounded-full">
+                        <Eye className="h-3.5 w-3.5"/> {session.viewer_count || 0}
+                      </span>
+                    </div>
+                    <div className="p-5 sm:p-6">
+                      <span className={cn("inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium mb-3", cfg.bg, cfg.color, cfg.border)}>
+                        <span className="h-3 w-3">{cfg.icon}</span>{cfg.label}
+                      </span>
+                      <h3 className="font-cinzel text-xl sm:text-2xl font-bold text-foreground mb-1">{session.title}</h3>
+                      {session.description && <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{session.description}</p>}
+
+                      <Button size="lg" onClick={() => joinSession(session)} className="w-full rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-base py-5 mb-4 shadow-[0_6px_25px_rgba(239,68,68,0.4)] hover:shadow-[0_8px_30px_rgba(239,68,68,0.5)] transition-all">
+                        <Phone className="h-5 w-5 mr-2 fill-white" /> Rejoindre maintenant
+                      </Button>
+
+                      {/* Reactions */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {EMOJI_REACTIONS.map(emoji => (
+                          <button key={emoji} onClick={() => sendReaction(emoji)} className="text-xl p-2 rounded-full hover:bg-muted/70 transition-transform hover:scale-125 active:scale-90">{emoji}</button>
+                        ))}
+                      </div>
+
+                      {/* Admin controls */}
+                      {isAdmin && (
+                        <div className="mt-4 pt-4 border-t border-border/50 flex gap-2 flex-wrap">
+                          <Button size="sm" variant="destructive" onClick={() => setSessionToEnd(session)} className="rounded-lg gap-1.5">
+                            <X className="h-3.5 w-3.5" /> Terminer
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => shareSession(session)} className="rounded-lg gap-1.5">
+                            <Share2 className="h-3.5 w-3.5" /> Partager
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ── Upcoming ── */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em]">{t('calls.tabs.scheduled')} · {upcoming.length}</h2>
+            {isAdmin && (
+              <Button size="sm" onClick={() => setShowScheduleDialog(true)} className="rounded-xl bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 gap-1.5 font-semibold">
+                <Plus className="h-3.5 w-3.5" /> {t('calls.scheduleNew')}
+              </Button>
+            )}
+          </div>
+
+          {upcoming.length === 0 ? (
+            <div className="text-center py-14 rounded-2xl border border-border/50 bg-muted/20">
+              <CalendarIcon className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">{t('calls.noScheduled')}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {upcoming.map(session => {
+                const dt = new Date(`${session.scheduled_date}T${session.scheduled_time}`);
+                const mins = differenceInMinutes(dt, new Date());
+                const soon = mins > 0 && mins <= 60;
+                const now  = mins <= 5 && mins >= -5;
+                const cfg  = getTypeConfig(session.session_type);
+                return (
+                  <div key={session.id} className={cn(
+                    "relative rounded-2xl border overflow-hidden transition-all group",
+                    now  ? "border-red-500/50 bg-red-500/5 shadow-[0_0_20px_-5px_rgba(239,68,68,0.3)]" :
+                    soon ? "border-cathedral-gold/40 bg-cathedral-gold/5" :
+                           "border-border/60 bg-card hover:border-primary/30"
+                  )}>
+                    {/* Left accent */}
+                    <div className={cn("absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl", cfg.bg)} />
+
+                    <div className="pl-5 pr-4 py-4 sm:py-5">
+                      <div className="flex items-start gap-3">
+                        {/* Date block */}
+                        <div className="hidden sm:flex flex-col items-center justify-center shrink-0 w-12 h-12 rounded-xl border border-border/60 bg-muted/40">
+                          <span className="text-lg font-black font-cinzel text-foreground leading-none">{format(new Date(session.scheduled_date), 'd')}</span>
+                          <span className="text-[9px] uppercase tracking-wider text-muted-foreground">{format(new Date(session.scheduled_date), 'MMM', { locale: dateLocale })}</span>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          {/* Badges */}
+                          <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                            {now && <Badge className="bg-red-500 text-white text-[10px] animate-pulse">Commence maintenant</Badge>}
+                            {soon && !now && <Badge variant="outline" className="border-cathedral-gold/50 text-cathedral-gold bg-cathedral-gold/10 text-[10px] gap-1"><Countdown targetDate={session.scheduled_date} targetTime={session.scheduled_time}/></Badge>}
+                            {isToday(new Date(session.scheduled_date)) && !soon && !now && <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Aujourd'hui</Badge>}
+                            <span className={cn("inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium", cfg.bg, cfg.color, cfg.border)}>
+                              <span className="h-2.5 w-2.5">{cfg.icon}</span>{cfg.label}
+                            </span>
+                          </div>
+
+                          <h3 className="font-cinzel font-bold text-foreground text-base leading-snug truncate">{session.title}</h3>
+
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+                            <span className="flex items-center gap-1"><Clock className="h-3 w-3"/>{fmtTime(session.scheduled_time)}</span>
+                            {session.estimated_duration && <span>⏱ {session.estimated_duration} min</span>}
+                            {session.recurrence !== 'once' && <span>🔁 {t(`calls.recurrence.${session.recurrence}`)}</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/40 flex-wrap">
+                        {now ? (
+                          <Button size="sm" onClick={() => joinSession(session)} className="rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold gap-1.5">
+                            <Phone className="h-3.5 w-3.5 fill-white" /> Rejoindre
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant={myReminders.has(session.id) ? "secondary" : "outline"} onClick={() => toggleReminder(session.id)} className="rounded-lg gap-1.5">
+                            <Bell className={cn("h-3.5 w-3.5", myReminders.has(session.id) && "fill-current")} />
+                            {myReminders.has(session.id) ? t('calls.reminded') : t('calls.remindMe')}
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => shareSession(session)} className="rounded-lg gap-1.5">
+                          <Share2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => {
+                          const start = `${session.scheduled_date.replace(/-/g,'')}T${session.scheduled_time.replace(/:/g,'').slice(0,6)}Z`;
+                          const end = new Date(`${session.scheduled_date}T${session.scheduled_time}Z`);
+                          end.setMinutes(end.getMinutes() + (session.estimated_duration || 60));
+                          const endStr = end.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+                          window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(session.title)}&dates=${start}/${endStr}`, '_blank');
+                        }}>
+                          <CalendarIcon className="h-3.5 w-3.5" />
+                        </Button>
+                        {isAdmin && (
+                          <Button size="sm" variant="ghost" className="rounded-lg text-destructive ml-auto" onClick={async () => {
+                            await supabase.from('scheduled_sessions' as any).delete().eq('id', session.id);
+                            fetchSessions();
+                            toast.success(t('calls.sessionDeleted'));
+                          }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* ── Recordings ── */}
+        {recordings.length > 0 && (
+          <section>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em] mb-4">{t('calls.tabs.recordings')} · {recordings.length}</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {recordings.map(session => {
+                const cfg = getTypeConfig(session.session_type);
+                return (
+                  <div key={session.id} className="group rounded-2xl border border-border/60 bg-card overflow-hidden hover:border-primary/30 hover:shadow-[0_8px_30px_-10px_hsl(var(--primary)/0.2)] transition-all">
+                    {/* Thumbnail */}
+                    <div className="aspect-video relative overflow-hidden bg-muted">
+                      {session.thumbnail_url ? (
+                        <img src={session.thumbnail_url} alt={session.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                      ) : (
+                        <div className={cn("w-full h-full flex items-center justify-center", cfg.bg)}>
+                          <span className={cn("h-10 w-10", cfg.color)}>{cfg.icon}</span>
+                        </div>
+                      )}
+                      {session.estimated_duration && (
+                        <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-0.5 rounded font-bold">
+                          {session.estimated_duration} min
+                        </div>
+                      )}
+                      {session.recording_url && (
+                        <a href={session.recording_url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <div className="h-14 w-14 rounded-full bg-primary/95 flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+                            <Play className="h-6 w-6 text-white ml-0.5" fill="currentColor" />
+                          </div>
+                        </a>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-cinzel font-bold text-foreground text-sm mb-1 line-clamp-1">{session.title}</h3>
+                      <p className="text-xs text-muted-foreground mb-3 flex items-center gap-2">
+                        <CalendarIcon className="h-3 w-3"/>
+                        {format(new Date(session.scheduled_date), 'PP', { locale: dateLocale })}
+                        <Eye className="h-3 w-3 ml-1"/> {session.viewer_count || 0}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {session.recording_url ? (
+                          <>
+                            <Button size="sm" variant="outline" className="rounded-lg flex-1" asChild>
+                              <a href={session.recording_url} target="_blank" rel="noopener noreferrer"><Play className="h-3.5 w-3.5 mr-1.5" /> Regarder</a>
+                            </Button>
+                            <Button size="sm" variant="ghost" className="rounded-lg" asChild>
+                              <a href={session.recording_url} download><Download className="h-3.5 w-3.5" /></a>
+                            </Button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Pas d'enregistrement</span>
+                        )}
+                        {isAdmin && (
+                          <Button size="sm" variant="ghost" className="rounded-lg text-destructive ml-auto" onClick={async () => {
+                            await supabase.from('scheduled_sessions' as any).delete().eq('id', session.id);
+                            fetchSessions();
+                          }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ── Admin stats panel ── */}
+        {isAdmin && sessions.length > 0 && (
+          <section className="rounded-2xl border border-cathedral-gold/20 bg-cathedral-gold/5 p-5">
+            <h2 className="text-xs font-semibold text-cathedral-gold uppercase tracking-[0.2em] mb-4 flex items-center gap-1.5">
+              <Crown className="h-3.5 w-3.5" /> Tableau de bord admin
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              {[
+                { icon: <Activity className="h-4 w-4 text-blue-400"/>, value: sessions.length, label: 'Total sessions' },
+                { icon: <Radio className="h-4 w-4 text-red-400"/>,    value: liveSessions.length,  label: 'En direct' },
+                { icon: <CalendarIcon className="h-4 w-4 text-violet-400"/>, value: upcoming.length, label: 'Planifiées' },
+                { icon: <Users className="h-4 w-4 text-cathedral-gold"/>, value: sessions.reduce((s, r) => s + (r.viewer_count || 0), 0), label: 'Spectateurs total' },
+              ].map(({ icon, value, label }) => (
+                <div key={label} className="rounded-xl border border-border/50 bg-card p-4 text-center">
+                  <div className="flex justify-center mb-1">{icon}</div>
+                  <p className="font-cinzel text-2xl font-bold text-foreground">{value}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">{label}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Empty state */}
+        {!loading && sessions.length === 0 && liveSessions.length === 0 && upcoming.length === 0 && recordings.length === 0 && (
+          <div className="text-center py-20 px-4">
+            <Phone className="h-14 w-14 text-muted-foreground/30 mx-auto mb-4" />
+            <h3 className="font-cinzel text-xl font-semibold text-foreground mb-2">{t('calls.noLive')}</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto">{t('calls.noLiveDesc')}</p>
+          </div>
+        )}
       </main>
 
       <ScheduleSessionDialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog} onCreated={() => { fetchSessions(); setShowScheduleDialog(false); }} t={t} dateLocale={dateLocale} />
@@ -367,717 +616,7 @@ const CallsAndLives = () => {
   );
 };
 
-/* ════════════════════════════════════════════
-   LIVE NOW TAB
-════════════════════════════════════════════ */
-const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any) => {
-  const { user } = useAuth();
-  const [prayerCount, setPrayerCount] = useState(0);
-  const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number }[]>([]);
-  const [starting, setStarting] = useState(false);
-  const [sessionToEnd, setSessionToEnd] = useState<ScheduledSession | null>(null);
-
-  const sendReaction = (emoji: string) => {
-    const id = Date.now();
-    const x = 10 + Math.random() * 80;
-    setFloatingEmojis(prev => [...prev, { id, emoji, x }]);
-    if (emoji === '🙏') setPrayerCount(c => c + 1);
-    setTimeout(() => setFloatingEmojis(prev => prev.filter(e => e.id !== id)), 2000);
-  };
-
-  const startSession = async (type: 'audio' | 'video' | 'live') => {
-    if (!user) return;
-    setStarting(true);
-    try {
-      const { data: room, error: roomError } = await supabase
-        .from('video_rooms')
-        .insert({
-          title: type === 'audio' ? t('calls.quickAudioCall') : type === 'video' ? t('calls.quickVideoCall') : t('calls.quickLiveStream'),
-          room_type: type === 'live' ? 'broadcast' : type,
-          status: 'active',
-          created_by: user.id,
-          started_at: new Date().toISOString(),
-        })
-        .select('id')
-        .single();
-
-      if (roomError) throw roomError;
-
-      const { error: sessionError } = await supabase
-        .from('scheduled_sessions' as any)
-        .insert({
-          title: type === 'audio' ? t('calls.quickAudioCall') : type === 'video' ? t('calls.quickVideoCall') : t('calls.quickLiveStream'),
-          session_type: type,
-          scheduled_date: format(new Date(), 'yyyy-MM-dd'),
-          scheduled_time: format(new Date(), 'HH:mm:ss'),
-          estimated_duration: 60,
-          access_type: 'open',
-          recurrence: 'once',
-          status: 'live',
-          created_by: user.id,
-          video_room_id: room.id,
-        } as any);
-
-      if (sessionError) throw sessionError;
-
-      try {
-        const { data: created } = await (supabase as any)
-          .from('scheduled_sessions' as any)
-          .select('id')
-          .eq('video_room_id', room.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (created && (created as any).id) {
-          supabase.functions.invoke('notify-session', {
-            body: { session_id: (created as any).id, kind: 'live', target: 'all' },
-          }).catch((e) => console.warn('notify-session failed', e));
-        }
-      } catch (e) { console.warn(e); }
-
-      const sessionTitle = type === 'audio'
-        ? t('calls.quickAudioCall')
-        : type === 'video' ? t('calls.quickVideoCall') : t('calls.quickLiveStream');
-      sendCallJoinNotification(sessionTitle, room.id, user.name ?? user.email ?? undefined).catch(() => {});
-
-      toast.success(t('calls.sessionStarted'));
-      onRefresh();
-    } catch (err: any) {
-      console.error('Failed to start session:', err);
-      toast.error(t('common.error'));
-    } finally {
-      setStarting(false);
-    }
-  };
-
-  const endSession = async (session: ScheduledSession) => {
-    try {
-      await supabase.from('scheduled_sessions' as any).update({ status: 'ended' } as any).eq('id', session.id);
-      if (session.video_room_id) {
-        await supabase.from('video_rooms').update({ status: 'ended', ended_at: new Date().toISOString() }).eq('id', session.video_room_id);
-      }
-      toast.success(t('calls.sessionEnded'));
-      onRefresh();
-    } catch {
-      toast.error(t('common.error'));
-    }
-  };
-
-  return (
-    <>
-      <AlertDialog open={!!sessionToEnd} onOpenChange={(open) => !open && setSessionToEnd(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Terminer la session en direct ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              La session « {sessionToEnd?.title} » sera marquée comme terminée. Les participants seront déconnectés. Cette action est irréversible.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if (sessionToEnd) { void endSession(sessionToEnd); setSessionToEnd(null); } }} className="bg-red-600 hover:bg-red-700 text-white">
-              Terminer la session
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <div className="space-y-6">
-        {/* Admin: Start buttons */}
-        {isAdmin && sessions.length === 0 && (
-          <div className="relative overflow-hidden rounded-2xl border border-cathedral-gold/30 bg-gradient-to-br from-card via-card to-primary/5 p-8">
-            <div className="absolute -top-20 -right-20 h-48 w-48 rounded-full bg-primary/8 blur-3xl" />
-            <div className="absolute -bottom-20 -left-20 h-48 w-48 rounded-full bg-accent/8 blur-3xl" />
-
-            <div className="relative text-center mb-8">
-              <div className="mx-auto h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/30 flex items-center justify-center shadow-[0_0_30px_hsl(var(--primary)/0.25)] mb-4">
-                <Radio className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="font-cinzel text-2xl font-bold text-foreground mb-1">{t('calls.startNewSession')}</h3>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">{t('calls.startNewSessionDesc')}</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
-              {/* Audio */}
-              <button
-                onClick={() => startSession('audio')}
-                disabled={starting}
-                className="group relative overflow-hidden rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/10 to-transparent hover:from-violet-500/20 hover:border-violet-500/50 transition-all p-6 text-left disabled:opacity-50 hover:shadow-[0_8px_30px_rgba(139,92,246,0.2)]"
-              >
-                <div className="absolute top-0 right-0 w-20 h-20 rounded-full bg-violet-500/10 blur-2xl group-hover:bg-violet-500/20 transition-colors" />
-                <div className="relative">
-                  <div className="h-10 w-10 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Mic className="h-5 w-5 text-violet-400" />
-                  </div>
-                  <p className="font-bold text-foreground text-sm mb-1">{t('calls.startAudio')}</p>
-                  <p className="text-xs text-muted-foreground">{t('calls.type.audio')}</p>
-                </div>
-              </button>
-
-              {/* Video */}
-              <button
-                onClick={() => startSession('video')}
-                disabled={starting}
-                className="group relative overflow-hidden rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-transparent hover:from-blue-500/20 hover:border-blue-500/50 transition-all p-6 text-left disabled:opacity-50 hover:shadow-[0_8px_30px_rgba(59,130,246,0.2)]"
-              >
-                <div className="absolute top-0 right-0 w-20 h-20 rounded-full bg-blue-500/10 blur-2xl group-hover:bg-blue-500/20 transition-colors" />
-                <div className="relative">
-                  <div className="h-10 w-10 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Video className="h-5 w-5 text-blue-400" />
-                  </div>
-                  <p className="font-bold text-foreground text-sm mb-1">{t('calls.startVideo')}</p>
-                  <p className="text-xs text-muted-foreground">{t('calls.type.video')}</p>
-                </div>
-              </button>
-
-              {/* Live broadcast */}
-              <button
-                onClick={() => startSession('live')}
-                disabled={starting}
-                className="group relative overflow-hidden rounded-2xl border border-red-500/40 bg-gradient-to-br from-red-500/10 via-orange-500/5 to-transparent hover:from-red-500/20 hover:border-red-500/60 transition-all p-6 text-left disabled:opacity-50 hover:shadow-[0_8px_30px_rgba(239,68,68,0.25)]"
-              >
-                <div className="absolute top-0 right-0 w-20 h-20 rounded-full bg-red-500/15 blur-2xl group-hover:bg-red-500/25 transition-colors" />
-                <div className="relative">
-                  <div className="h-10 w-10 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Radio className="h-5 w-5 text-red-400" />
-                  </div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="font-bold text-foreground text-sm">{t('calls.startLive')}</p>
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{t('calls.type.live')}</p>
-                </div>
-              </button>
-            </div>
-
-            {starting && (
-              <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Démarrage en cours…
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* No live – non-admin */}
-        {!isAdmin && sessions.length === 0 && (
-          <div className="text-center py-20 px-4">
-            <div className="relative inline-flex mb-6">
-              <div className="absolute inset-0 rounded-full bg-red-500/10 blur-3xl" />
-              <div className="relative h-24 w-24 rounded-full border border-red-500/20 bg-gradient-to-br from-card to-red-500/5 flex items-center justify-center">
-                <Radio className="h-10 w-10 text-red-400/50" />
-              </div>
-            </div>
-            <h3 className="font-cinzel text-2xl font-semibold text-foreground mb-2">{t('calls.noLive')}</h3>
-            <p className="text-muted-foreground text-sm max-w-sm mx-auto leading-relaxed">{t('calls.noLiveDesc')}</p>
-            <div className="cathedral-line w-24 h-px mx-auto mt-6 opacity-50" />
-          </div>
-        )}
-
-        {/* Live session cards */}
-        {sessions.map((session: ScheduledSession) => (
-          <div key={session.id} className="relative overflow-hidden rounded-2xl border border-accent/50 bg-gradient-to-br from-accent/5 via-card to-background shadow-[0_0_60px_-20px_hsl(var(--accent)/0.5)]">
-            {/* Floating emojis */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
-              {floatingEmojis.map(e => (
-                <span key={e.id} className="absolute text-3xl" style={{ left: `${e.x}%`, bottom: 0, animation: 'floatUp 2s ease-out forwards' }}>
-                  {e.emoji}
-                </span>
-              ))}
-            </div>
-
-            {/* Live banner */}
-            <div className="relative flex items-center gap-3 px-5 py-3.5 bg-gradient-to-r from-accent via-accent/90 to-accent/80 text-accent-foreground">
-              <span className="relative flex h-3.5 w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-white" />
-              </span>
-              <span className="font-black text-sm uppercase tracking-[0.25em]">🔴 {t('calls.liveNow')}</span>
-              <div className="ml-auto flex items-center gap-3">
-                <span className="flex items-center gap-1.5 text-sm font-bold bg-white/20 px-2.5 py-1 rounded-full">
-                  <Eye className="h-3.5 w-3.5" /> {session.viewer_count || 0}
-                </span>
-              </div>
-            </div>
-
-            <div className="p-6 sm:p-8">
-              {/* Session type badge */}
-              <div className="flex items-center gap-2 mb-4">
-                {(() => {
-                  const cfg = getTypeConfig(session.session_type);
-                  return (
-                    <span className={cn("inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium", cfg.bgClass, cfg.colorClass, cfg.borderClass)}>
-                      <span className="h-3 w-3">{cfg.iconEl}</span>
-                      {cfg.label}
-                    </span>
-                  );
-                })()}
-                {session.estimated_duration && (
-                  <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-muted/60 text-muted-foreground">
-                    <Clock className="h-3 w-3" /> {session.estimated_duration} min
-                  </span>
-                )}
-              </div>
-
-              <h2 className="font-cinzel text-2xl sm:text-3xl font-bold text-foreground mb-2 leading-tight">{session.title}</h2>
-              {session.description && (
-                <p className="text-muted-foreground text-sm mb-6 leading-relaxed">{session.description}</p>
-              )}
-
-              {/* Join button */}
-              <Button
-                size="lg"
-                className="w-full bg-gradient-to-r from-primary to-primary-glow hover:opacity-90 text-primary-foreground font-bold text-base py-6 mb-6 shadow-[0_8px_30px_hsl(var(--primary)/0.35)] hover:shadow-[0_12px_40px_hsl(var(--primary)/0.5)] transition-all rounded-xl"
-                onClick={() => onJoin(session)}
-              >
-                ➡️ {t('calls.joinNow')}
-              </Button>
-
-              {/* Reactions strip */}
-              <div className="rounded-xl border border-border/50 bg-muted/20 p-4">
-                <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
-                  <button
-                    onClick={() => sendReaction('🙏')}
-                    className="flex items-center gap-2.5 px-5 py-2 rounded-full bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-all hover:scale-105 active:scale-95"
-                  >
-                    <span className="text-2xl">🙏</span>
-                    <div className="text-left">
-                      <p className="font-bold text-foreground text-lg leading-none">{prayerCount}</p>
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('calls.prayers', 'prières')}</p>
-                    </div>
-                  </button>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {EMOJI_REACTIONS.map(emoji => (
-                      <button
-                        key={emoji}
-                        onClick={() => sendReaction(emoji)}
-                        className="text-xl p-2 rounded-full hover:bg-muted/70 transition-transform hover:scale-125 active:scale-90"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Admin controls */}
-              {isAdmin && (
-                <div className="mt-5 pt-4 border-t border-border/60">
-                  <p className="text-xs text-cathedral-gold uppercase tracking-[0.2em] mb-3 font-semibold flex items-center gap-1.5">
-                    <Crown className="h-3 w-3" /> {t('calls.adminControls')}
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button variant="destructive" size="sm" onClick={() => setSessionToEnd(session)} className="gap-1.5 rounded-lg">
-                      <X className="h-3.5 w-3.5" /> {t('calls.endSession')}
-                    </Button>
-                    <Button variant="outline" size="sm" className="gap-1.5 rounded-lg">
-                      🔇 {t('calls.muteAll')}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-};
-
-/* ════════════════════════════════════════════
-   SCHEDULED TAB
-════════════════════════════════════════════ */
-const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopyLink, onJoin, onScheduleNew, t, dateLocale }: any) => {
-  return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 mb-2">
-        <div>
-          <h2 className="font-cinzel text-xl font-semibold text-foreground">{t('calls.tabs.scheduled')}</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">{sessions.length} {t('calls.upcomingSessions', 'sessions à venir')}</p>
-        </div>
-        {isAdmin && (
-          <Button onClick={onScheduleNew} className="bg-gradient-to-r from-primary to-primary-glow text-primary-foreground shadow-[0_4px_20px_hsl(var(--primary)/0.3)] hover:shadow-[0_6px_25px_hsl(var(--primary)/0.45)] rounded-xl">
-            <Plus className="h-4 w-4 mr-1.5" /> {t('calls.scheduleNew')}
-          </Button>
-        )}
-      </div>
-
-      {/* Empty state */}
-      {sessions.length === 0 ? (
-        <div className="text-center py-20 px-4">
-          <div className="relative inline-flex mb-6">
-            <div className="absolute inset-0 rounded-full bg-blue-500/10 blur-3xl" />
-            <div className="relative h-24 w-24 rounded-full border border-blue-500/20 bg-gradient-to-br from-card to-blue-500/5 flex items-center justify-center">
-              <CalendarIcon className="h-10 w-10 text-blue-400/50" />
-            </div>
-          </div>
-          <h3 className="font-cinzel text-2xl font-semibold text-foreground mb-2">{t('calls.noScheduled')}</h3>
-          <p className="text-muted-foreground text-sm max-w-sm mx-auto leading-relaxed">{t('calls.noScheduledDesc')}</p>
-          <div className="cathedral-line w-24 h-px mx-auto mt-6 opacity-50" />
-        </div>
-      ) : (
-        sessions.map((session: ScheduledSession) => {
-          const sessionDateTime = new Date(`${session.scheduled_date}T${session.scheduled_time}`);
-          const now = new Date();
-          const minutesUntil = differenceInMinutes(sessionDateTime, now);
-          const isStartingSoon = minutesUntil > 0 && minutesUntil <= 60;
-          const isStartingNow = minutesUntil <= 5 && minutesUntil >= -5;
-          const isTodaySession = isToday(sessionDateTime);
-          const cfg = getTypeConfig(session.session_type);
-
-          return (
-            <div
-              key={session.id}
-              className={cn(
-                "group relative rounded-2xl border overflow-hidden transition-all hover:shadow-[0_8px_40px_-10px_hsl(var(--primary)/0.2)]",
-                isStartingNow
-                  ? "border-accent/60 bg-gradient-to-br from-accent/8 to-card shadow-[0_0_30px_-5px_hsl(var(--accent)/0.3)]"
-                  : isStartingSoon
-                  ? "border-cathedral-gold/40 bg-gradient-to-br from-amber-500/5 to-card"
-                  : "border-border/70 bg-card hover:border-primary/30"
-              )}
-            >
-              {/* Left accent bar */}
-              <div className={cn("absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl", cfg.bgClass)} />
-
-              <div className="pl-5 pr-5 sm:pr-6 pt-5 pb-5 sm:pt-6 sm:pb-6">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    {/* Badges row */}
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      {isStartingNow && (
-                        <Badge className="bg-accent text-accent-foreground text-xs animate-pulse px-2.5">
-                          🔴 {t('calls.startingNow')}
-                        </Badge>
-                      )}
-                      {isStartingSoon && !isStartingNow && (
-                        <Badge variant="outline" className="border-amber-500/50 text-amber-500 bg-amber-500/10 text-xs gap-1.5">
-                          ⏱️ <CountdownTimer targetDate={session.scheduled_date} targetTime={session.scheduled_time} />
-                        </Badge>
-                      )}
-                      {isTodaySession && !isStartingSoon && !isStartingNow && (
-                        <Badge variant="outline" className="border-primary/40 text-primary bg-primary/10 text-xs">
-                          Aujourd'hui
-                        </Badge>
-                      )}
-                      <span className={cn("inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full border font-medium", cfg.bgClass, cfg.colorClass, cfg.borderClass)}>
-                        <span className="h-3 w-3">{cfg.iconEl}</span>
-                        {cfg.label}
-                      </span>
-                    </div>
-
-                    <h3 className="font-cinzel font-bold text-foreground text-lg sm:text-xl">{session.title}</h3>
-
-                    {session.description && (
-                      <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">{session.description}</p>
-                    )}
-
-                    {/* Meta info */}
-                    <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground flex-wrap">
-                      <span className="flex items-center gap-1.5">
-                        <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
-                        {format(new Date(session.scheduled_date), 'PPP', { locale: dateLocale })}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5 shrink-0" />
-                        {formatGmtTime(session.scheduled_time)}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        ⏱️ {session.estimated_duration} min
-                      </span>
-                      {session.recurrence !== 'once' && (
-                        <Badge variant="secondary" className="text-xs">
-                          🔁 {t(`calls.recurrence.${session.recurrence}`)}
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Associated text */}
-                    {(() => {
-                      const assocText = (session.agenda as any[])?.find((a: any) => a.__type === 'associated_text');
-                      if (!assocText) return null;
-                      const src = ASSOCIATED_TEXT_SOURCES.find(s => s.value === assocText.source);
-                      return (
-                        <div className="mt-2">
-                          <a href={assocText.href || src?.href || '/messe-office'} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors">
-                            <BookOpen className="h-3 w-3" />
-                            {src?.label?.replace(/^.{2}\s/, '') || 'Texte associé'}
-                          </a>
-                        </div>
-                      );
-                    })()}
-
-                    {/* Tags */}
-                    {session.tags && session.tags.length > 0 && (
-                      <div className="flex gap-1 mt-2 flex-wrap">
-                        {session.tags.map((tag: string, i: number) => (
-                          <Badge key={i} variant="secondary" className="text-xs">#{tag}</Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Date column (large screens) */}
-                  <div className="hidden sm:flex flex-col items-end text-right shrink-0">
-                    <p className="text-2xl font-black font-cinzel text-foreground leading-none">
-                      {format(new Date(session.scheduled_date), 'd')}
-                    </p>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                      {format(new Date(session.scheduled_date), 'MMM', { locale: dateLocale })}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex items-center gap-2 mt-5 pt-4 border-t border-border/40 flex-wrap">
-                  {isStartingNow ? (
-                    <Button size="sm" className="bg-gradient-to-r from-primary to-primary-glow text-primary-foreground shadow-[0_4px_15px_hsl(var(--primary)/0.3)] rounded-lg" onClick={() => onJoin(session)}>
-                      ➡️ {t('calls.joinNow')}
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant={myReminders.has(session.id) ? "secondary" : "outline"} onClick={() => onToggleReminder(session.id)} className="rounded-lg">
-                      <Bell className={cn("h-4 w-4 mr-1.5", myReminders.has(session.id) && "fill-current")} />
-                      {myReminders.has(session.id) ? t('calls.reminded') : t('calls.remindMe')}
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => onCopyLink(session)} className="rounded-lg">
-                    <Share2 className="h-4 w-4 mr-1.5" /> {t('calls.share')}
-                  </Button>
-                  <Button size="sm" variant="ghost" className="rounded-lg" onClick={() => {
-                    const start = `${session.scheduled_date.replace(/-/g, '')}T${session.scheduled_time.replace(/:/g, '').slice(0, 6)}Z`;
-                    const endDate = new Date(`${session.scheduled_date}T${session.scheduled_time}Z`);
-                    endDate.setMinutes(endDate.getMinutes() + (session.estimated_duration || 60));
-                    const endStr = endDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-                    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(session.title)}&dates=${start}/${endStr}&details=${encodeURIComponent((session.description || '') + '\n\n' + buildShareUrl(session))}`;
-                    window.open(url, '_blank');
-                  }}>
-                    📅 {t('calls.addToCalendar')}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          );
-        })
-      )}
-    </div>
-  );
-};
-
-/* ════════════════════════════════════════════
-   RECORDINGS TAB
-════════════════════════════════════════════ */
-const RecordingsTab = ({ sessions, isAdmin, t, dateLocale, onRefresh }: any) => {
-  const deleteRecording = async (id: string) => {
-    await supabase.from('scheduled_sessions' as any).delete().eq('id', id);
-    onRefresh();
-    toast.success(t('calls.recordingDeleted'));
-  };
-
-  if (sessions.length === 0) {
-    return (
-      <div className="text-center py-20 px-4">
-        <div className="relative inline-flex mb-6">
-          <div className="absolute inset-0 rounded-full bg-violet-500/10 blur-3xl" />
-          <div className="relative h-24 w-24 rounded-full border border-violet-500/20 bg-gradient-to-br from-card to-violet-500/5 flex items-center justify-center">
-            <Play className="h-10 w-10 text-violet-400/50" />
-          </div>
-        </div>
-        <h3 className="font-cinzel text-2xl font-semibold text-foreground mb-2">{t('calls.noRecordings')}</h3>
-        <p className="text-muted-foreground text-sm max-w-sm mx-auto leading-relaxed">{t('calls.noRecordingsDesc')}</p>
-        <div className="cathedral-line w-24 h-px mx-auto mt-6 opacity-50" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-      {sessions.map((session: ScheduledSession) => {
-        const cfg = getTypeConfig(session.session_type);
-        return (
-          <div key={session.id} className="group rounded-2xl border border-border/70 bg-card overflow-hidden hover:border-primary/40 hover:shadow-[0_10px_40px_-10px_hsl(var(--primary)/0.2)] transition-all">
-            {/* Thumbnail */}
-            <div className="aspect-video relative overflow-hidden">
-              {session.thumbnail_url ? (
-                <img src={session.thumbnail_url} alt={session.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-              ) : (
-                <div className={cn("w-full h-full bg-gradient-to-br flex items-center justify-center", cfg.gradientClass, "from-muted to-muted/30")}>
-                  <div className={cn("h-16 w-16 rounded-2xl flex items-center justify-center border", cfg.bgClass, cfg.borderClass)}>
-                    <span className={cn("h-8 w-8", cfg.colorClass)}>{cfg.iconEl}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Duration badge */}
-              <div className="absolute bottom-2 right-2 bg-background/90 text-foreground text-xs px-2.5 py-1 rounded-lg backdrop-blur-sm font-bold border border-border/40">
-                {session.estimated_duration} min
-              </div>
-
-              {/* Session type badge */}
-              <div className={cn("absolute top-2 left-2 flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg border font-medium backdrop-blur-sm", cfg.bgClass, cfg.colorClass, cfg.borderClass)}>
-                <span className="h-3 w-3">{cfg.iconEl}</span>
-                {cfg.label}
-              </div>
-
-              {/* Play overlay */}
-              {session.recording_url && (
-                <a href={session.recording_url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                  <div className="h-16 w-16 rounded-full bg-primary/95 flex items-center justify-center shadow-[0_0_40px_hsl(var(--primary)/0.6)] hover:scale-110 transition-transform">
-                    <Play className="h-7 w-7 text-primary-foreground ml-0.5" fill="currentColor" />
-                  </div>
-                </a>
-              )}
-            </div>
-
-            <div className="p-5">
-              <h3 className="font-cinzel font-bold text-foreground line-clamp-1 text-base mb-1">{session.title}</h3>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                <span className="flex items-center gap-1">
-                  <CalendarIcon className="h-3 w-3" />
-                  {format(new Date(session.scheduled_date), 'PP', { locale: dateLocale })}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Eye className="h-3 w-3" /> {session.viewer_count || 0}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border/40">
-                {session.recording_url ? (
-                  <>
-                    <Button size="sm" variant="outline" className="rounded-lg" asChild>
-                      <a href={session.recording_url} target="_blank" rel="noopener noreferrer">
-                        <Play className="h-3.5 w-3.5 mr-1.5" /> {t('calls.play')}
-                      </a>
-                    </Button>
-                    <Button size="sm" variant="ghost" className="rounded-lg" asChild>
-                      <a href={session.recording_url} download>
-                        <Download className="h-3.5 w-3.5 mr-1.5" /> {t('calls.download')}
-                      </a>
-                    </Button>
-                  </>
-                ) : (
-                  <span className="text-xs text-muted-foreground italic">{t('calls.noRecordingFile')}</span>
-                )}
-                {isAdmin && (
-                  <Button size="sm" variant="ghost" className="ml-auto text-destructive rounded-lg" onClick={() => deleteRecording(session.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-/* ════════════════════════════════════════════
-   ADMIN CONTROL TAB
-════════════════════════════════════════════ */
-const AdminControlTab = ({ sessions, onRefresh, t }: any) => {
-  const totalSessions = sessions.length;
-  const liveSessions = sessions.filter((s: any) => s.status === 'live').length;
-  const scheduledCount = sessions.filter((s: any) => s.status === 'scheduled').length;
-  const totalViewers = sessions.reduce((sum: number, s: any) => sum + (s.viewer_count || 0), 0);
-
-  const cancelSession = async (id: string) => {
-    await supabase.from('scheduled_sessions' as any).update({ status: 'cancelled' } as any).eq('id', id);
-    onRefresh();
-    toast.success(t('calls.sessionCancelled'));
-  };
-
-  const deleteSession = async (id: string) => {
-    await supabase.from('scheduled_sessions' as any).delete().eq('id', id);
-    onRefresh();
-    toast.success(t('calls.sessionDeleted'));
-  };
-
-  return (
-    <div className="space-y-8">
-      {/* Stats */}
-      <div>
-        <h3 className="text-xs font-semibold text-cathedral-gold uppercase tracking-[0.2em] mb-4 flex items-center gap-1.5">
-          <TrendingUp className="h-3.5 w-3.5" /> {t('calls.admin.analytics')}
-        </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { icon: <Activity className="h-5 w-5 text-blue-400" />, value: totalSessions, label: t('calls.admin.totalSessions'), bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
-            { icon: <Radio className="h-5 w-5 text-red-400" />, value: liveSessions, label: t('calls.admin.activeLive'), bg: 'bg-red-500/10', border: 'border-red-500/20' },
-            { icon: <CalendarIcon className="h-5 w-5 text-violet-400" />, value: scheduledCount, label: 'Planifiés', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
-            { icon: <Users className="h-5 w-5 text-cathedral-gold" />, value: totalViewers, label: t('calls.admin.totalViewers'), bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
-          ].map(({ icon, value, label, bg, border }) => (
-            <div key={label} className={cn("relative overflow-hidden rounded-2xl border p-5 text-center hover:scale-[1.02] transition-transform cursor-default", bg, border)}>
-              <div className="flex justify-center mb-2">{icon}</div>
-              <p className="font-cinzel text-3xl font-bold text-foreground">{value}</p>
-              <p className="text-xs text-muted-foreground mt-1.5 uppercase tracking-wider leading-tight">{label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="cathedral-line h-px w-full opacity-40" />
-
-      {/* Session list */}
-      <div>
-        <h3 className="text-xs font-semibold text-cathedral-gold uppercase tracking-[0.2em] mb-4 flex items-center gap-1.5">
-          <Crown className="h-3.5 w-3.5" /> {t('calls.admin.manageSessions')}
-        </h3>
-        {sessions.length === 0 ? (
-          <p className="text-muted-foreground text-sm italic">{t('calls.admin.noSessions')}</p>
-        ) : (
-          <div className="space-y-2">
-            {sessions.map((session: ScheduledSession) => {
-              const cfg = getTypeConfig(session.session_type);
-              return (
-                <div key={session.id} className="flex items-center gap-3 p-4 rounded-xl border border-border/70 bg-card hover:border-primary/30 hover:bg-muted/20 transition-all group">
-                  <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 border", cfg.bgClass, cfg.borderClass)}>
-                    <span className={cn("h-4 w-4", cfg.colorClass)}>{cfg.iconEl}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground text-sm truncate">{session.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(session.scheduled_date), 'PP')} • {formatGmtTime(session.scheduled_time)}
-                    </p>
-                  </div>
-                  <Badge className={cn("text-xs shrink-0",
-                    session.status === 'live' ? 'bg-accent text-accent-foreground' :
-                    session.status === 'scheduled' ? 'bg-primary text-primary-foreground' :
-                    'bg-muted text-muted-foreground'
-                  )}>
-                    {t(`calls.status.${session.status}`)}
-                  </Badge>
-                  <div className="flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                    {session.status === 'scheduled' && (
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-lg" onClick={() => cancelSession(session.id)}>
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-lg text-destructive" onClick={() => deleteSession(session.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-/* ════════════════════════════════════════════
-   SCHEDULE DIALOG
-════════════════════════════════════════════ */
-const ASSOCIATED_TEXT_SOURCES = [
-  { value: 'liturgy', label: '📖 Textes liturgiques du jour (Messe et Office AELF)', href: '/messe-office' },
-  { value: 'biblical', label: '📚 Lecture biblique du programme annuel', href: '/biblical-reading' },
-  { value: 'novena', label: '🕯️ Neuvaine du moment', href: '/neuvaines' },
-  { value: 'careme', label: '✝️ Réflexion du Carême', href: '/careme' },
-];
+// ── Schedule dialog ────────────────────────────────────────────────────────────
 
 const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }: any) => {
   const { user } = useAuth();
@@ -1092,69 +631,49 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
   const [tags, setTags] = useState('');
   const [saving, setSaving] = useState(false);
   const [showTextOption, setShowTextOption] = useState(false);
-  const [associatedTextSource, setAssociatedTextSource] = useState<string>('');
+  const [assocText, setAssocText] = useState('');
 
   const handleCreate = async () => {
     if (!title || !date || !user) return;
     setSaving(true);
-
-    const agendaData = associatedTextSource
-      ? [{ __type: 'associated_text', source: associatedTextSource, href: ASSOCIATED_TEXT_SOURCES.find(s => s.value === associatedTextSource)?.href || '' }]
+    const agendaData = assocText
+      ? [{ __type: 'associated_text', source: assocText, href: ASSOCIATED_TEXT_SOURCES.find(s => s.value === assocText)?.href || '' }]
       : null;
-
     const { data: inserted, error } = await (supabase as any).from('scheduled_sessions' as any).insert({
-      title,
-      description: description || null,
-      session_type: sessionType,
-      scheduled_date: format(date, 'yyyy-MM-dd'),
-      scheduled_time: time + ':00',
-      estimated_duration: parseInt(duration),
-      access_type: accessType,
-      recurrence,
-      tags: tags ? tags.split(',').map(t => t.trim()) : [],
-      created_by: user.id,
-      status: 'scheduled',
-      agenda: agendaData,
+      title, description: description || null, session_type: sessionType,
+      scheduled_date: format(date, 'yyyy-MM-dd'), scheduled_time: time + ':00',
+      estimated_duration: parseInt(duration), access_type: accessType, recurrence,
+      tags: tags ? tags.split(',').map(s => s.trim()) : [],
+      created_by: user.id, status: 'scheduled', agenda: agendaData,
     } as any).select('id').maybeSingle();
-
     setSaving(false);
-    if (error) {
-      toast.error(t('common.error'));
-    } else {
-      if (inserted?.id) {
-        supabase.functions.invoke('notify-session', {
-          body: { session_id: inserted.id, kind: 'scheduled', target: 'all' },
-        }).catch((e) => console.warn('notify-session failed', e));
-      }
-      toast.success(t('calls.sessionCreated'));
-      setTitle(''); setDescription(''); setDate(undefined);
-      onCreated();
+    if (error) { toast.error(t('common.error')); return; }
+    if (inserted?.id) {
+      supabase.functions.invoke('notify-session', { body: { session_id: inserted.id, kind: 'scheduled', target: 'all' } }).catch(() => {});
     }
+    toast.success(t('calls.sessionCreated'));
+    setTitle(''); setDescription(''); setDate(undefined); setAssocText('');
+    onCreated();
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-cinzel flex items-center gap-2">
-            <Plus className="h-4 w-4" /> {t('calls.scheduleNew')}
-          </DialogTitle>
+          <DialogTitle className="font-cinzel flex items-center gap-2"><Plus className="h-4 w-4" /> {t('calls.scheduleNew')}</DialogTitle>
         </DialogHeader>
-
         <div className="space-y-4 mt-2">
           <div>
-            <label className="text-sm font-medium text-foreground">{t('calls.form.title')}</label>
+            <label className="text-sm font-medium">{t('calls.form.title')}</label>
             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder={t('calls.form.titlePlaceholder')} className="mt-1 rounded-lg" />
           </div>
-
           <div>
-            <label className="text-sm font-medium text-foreground">{t('calls.form.description')}</label>
-            <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className="mt-1 rounded-lg" />
+            <label className="text-sm font-medium">{t('calls.form.description')}</label>
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} className="mt-1 rounded-lg" />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-foreground">{t('calls.form.type')}</label>
+              <label className="text-sm font-medium">{t('calls.form.type')}</label>
               <Select value={sessionType} onValueChange={setSessionType}>
                 <SelectTrigger className="mt-1 rounded-lg"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1165,7 +684,7 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground">{t('calls.form.access')}</label>
+              <label className="text-sm font-medium">{t('calls.form.access')}</label>
               <Select value={accessType} onValueChange={setAccessType}>
                 <SelectTrigger className="mt-1 rounded-lg"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1175,10 +694,9 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
               </Select>
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-foreground">{t('calls.form.date')}</label>
+              <label className="text-sm font-medium">{t('calls.form.date')}</label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full mt-1 justify-start text-left font-normal rounded-lg">
@@ -1192,14 +710,13 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
               </Popover>
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground">{t('calls.form.time')}</label>
+              <label className="text-sm font-medium">{t('calls.form.time')}</label>
               <Input type="time" value={time} onChange={e => setTime(e.target.value)} className="mt-1 rounded-lg" />
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-foreground">{t('calls.form.duration')}</label>
+              <label className="text-sm font-medium">{t('calls.form.duration')}</label>
               <Select value={duration} onValueChange={setDuration}>
                 <SelectTrigger className="mt-1 rounded-lg"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1211,7 +728,7 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground">{t('calls.form.recurrence')}</label>
+              <label className="text-sm font-medium">{t('calls.form.recurrence')}</label>
               <Select value={recurrence} onValueChange={setRecurrence}>
                 <SelectTrigger className="mt-1 rounded-lg"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1223,62 +740,28 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
               </Select>
             </div>
           </div>
-
           <div>
-            <label className="text-sm font-medium text-foreground">{t('calls.form.tags')}</label>
+            <label className="text-sm font-medium">{t('calls.form.tags')}</label>
             <Input value={tags} onChange={e => setTags(e.target.value)} placeholder={t('calls.form.tagsPlaceholder')} className="mt-1 rounded-lg" />
           </div>
-
           {/* Associated text */}
           <div className="border border-border/60 rounded-xl overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setShowTextOption(!showTextOption)}
-              className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-colors"
-            >
-              <span className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-primary" />
-                Associer un texte à cet appel
-                {associatedTextSource && (
-                  <span className="text-xs text-primary/70 font-normal">
-                    — {ASSOCIATED_TEXT_SOURCES.find(s => s.value === associatedTextSource)?.label?.slice(3, 30)}…
-                  </span>
-                )}
-              </span>
+            <button type="button" onClick={() => setShowTextOption(!showTextOption)} className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/50 transition-colors">
+              <span className="flex items-center gap-2"><BookOpen className="h-4 w-4 text-primary" /> Associer un texte liturgique</span>
               {showTextOption ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
             </button>
-
             {showTextOption && (
-              <div className="px-3 pb-3 pt-1 space-y-1.5 bg-muted/20 border-t border-border/40">
-                <p className="text-xs text-muted-foreground mb-2">
-                  Un bouton apparaîtra dans l'interface de l'appel pour que les participants puissent ouvrir ce texte sans quitter la session.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setAssociatedTextSource('')}
-                  className={`w-full text-left text-xs px-3 py-2 rounded-lg transition-colors ${!associatedTextSource ? 'bg-primary/15 text-primary font-medium' : 'hover:bg-muted/50 text-muted-foreground'}`}
-                >
-                  Aucun texte associé
-                </button>
-                {ASSOCIATED_TEXT_SOURCES.map((src) => (
-                  <button
-                    key={src.value}
-                    type="button"
-                    onClick={() => setAssociatedTextSource(src.value)}
-                    className={`w-full text-left text-xs px-3 py-2 rounded-lg transition-colors ${associatedTextSource === src.value ? 'bg-primary/15 text-primary font-medium' : 'hover:bg-muted/50 text-foreground'}`}
-                  >
+              <div className="px-3 pb-3 pt-1 space-y-1 bg-muted/20 border-t border-border/40">
+                {[{ value: '', label: 'Aucun' }, ...ASSOCIATED_TEXT_SOURCES].map(src => (
+                  <button key={src.value} type="button" onClick={() => setAssocText(src.value)}
+                    className={cn("w-full text-left text-xs px-3 py-2 rounded-lg transition-colors", assocText === src.value ? 'bg-primary/15 text-primary font-medium' : 'hover:bg-muted/50 text-foreground')}>
                     {src.label}
                   </button>
                 ))}
               </div>
             )}
           </div>
-
-          <Button
-            onClick={handleCreate}
-            disabled={!title || !date || saving}
-            className="w-full bg-gradient-to-r from-primary to-primary-glow text-primary-foreground shadow-[0_4px_20px_hsl(var(--primary)/0.3)] rounded-xl py-5"
-          >
+          <Button onClick={handleCreate} disabled={!title || !date || saving} className="w-full rounded-xl py-5 font-bold">
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
             {t('calls.createSession')}
           </Button>

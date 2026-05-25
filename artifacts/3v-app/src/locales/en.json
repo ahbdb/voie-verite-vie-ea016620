@@ -1246,7 +1246,9 @@
     "done": "Rosary complete!",
     "doneDesc": "May the Virgin Mary intercede for you and for all those you prayed for.",
     "doneVerse": "« Hail Mary, full of grace »",
-    "newChapelet": "New rosary"
+    "newChapelet": "New rosary",
+    "resumeTitle": "Session in progress",
+    "resume": "Resume"
   },
   "dailyPrayer": {
     "title": "Daily Prayer",
