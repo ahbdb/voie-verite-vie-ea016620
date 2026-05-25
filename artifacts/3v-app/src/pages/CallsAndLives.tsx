@@ -110,7 +110,90 @@ const Countdown = ({ targetDate, targetTime }: { targetDate: string; targetTime:
 };
 
 // ── Pre-join Lobby ─────────────────────────────────────────────────────────────
-// Shows camera/mic preview before entering the room (Zoom-style lobby)
+
+type PermErrorKind = 'denied' | 'notfound' | 'busy' | 'notsupported' | null;
+
+function detectPlatform(): 'ios-pwa' | 'android-pwa' | 'ios' | 'android' | 'desktop' {
+  const ua = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  const isAndroid = /Android/i.test(ua);
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+  if (isIOS && isPWA) return 'ios-pwa';
+  if (isAndroid && isPWA) return 'android-pwa';
+  if (isIOS) return 'ios';
+  if (isAndroid) return 'android';
+  return 'desktop';
+}
+
+function getPermInstructions(kind: PermErrorKind): { title: string; steps: string[] } | null {
+  if (!kind || kind === 'notfound') return null;
+  const platform = detectPlatform();
+
+  if (kind === 'notsupported') {
+    return {
+      title: 'Navigateur non compatible',
+      steps: ['Utilisez Chrome, Firefox ou Safari récent.', 'Assurez-vous d\'être sur HTTPS (pas HTTP).'],
+    };
+  }
+  if (kind === 'busy') {
+    return {
+      title: 'Micro/caméra déjà utilisé',
+      steps: ['Fermez les autres onglets ou apps qui utilisent la caméra/micro.', 'Rechargez cette page et réessayez.'],
+    };
+  }
+
+  // denied
+  switch (platform) {
+    case 'ios-pwa':
+      return {
+        title: 'Autorisation refusée (PWA iOS)',
+        steps: [
+          '1. Ouvrez Réglages sur votre iPhone/iPad.',
+          '2. Descendez jusqu\'à Safari (ou l\'app "Voie Vérité Vie").',
+          '3. Touchez Microphone et/ou Caméra → Autoriser.',
+          '4. Revenez ici et touchez "Réessayer".',
+        ],
+      };
+    case 'android-pwa':
+      return {
+        title: 'Autorisation refusée (PWA Android)',
+        steps: [
+          '1. Appuyez longuement sur l\'icône de l\'app → Infos app.',
+          '2. Allez dans Autorisations.',
+          '3. Activez Microphone et Caméra.',
+          '4. Revenez ici et touchez "Réessayer".',
+        ],
+      };
+    case 'ios':
+      return {
+        title: 'Autorisation refusée (Safari iOS)',
+        steps: [
+          '1. Ouvrez Réglages → Safari.',
+          '2. Descendez jusqu\'à Microphone / Caméra → Autoriser.',
+          '3. Revenez sur cette page et touchez "Réessayer".',
+        ],
+      };
+    case 'android':
+      return {
+        title: 'Autorisation refusée (Chrome Android)',
+        steps: [
+          '1. Touchez l\'icône 🔒 dans la barre d\'adresse.',
+          '2. Touchez Paramètres du site.',
+          '3. Activez Microphone et Caméra.',
+          '4. Rechargez la page et réessayez.',
+        ],
+      };
+    default:
+      return {
+        title: 'Autorisation refusée',
+        steps: [
+          '1. Cliquez sur l\'icône 🔒 ou 📷 dans la barre d\'adresse.',
+          '2. Autorisez le Microphone et la Caméra pour ce site.',
+          '3. Cliquez "Réessayer" ci-dessous.',
+        ],
+      };
+  }
+}
 
 interface PreJoinLobbyProps {
   open: boolean;
@@ -125,7 +208,9 @@ const PreJoinLobby = ({ open, callType, onClose, onJoin, starting }: PreJoinLobb
   const [camOn, setCamOn] = useState(callType !== 'audio');
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [micLevel, setMicLevel] = useState(0);
-  const [permError, setPermError] = useState('');
+  const [permErrorKind, setPermErrorKind] = useState<PermErrorKind>(null);
+  const [audioOnly, setAudioOnly] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -138,24 +223,43 @@ const PreJoinLobby = ({ open, callType, onClose, onJoin, starting }: PreJoinLobb
     pollRef.current = null;
     try { audioCtxRef.current?.close(); } catch {}
     audioCtxRef.current = null;
+    setMicLevel(0);
   }, [stream]);
 
-  useEffect(() => {
-    if (!open) { stopStream(); setPermError(''); setMicLevel(0); return; }
-    const start = async () => {
+  const startStream = useCallback(async (forceAudioOnly = false) => {
+    setRetrying(true);
+    setPermErrorKind(null);
+    const wantVideo = callType !== 'audio' && !forceAudioOnly;
+    try {
+      let media: MediaStream | null = null;
       try {
-        const media = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true },
-          video: callType !== 'audio' ? { facingMode: 'user' } : false,
+        media = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: wantVideo ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } : false,
         });
-        setStream(media);
-        setPermError('');
-        // Mic level analyser
+        if (forceAudioOnly) setAudioOnly(true);
+      } catch (err: any) {
+        const name: string = err?.name ?? '';
+        if (wantVideo && (name === 'NotAllowedError' || name === 'NotFoundError' || name === 'OverconstrainedError')) {
+          // Camera failed — try audio only
+          media = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: false,
+          });
+          setAudioOnly(true);
+        } else {
+          throw err;
+        }
+      }
+      setStream(media);
+      // Mic analyser
+      try {
         const ctx = new AudioContext();
         audioCtxRef.current = ctx;
         const src = ctx.createMediaStreamSource(media);
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.4;
         src.connect(analyser);
         analyserRef.current = analyser;
         pollRef.current = window.setInterval(() => {
@@ -163,35 +267,48 @@ const PreJoinLobby = ({ open, callType, onClose, onJoin, starting }: PreJoinLobb
           const buf = new Uint8Array(analyserRef.current.frequencyBinCount);
           analyserRef.current.getByteFrequencyData(buf);
           const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
-          setMicLevel(Math.min(100, avg * 3));
-        }, 100);
-      } catch {
-        setPermError('Microphone ou caméra refusés par le navigateur. Vérifiez les autorisations.');
-        setMicLevel(0);
-      }
-    };
-    void start();
+          setMicLevel(Math.min(100, avg * 3.5));
+        }, 80);
+      } catch { /* audio context not critical */ }
+    } catch (err: any) {
+      const name: string = err?.name ?? '';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') setPermErrorKind('denied');
+      else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') setPermErrorKind('notfound');
+      else if (name === 'NotReadableError' || name === 'TrackStartError') setPermErrorKind('busy');
+      else if (name === 'NotSupportedError' || name === 'TypeError' || !navigator.mediaDevices) setPermErrorKind('notsupported');
+      else setPermErrorKind('denied');
+    } finally {
+      setRetrying(false);
+    }
+  }, [callType]);
+
+  useEffect(() => {
+    if (!open) {
+      stopStream();
+      setPermErrorKind(null);
+      setAudioOnly(false);
+      return;
+    }
+    void startStream();
     return () => { stopStream(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, callType]);
+  }, [open]);
 
-  // Attach stream to video element
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-    }
+    if (videoRef.current && stream) videoRef.current.srcObject = stream;
   }, [stream]);
 
-  // Toggle cam track
   useEffect(() => {
     stream?.getVideoTracks().forEach(t => { t.enabled = camOn; });
   }, [camOn, stream]);
 
-  // Toggle mic track
   useEffect(() => {
     stream?.getAudioTracks().forEach(t => { t.enabled = micOn; });
   }, [micOn, stream]);
 
+  const instructions = getPermInstructions(permErrorKind);
+  const hasMic = !!stream?.getAudioTracks().length;
+  const showVideo = callType !== 'audio' && !audioOnly;
   const typeLabel = callType === 'audio' ? 'Audio' : callType === 'live' ? 'Live' : 'Vidéo';
   const typeIcon = callType === 'audio' ? '🎙️' : callType === 'live' ? '📡' : '📹';
 
@@ -202,95 +319,149 @@ const PreJoinLobby = ({ open, callType, onClose, onJoin, starting }: PreJoinLobb
           <DialogTitle className="font-cinzel text-lg text-white flex items-center gap-2">
             {typeIcon} Préparer l'appel {typeLabel}
           </DialogTitle>
-          <p className="text-xs text-zinc-500 mt-1">Vérifiez votre micro et caméra avant de rejoindre</p>
+          <p className="text-xs text-zinc-500 mt-1">Vérifiez votre micro {showVideo ? 'et caméra ' : ''}avant de rejoindre</p>
         </DialogHeader>
 
         <div className="p-5 space-y-4">
           {/* Camera preview */}
-          {callType !== 'audio' && (
+          {showVideo && (
             <div className="relative aspect-video rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800">
-              {stream && camOn ? (
+              {stream && camOn && stream.getVideoTracks().length > 0 ? (
                 <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
               ) : (
                 <div className="flex h-full items-center justify-center">
                   <div className="flex flex-col items-center gap-2 text-zinc-600">
                     <VideoOff className="h-10 w-10" />
-                    <span className="text-xs">Caméra désactivée</span>
+                    <span className="text-xs">{audioOnly ? 'Caméra indisponible' : 'Caméra désactivée'}</span>
                   </div>
                 </div>
               )}
-              {/* Camera toggle overlay */}
-              <button
-                onClick={() => setCamOn(v => !v)}
-                className={cn(
-                  'absolute bottom-3 right-3 h-9 w-9 rounded-full flex items-center justify-center transition-colors',
-                  camOn ? 'bg-zinc-800/90 text-white hover:bg-zinc-700' : 'bg-red-500/90 text-white hover:bg-red-600'
-                )}
-              >
-                {camOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-              </button>
-            </div>
-          )}
-
-          {/* Permission error */}
-          {permError && (
-            <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-4 py-3 text-sm text-amber-400">
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{permError}</span>
-            </div>
-          )}
-
-          {/* Mic controls */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-zinc-400">Microphone</span>
-              <button
-                onClick={() => setMicOn(v => !v)}
-                className={cn(
-                  'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium transition-colors',
-                  micOn ? 'bg-zinc-800 text-white hover:bg-zinc-700' : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                )}
-              >
-                {micOn ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
-                {micOn ? 'Micro activé' : 'Micro coupé'}
-              </button>
-            </div>
-            {/* Mic level bar */}
-            <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
-              <div
-                className={cn(
-                  'h-full rounded-full transition-all duration-100',
-                  micLevel > 60 ? 'bg-green-400' : micLevel > 20 ? 'bg-green-500/70' : 'bg-zinc-600'
-                )}
-                style={{ width: `${micLevel}%` }}
-              />
-            </div>
-            {!permError && micOn && (
-              <p className="text-[10px] text-zinc-600">
-                {micLevel > 15 ? '🎙️ Son détecté — votre micro fonctionne' : 'Parlez pour tester votre micro…'}
-              </p>
-            )}
-          </div>
-
-          {/* CTA */}
-          <div className="flex gap-2 pt-1">
-            <Button variant="ghost" onClick={() => { stopStream(); onClose(); }} disabled={starting} className="flex-1 rounded-xl border border-zinc-700 text-zinc-300">
-              Annuler
-            </Button>
-            <Button
-              onClick={() => onJoin(micOn, camOn)}
-              disabled={starting}
-              className={cn(
-                'flex-1 rounded-xl font-bold text-white',
-                callType === 'live' ? 'bg-red-600 hover:bg-red-700' :
-                callType === 'audio' ? 'bg-violet-600 hover:bg-violet-700' :
-                'bg-blue-600 hover:bg-blue-700'
+              {!audioOnly && (
+                <button
+                  onClick={() => setCamOn(v => !v)}
+                  className={cn(
+                    'absolute bottom-3 right-3 h-9 w-9 rounded-full flex items-center justify-center transition-colors',
+                    camOn ? 'bg-zinc-800/90 text-white hover:bg-zinc-700' : 'bg-red-500/90 text-white hover:bg-red-600'
+                  )}
+                >
+                  {camOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+                </button>
               )}
-            >
-              {starting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Phone className="h-4 w-4 mr-2 fill-white" />}
-              Rejoindre
-            </Button>
-          </div>
+            </div>
+          )}
+
+          {/* Permission error block */}
+          {permErrorKind && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 overflow-hidden">
+              <div className="flex items-start gap-2 px-4 py-3">
+                <AlertCircle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-amber-400">
+                    {permErrorKind === 'notfound' ? 'Aucun micro/caméra détecté' :
+                     permErrorKind === 'busy' ? 'Périphérique occupé' :
+                     permErrorKind === 'notsupported' ? 'Non compatible' :
+                     'Accès refusé'}
+                  </p>
+                  {instructions && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs font-medium text-amber-300">{instructions.title}</p>
+                      {instructions.steps.map((s, i) => (
+                        <p key={i} className="text-xs text-amber-400/80 leading-relaxed">{s}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2 px-4 pb-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg border-amber-500/40 text-amber-400 hover:bg-amber-500/10 gap-1.5"
+                  onClick={() => { stopStream(); void startStream(); }}
+                  disabled={retrying}
+                >
+                  {retrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Settings2 className="h-3.5 w-3.5" />}
+                  Réessayer
+                </Button>
+                {permErrorKind !== 'notsupported' && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="rounded-lg text-zinc-400 hover:text-white text-xs"
+                    onClick={() => onJoin(false, false)}
+                    disabled={starting}
+                  >
+                    Continuer sans micro →
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Mic status */}
+          {!permErrorKind && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-zinc-400">Microphone</span>
+                <button
+                  onClick={() => setMicOn(v => !v)}
+                  disabled={!hasMic}
+                  className={cn(
+                    'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium transition-colors disabled:opacity-40',
+                    micOn ? 'bg-zinc-800 text-white hover:bg-zinc-700' : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                  )}
+                >
+                  {micOn ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
+                  {micOn ? 'Micro activé' : 'Micro coupé'}
+                </button>
+              </div>
+              <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-all duration-75',
+                    micLevel > 55 ? 'bg-green-400' : micLevel > 15 ? 'bg-green-500/70' : 'bg-zinc-600'
+                  )}
+                  style={{ width: `${micLevel}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-zinc-600">
+                {retrying ? 'Connexion au micro…' :
+                 !hasMic ? 'Aucun micro détecté' :
+                 micOn && micLevel > 15 ? '✅ Son détecté — micro opérationnel' :
+                 micOn ? 'Parlez pour tester votre micro…' : 'Micro désactivé'}
+              </p>
+              {audioOnly && callType !== 'audio' && (
+                <p className="text-[10px] text-amber-400">⚠️ Caméra indisponible — l'appel sera en audio uniquement</p>
+              )}
+            </div>
+          )}
+
+          {/* Join / Cancel buttons */}
+          {!permErrorKind && (
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="ghost"
+                onClick={() => { stopStream(); onClose(); }}
+                disabled={starting}
+                className="flex-1 rounded-xl border border-zinc-700 text-zinc-300"
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={() => onJoin(micOn && hasMic, camOn && !audioOnly)}
+                disabled={starting || retrying}
+                className={cn(
+                  'flex-1 rounded-xl font-bold text-white',
+                  callType === 'live' ? 'bg-red-600 hover:bg-red-700' :
+                  callType === 'audio' ? 'bg-violet-600 hover:bg-violet-700' :
+                  'bg-blue-600 hover:bg-blue-700'
+                )}
+              >
+                {starting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Phone className="h-4 w-4 mr-2 fill-white" />}
+                Rejoindre
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
