@@ -865,20 +865,6 @@ export const useAdminVideoRoom = ({
       const currentRoom = room || (await loadRoom());
       if (!currentRoom) throw new Error('Salle introuvable.');
 
-      // Pre-check: if the browser has explicitly blocked permissions, show instructions
-      // without calling getUserMedia. Only acts on 'denied' — never blocks on 'prompt'.
-      try {
-        const [camPerm, micPerm] = await Promise.all([
-          navigator.permissions.query({ name: 'camera' as PermissionName }),
-          navigator.permissions.query({ name: 'microphone' as PermissionName }),
-        ]);
-        if (camPerm.state === 'denied' || micPerm.state === 'denied') {
-          setMediaError('PERMISSION_DENIED');
-          // Do NOT set startRequested=true — keeps retry available
-          return;
-        }
-      } catch { /* Permissions API unavailable (Safari) — proceed normally */ }
-
       const shouldUseVideo = currentRoom.room_type !== 'audio';
       let media: MediaStream | null = null;
 
@@ -893,13 +879,7 @@ export const useAdminVideoRoom = ({
             channelCount: 1,
           },
         });
-      } catch (gumErr) {
-        const errName = (gumErr as DOMException)?.name;
-        if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
-          // Browser blocked — show instructions; do NOT set startRequested so retry works
-          setMediaError('PERMISSION_DENIED');
-          return;
-        }
+      } catch {
         if (shouldUseVideo) {
           try {
             media = await navigator.mediaDevices.getUserMedia({
@@ -907,14 +887,7 @@ export const useAdminVideoRoom = ({
               video: false,
             });
             setMediaError('Caméra indisponible — appel audio uniquement.');
-          } catch (audioErr) {
-            const audioErrName = (audioErr as DOMException)?.name;
-            if (audioErrName === 'NotAllowedError' || audioErrName === 'PermissionDeniedError') {
-              setMediaError('PERMISSION_DENIED');
-              return;
-            }
-            media = null;
-          }
+          } catch { media = null; }
         }
       }
 
@@ -924,7 +897,9 @@ export const useAdminVideoRoom = ({
         setLocalStream(localStreamRef.current);
         setMicEnabled(false);
         setCameraEnabled(false);
-        setMediaError('Micro/caméra indisponibles — vérifiez que votre appareil est connecté.');
+        setMediaError(
+          'Micro/caméra refusés par le navigateur. Vérifiez les autorisations dans les paramètres de votre navigateur.'
+        );
         setStartRequested(true);
         return;
       }
