@@ -205,6 +205,23 @@ export const broadcastNotificationService = {
         // RPC might not exist, continue anyway
       }
 
+      // Web Push — atteint les appareils mobiles même quand l'app est fermée/en arrière-plan
+      try {
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            title,
+            body: message,
+            action: type,
+            url: link || (type === 'call' ? '/calls-lives' : '/'),
+            tag: `${type}-${Date.now()}`,
+            requireInteraction: type === 'call',
+            vibrate: type === 'call' ? [400, 200, 400, 200, 600] : [200, 100, 200],
+          },
+        });
+      } catch {
+        // Push best-effort — Realtime delivery already done above
+      }
+
       return { error: null };
     } catch (err) {
       return { error: err };
@@ -249,6 +266,23 @@ export const broadcastNotificationService = {
         });
       } catch {
         // RPC might not exist, continue anyway
+      }
+
+      // Web Push pour les appareils hors ligne / en arrière-plan
+      try {
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            title,
+            body: message,
+            action: type,
+            url: link || (type === 'call' ? '/calls-lives' : '/'),
+            tag: `${type}-${Date.now()}`,
+            requireInteraction: type === 'call',
+            vibrate: type === 'call' ? [400, 200, 400, 200, 600] : [200, 100, 200],
+          },
+        });
+      } catch {
+        // Push best-effort
       }
 
       return { error: null };

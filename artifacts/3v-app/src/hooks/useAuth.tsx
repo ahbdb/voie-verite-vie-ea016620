@@ -33,6 +33,20 @@ function sessionToUser(session: Session): AuthUser {
   };
 }
 
+// Read the current Supabase session synchronously from localStorage.
+// Supabase stores the session under this key — reading it avoids the async
+// round-trip that causes a "flash of logged-out" on slow mobile networks.
+const SUPABASE_AUTH_KEY = 'sb-kaddsojhnkyfavaulrfc-auth-token';
+function readStoredSession(): Session | null {
+  try {
+    const raw = localStorage.getItem(SUPABASE_AUTH_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (data?.access_token && data?.user) return data as Session;
+    return null;
+  } catch { return null; }
+}
+
 // Fetch profile in the background and enrich the user object — never blocks loading.
 function enrichFromProfile(session: Session, setUser: (u: AuthUser) => void) {
   void (async () => {
@@ -57,13 +71,17 @@ function enrichFromProfile(session: Session, setUser: (u: AuthUser) => void) {
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [supabaseUser, setSupabaseUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Initialise synchronously from localStorage so mobile users never see a
+  // "not logged in" flash while the async getSession() round-trip completes.
+  const storedSess = readStoredSession();
+  const [user, setUser] = useState<AuthUser | null>(storedSess ? sessionToUser(storedSess) : null);
+  const [supabaseUser, setSupabaseUser] = useState<User | null>(storedSess?.user ?? null);
+  const [session, setSession] = useState<Session | null>(storedSess);
+  // If a session was already found in localStorage, skip the loading state entirely.
+  const [loading, setLoading] = useState(!storedSess);
 
   useEffect(() => {
-    // 1. Subscribe to future auth changes — set loading=false immediately, enrich profile in background.
+    // 1. Subscribe to future auth changes (SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED …)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
       setSupabaseUser(sess?.user ?? null);
@@ -76,27 +94,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     });
 
-    // 2. Read current session — race against a 2 s timeout so a slow
-    //    token-refresh on mobile never blocks the UI indefinitely.
-    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000));
-    Promise.race([supabase.auth.getSession(), timeout])
-      .then((result) => {
-        if (!result) return; // timeout won — onAuthStateChange will handle it
-        const { data: { session: sess } } = result as Awaited<ReturnType<typeof supabase.auth.getSession>>;
+    // 2. Trigger a token refresh in the background. On mobile this may be slow,
+    //    but because we already loaded from localStorage above the UI is unblocked.
+    supabase.auth.getSession()
+      .then(({ data: { session: sess } }) => {
         setSession(sess);
         setSupabaseUser(sess?.user ?? null);
         if (sess?.user) {
           setUser(sessionToUser(sess));
           enrichFromProfile(sess, setUser);
+        } else {
+          setUser(null);
         }
         setLoading(false);
       })
-      .catch(() => {
-        setLoading(false);
-      });
+      .catch(() => setLoading(false));
 
-    // 3. Absolute safety net: unblock UI after 2 s no matter what.
-    const safetyTimer = setTimeout(() => setLoading(false), 2000);
+    // 3. Safety net: unblock after 8 s on extremely slow networks.
+    const safetyTimer = setTimeout(() => setLoading(false), 8000);
 
     return () => {
       subscription.unsubscribe();

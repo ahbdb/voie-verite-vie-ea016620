@@ -1,56 +1,72 @@
-import { getToken } from 'firebase/messaging';
 import { supabase } from "@/integrations/supabase/client";
-import { getFirebaseMessaging, FIREBASE_VAPID_KEY } from "./firebase-config";
 
+// VAPID public key — must match the send-push-notification Edge Function.
+// This is a public value; it is safe to embed here.
+const VAPID_PUBLIC_KEY =
+  (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) ||
+  "BDZP1G3CVzMfjpDGH7MGktPHySL1O1ZqqpP6B5QSgp09f8xu3lN9BLnQ527CZNXIY9q6KoISzbKbmbIAS8_I0AU";
+
+function urlBase64ToUint8Array(b64url: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (b64url.length % 4)) % 4);
+  const b64 = (b64url + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(b64);
+  // Explicit ArrayBuffer so TS infers Uint8Array<ArrayBuffer> not Uint8Array<ArrayBufferLike>
+  const buffer = new ArrayBuffer(raw.length);
+  const arr = new Uint8Array(buffer);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+/**
+ * Register a Web Push subscription for this device and store it in Supabase.
+ * The stored JSON matches what send-push-notification Edge Function expects:
+ *   { endpoint: string, keys: { p256dh: string, auth: string } }
+ *
+ * Works on: Android Chrome/Samsung, Firefox, iOS 16.4+ (home-screen PWA).
+ */
 export async function registerFCMToken(): Promise<string | null> {
   try {
-    if (!("serviceWorker" in navigator)) {
-      console.log("Service Worker not supported");
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      console.log("Web Push not supported on this browser");
       return null;
     }
 
-    // Request notification permission
+    // Ask permission
     if (Notification.permission === "default") {
       const perm = await Notification.requestPermission();
       if (perm !== "granted") return null;
     }
     if (Notification.permission !== "granted") return null;
 
-    // Register the Firebase Messaging service worker
+    // Register notification-sw.js — this is the SW that handles push events
     let swReg: ServiceWorkerRegistration;
     try {
-      swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+      swReg = await navigator.serviceWorker.register("/notification-sw.js", { scope: "/" });
       await navigator.serviceWorker.ready;
     } catch {
       swReg = await navigator.serviceWorker.ready;
     }
 
-    // Get Firebase Messaging instance
-    const messaging = await getFirebaseMessaging();
-    if (!messaging) {
-      console.log("Firebase Messaging not supported on this browser");
-      return null;
+    // Get existing subscription or create a new one
+    let subscription = await swReg.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await swReg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
     }
 
-    // Get FCM token
-    const token = await getToken(messaging, {
-      vapidKey: FIREBASE_VAPID_KEY || undefined,
-      serviceWorkerRegistration: swReg,
-    });
+    // Serialise to JSON — this is what the Edge Function parses
+    const subJson = JSON.stringify(subscription.toJSON());
 
-    if (!token) {
-      console.log("No FCM token received");
-      return null;
-    }
-
-    // Save to Supabase
+    // Persist in Supabase
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return token;
+    if (!user) return subJson;
 
     await supabase.from("fcm_tokens").upsert(
       {
         user_id: user.id,
-        token,
+        token: subJson,
         platform: detectPlatform(),
         device_info: navigator.userAgent.substring(0, 200),
         language: navigator.language?.substring(0, 2) || "fr",
@@ -59,10 +75,10 @@ export async function registerFCMToken(): Promise<string | null> {
       { onConflict: "token" }
     );
 
-    console.log("✓ FCM token registered");
-    return token;
+    console.log("✓ Web Push subscription registered");
+    return subJson;
   } catch (err) {
-    console.log("FCM registration error:", err);
+    console.log("Push registration error:", err);
     return null;
   }
 }
@@ -76,7 +92,7 @@ export async function updateFCMLanguage(lang: string) {
       .update({ language: lang.substring(0, 2) })
       .eq("user_id", user.id);
   } catch (err) {
-    console.log("Error updating FCM language:", err);
+    console.log("Error updating push language:", err);
   }
 }
 
