@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { db } from '@/lib/supabase';
+import { supabase as db } from '@/integrations/supabase/client';
 
 // ── Background audio player ───────────────────────────────────────────────────
 // Renders a hidden <audio> element for one remote stream while the call page
