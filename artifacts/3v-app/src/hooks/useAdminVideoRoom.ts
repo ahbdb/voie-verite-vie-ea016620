@@ -865,8 +865,8 @@ export const useAdminVideoRoom = ({
       const currentRoom = room || (await loadRoom());
       if (!currentRoom) throw new Error('Salle introuvable.');
 
-      // Pre-check: if browser already blocked permissions, show instructions immediately
-      // without calling getUserMedia (which would silently fail on PWA).
+      // Pre-check: if the browser has explicitly blocked permissions, show instructions
+      // without calling getUserMedia. Only acts on 'denied' — never blocks on 'prompt'.
       try {
         const [camPerm, micPerm] = await Promise.all([
           navigator.permissions.query({ name: 'camera' as PermissionName }),
@@ -874,12 +874,10 @@ export const useAdminVideoRoom = ({
         ]);
         if (camPerm.state === 'denied' || micPerm.state === 'denied') {
           setMediaError('PERMISSION_DENIED');
-          setLocalStream(new MediaStream());
-          setMicEnabled(false); setCameraEnabled(false); setStartRequested(true);
-          setIsJoining(false); setLoading(false);
+          // Do NOT set startRequested=true — keeps retry available
           return;
         }
-      } catch { /* Permissions API not available (Safari < 16) — proceed */ }
+      } catch { /* Permissions API unavailable (Safari) — proceed normally */ }
 
       const shouldUseVideo = currentRoom.room_type !== 'audio';
       let media: MediaStream | null = null;
@@ -898,10 +896,8 @@ export const useAdminVideoRoom = ({
       } catch (gumErr) {
         const errName = (gumErr as DOMException)?.name;
         if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
+          // Browser blocked — show instructions; do NOT set startRequested so retry works
           setMediaError('PERMISSION_DENIED');
-          setLocalStream(new MediaStream());
-          setMicEnabled(false); setCameraEnabled(false); setStartRequested(true);
-          setIsJoining(false); setLoading(false);
           return;
         }
         if (shouldUseVideo) {
@@ -915,9 +911,6 @@ export const useAdminVideoRoom = ({
             const audioErrName = (audioErr as DOMException)?.name;
             if (audioErrName === 'NotAllowedError' || audioErrName === 'PermissionDeniedError') {
               setMediaError('PERMISSION_DENIED');
-              setLocalStream(new MediaStream());
-              setMicEnabled(false); setCameraEnabled(false); setStartRequested(true);
-              setIsJoining(false); setLoading(false);
               return;
             }
             media = null;
