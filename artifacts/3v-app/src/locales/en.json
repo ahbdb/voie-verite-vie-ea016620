@@ -899,7 +899,9 @@
       "chapelet": "Rosary",
       "chapeletDesc": "Overview of rosary mysteries and prayers",
       "dailyPrayer": "Daily Prayer",
-      "dailyPrayerDesc": "Preview today's Gospel and prayer time slots"
+      "dailyPrayerDesc": "Preview today's Gospel and prayer time slots",
+      "news": "News",
+      "newsDesc": "Manage association and Church news"
     },
     "accessDenied": "Access denied",
     "principalOnly": "This page is reserved for the Principal Admin",

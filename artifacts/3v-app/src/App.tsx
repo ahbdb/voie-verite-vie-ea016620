@@ -62,6 +62,7 @@ import AdminDons from "./pages/admin/AdminDons";
 import AdminFeastDays from "./pages/admin/AdminFeastDays";
 import AdminChapelet from "./pages/admin/AdminChapelet";
 import AdminPriereQuotidienne from "./pages/admin/AdminPriereQuotidienne";
+import AdminNews from "./pages/admin/AdminNews";
 import AdminRepair from "./pages/AdminRepair";
 import Profile from "./pages/Profile";
 import Creator from "./pages/Creator";
@@ -182,6 +183,7 @@ const App = () => {
                       <Route path="/admin/feast-days" element={<AdminFeastDays />} />
                       <Route path="/admin/chapelet" element={<AdminChapelet />} />
                       <Route path="/admin/daily-prayer" element={<AdminPriereQuotidienne />} />
+                      <Route path="/admin/news" element={<AdminNews />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/documents-3v" element={<Documents3V />} />
                       <Route path="*" element={<NotFound />} />

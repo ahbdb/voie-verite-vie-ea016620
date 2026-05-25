@@ -897,7 +897,9 @@
       "chapelet": "Chapelet & Rosaire",
       "chapeletDesc": "Aperçu des mystères et prières du Rosaire",
       "dailyPrayer": "Prière Quotidienne",
-      "dailyPrayerDesc": "Aperçu de l'Évangile du jour et des créneaux de prière"
+      "dailyPrayerDesc": "Aperçu de l'Évangile du jour et des créneaux de prière",
+      "news": "Actualités",
+      "newsDesc": "Gérer les actualités de l'association et de l'Église"
     },
     "accessDenied": "Accès refusé",
     "principalOnly": "Cette page est réservée à l'Admin Principal",

@@ -59,6 +59,111 @@ import { cn } from '@/lib/utils';
 
 const QUICK_REACTIONS = ['👍', '❤️', '🙏', '😂', '🔥', '👏'];
 
+// ── Permission denied panel ──────────────────────────────────────────────────
+// Shown when the browser has blocked camera/microphone access.
+// Cannot be fixed programmatically — only the user can unlock it in browser settings.
+
+function detectPlatform() {
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+  const isAndroid = /Android/.test(ua);
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches
+    || (window.navigator as any).standalone === true;
+  if (isIOS && isPWA) return 'ios-pwa';
+  if (isIOS) return 'ios';
+  if (isAndroid) return 'android';
+  return 'desktop';
+}
+
+const PLATFORM_STEPS: Record<string, { title: string; icon: string; steps: string[] }> = {
+  'ios-pwa': {
+    title: 'iPhone / iPad (Application installée)',
+    icon: '📱',
+    steps: [
+      'Ferme cette application',
+      'Ouvre les Réglages iPhone',
+      'Fais défiler vers le bas et tape sur Safari',
+      'Appuie sur « Paramètres des sites web »',
+      'Appuie sur « Appareil photo » puis « Microphone »',
+      'Trouve voie-verite-vie.netlify.app et mets sur Autoriser',
+      'Reviens dans l'application et retente',
+    ],
+  },
+  ios: {
+    title: 'iPhone / iPad (Safari)',
+    icon: '🧭',
+    steps: [
+      'Appuie sur le bouton AA à gauche de la barre d\'adresse',
+      'Sélectionne « Réglages du site web »',
+      'Appuie sur Appareil photo et Microphone',
+      'Sélectionne « Autoriser »',
+      'Recharge la page',
+    ],
+  },
+  android: {
+    title: 'Android (Chrome)',
+    icon: '🤖',
+    steps: [
+      'Appuie sur l\'icône cadenas 🔒 dans la barre d\'adresse',
+      'Sélectionne « Autorisations »',
+      'Active le Microphone et la Caméra',
+      'Recharge la page',
+    ],
+  },
+  desktop: {
+    title: 'Ordinateur (Chrome / Edge / Firefox)',
+    icon: '💻',
+    steps: [
+      'Clique sur l\'icône cadenas 🔒 à gauche de la barre d\'adresse',
+      'Clique sur « Autorisations du site » ou « Les autorisations de ce site »',
+      'Mets Caméra et Microphone sur « Autoriser »',
+      'Recharge la page',
+    ],
+  },
+};
+
+const PermissionDeniedPanel = ({ onRetry, isRetrying }: { onRetry: () => void; isRetrying: boolean }) => {
+  const platform = detectPlatform();
+  const info = PLATFORM_STEPS[platform];
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 py-10 text-center">
+      <div className="mb-4 text-6xl">🔒</div>
+      <h2 className="text-xl font-bold text-white mb-2">Accès micro / caméra bloqué</h2>
+      <p className="text-zinc-400 text-sm max-w-sm mb-8">
+        Votre navigateur a mémorisé un refus. Suivez ces étapes pour autoriser l'accès :
+      </p>
+
+      <div className="w-full max-w-sm bg-zinc-800/80 border border-zinc-700 rounded-2xl p-5 text-left mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-2xl">{info.icon}</span>
+          <span className="text-sm font-semibold text-zinc-200">{info.title}</span>
+        </div>
+        <ol className="space-y-2.5">
+          {info.steps.map((step, i) => (
+            <li key={i} className="flex gap-3 text-sm text-zinc-300">
+              <span className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary text-[11px] font-bold mt-0.5">
+                {i + 1}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <Button
+        onClick={onRetry}
+        disabled={isRetrying}
+        className="rounded-xl px-8 py-3 font-bold bg-primary hover:bg-primary/90"
+      >
+        {isRetrying
+          ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Connexion…</>
+          : <><RotateCcw className="h-4 w-4 mr-2" /> J'ai autorisé — Réessayer</>}
+      </Button>
+    </div>
+  );
+};
+
 // ── Video panel ──────────────────────────────────────────────────────────────
 
 const VideoPanel = ({
@@ -705,8 +810,16 @@ const AdminVideoRoom = () => {
           </div>
         </div>
 
-        {/* Media error banner */}
-        {mediaError && (
+        {/* Permission denied — full instructions */}
+        {mediaError === 'PERMISSION_DENIED' && (
+          <PermissionDeniedPanel
+            onRetry={() => { primeAudioPlayback(); autoJoinedRef.current = false; void requestJoin(); }}
+            isRetrying={isJoining}
+          />
+        )}
+
+        {/* Other media errors */}
+        {mediaError && mediaError !== 'PERMISSION_DENIED' && (
           <div className="flex items-center gap-2 bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5 text-sm text-amber-400">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span className="flex-1">{mediaError}</span>
