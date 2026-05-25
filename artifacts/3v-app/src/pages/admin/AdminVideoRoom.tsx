@@ -86,7 +86,7 @@ const PLATFORM_STEPS: Record<string, { title: string; icon: string; steps: strin
       'Appuie sur « Paramètres des sites web »',
       'Appuie sur « Appareil photo » puis « Microphone »',
       'Trouve voie-verite-vie.netlify.app et mets sur Autoriser',
-      'Reviens dans l'application et retente',
+      "Reviens dans l'application et retente",
     ],
   },
   ios: {
@@ -564,19 +564,16 @@ const AdminVideoRoom = () => {
   // Android PWA: keeps screen on so Chrome stays in foreground audio mode.
   useCallWakeLock(isConnected);
 
-  // ── Auto-join on mount (WhatsApp-style: no intermediate "join" prompt) ─────
+  // ── Prime audio on mount (unlocks autoplay without touching camera/mic) ────
+  // requestJoin() is NOT called here because on installed PWA (iOS/Android),
+  // getUserMedia MUST originate from a direct user tap — a useEffect does not
+  // satisfy the browser's user-gesture requirement and the call gets denied.
 
   useEffect(() => {
-    if (autoJoinedRef.current) return;
     if (!roomId || !user?.id) return;
-    // Wait until the room record is loaded, then auto-join
     if (!room && !loading) return;
-    autoJoinedRef.current = true;
-    // Prime audio autoplay unlock — the page navigation itself counts as a
-    // user gesture on most browsers, so this succeeds and unlocks the audio.
     primeAudioPlayback();
-    void requestJoin();
-  }, [room, loading, roomId, user?.id, requestJoin, primeAudioPlayback]);
+  }, [room, loading, roomId, user?.id, primeAudioPlayback]);
 
   // ── Auto-eject all participants when admin ends the room ──────────────────
   // The hook's Supabase subscription updates `room.status` for everyone in real
@@ -837,8 +834,46 @@ const AdminVideoRoom = () => {
           </div>
         )}
 
-        {/* Auto-join loading state */}
-        {(isJoining || (loading && !isConnected)) && !mediaError && (
+        {/* Loading room data */}
+        {loading && !isConnected && !isJoining && !mediaError && (
+          <div className="flex flex-col items-center justify-center gap-3 py-12 px-4 text-center">
+            <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+              <Loader2 className="h-7 w-7 text-primary animate-spin" />
+            </div>
+            <p className="text-zinc-400 text-sm">Chargement de la salle…</p>
+          </div>
+        )}
+
+        {/* Join button — getUserMedia must come from a direct user tap on PWA */}
+        {!loading && !isConnected && !isJoining && !mediaError && room && (
+          <div className="flex flex-col items-center justify-center gap-4 py-16 px-4 text-center">
+            <div className="h-20 w-20 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+              {roomType === 'audio'
+                ? <Mic className="h-9 w-9 text-primary" />
+                : <Video className="h-9 w-9 text-primary" />}
+            </div>
+            <div className="space-y-1">
+              <p className="text-white font-semibold text-lg">{room.title}</p>
+              <p className="text-zinc-400 text-sm">
+                {roomType === 'audio'
+                  ? 'Appuyez pour activer votre microphone et rejoindre.'
+                  : 'Appuyez pour activer votre micro et caméra et rejoindre.'}
+              </p>
+            </div>
+            <Button
+              size="lg"
+              className="gap-2 px-8 text-base"
+              onClick={() => { primeAudioPlayback(); void requestJoin(); }}
+            >
+              {roomType === 'audio'
+                ? <><Mic className="h-5 w-5" /> Rejoindre l'appel</>
+                : <><Video className="h-5 w-5" /> Rejoindre la réunion</>}
+            </Button>
+          </div>
+        )}
+
+        {/* Joining in progress */}
+        {isJoining && !mediaError && (
           <div className="flex flex-col items-center justify-center gap-3 py-12 px-4 text-center">
             <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
               <Loader2 className="h-7 w-7 text-primary animate-spin" />
