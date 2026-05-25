@@ -163,6 +163,7 @@ export const useAdminVideoRoom = ({
   const [loading, setLoading] = useState(true);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [micEnabled, setMicEnabled] = useState(true);
+  const micEnabledRef = useRef(true);
   const [cameraEnabled, setCameraEnabled] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -222,6 +223,9 @@ export const useAdminVideoRoom = ({
     userIdRef.current = userId;
     remoteStreamsRef.current = remoteStreams;
   }, [participants, displayName, canManageRoom, room, userId, remoteStreams]);
+
+  // Keep micEnabledRef in sync so toggleMicrophone never reads stale state
+  useEffect(() => { micEnabledRef.current = micEnabled; }, [micEnabled]);
 
   // ── Auto-restore from soft leave ─────────────────────────────────────────────
   // If a persisted session exists for this room, skip the "Rejoindre" button
@@ -810,6 +814,15 @@ export const useAdminVideoRoom = ({
     });
 
     for (const p of others) {
+      const existing = peerConnectionsRef.current.get(p.user_id);
+      // Tear down dead connections so they are re-negotiated from scratch.
+      // This is the primary fix for "connexion faible après retour" — a failed
+      // ICE connection is never recoverable via restart alone; a fresh offer is required.
+      if (existing && (existing.connectionState === 'failed' || existing.connectionState === 'closed')) {
+        existing.close();
+        peerConnectionsRef.current.delete(p.user_id);
+        initiatedPeersRef.current.delete(p.user_id);
+      }
       if (!peerConnectionsRef.current.has(p.user_id)) {
         createPeerConnection(p.user_id);
       }
@@ -997,11 +1010,12 @@ export const useAdminVideoRoom = ({
 
   const toggleMicrophone = useCallback(() => {
     const tracks = localStreamRef.current?.getAudioTracks() || [];
-    const next = !micEnabled;
+    const next = !micEnabledRef.current;
     tracks.forEach((t) => { t.enabled = next; });
+    micEnabledRef.current = next;
     setMicEnabled(next);
     void channelRef.current?.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: next } });
-  }, [micEnabled, userId]);
+  }, [userId]); // Stable ref — reads micEnabledRef, no stale closure after soft leave
 
   const toggleCamera = useCallback(() => {
     if (roomType === 'audio') return;

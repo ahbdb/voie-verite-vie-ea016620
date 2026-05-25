@@ -517,6 +517,8 @@ const AdminVideoRoom = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [activeTab, setActiveTab] = useState('chat');
+  const [unreadChat, setUnreadChat] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const autoJoinedRef = useRef(false);
   const hardHangUpRef = useRef(false);
@@ -574,11 +576,14 @@ const AdminVideoRoom = () => {
 
     return () => {
       callSession.setHangUpFn(null);
-      callSession.setMicToggleFn(null);
       callSession.setEndRoomFn(null);
       if (hardHangUpRef.current) {
+        // Hard hang-up: clear mic fn and end session
+        callSession.setMicToggleFn(null);
         callSession.endCallSession();
       }
+      // Soft leave: intentionally keep setMicToggleFn alive so FloatingCallBanner
+      // can still toggle the microphone while the user browses other pages.
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room, roomId, hasManagement]);
@@ -686,7 +691,9 @@ const AdminVideoRoom = () => {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+    // Increment unread badge when chat tab is not active
+    if (activeTab !== 'chat') setUnreadChat((n) => n + 1);
+  }, [messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Map userId → avatar_url for quick lookup in VideoPanel
   const participantAvatarMap = useMemo(() => {
@@ -1087,10 +1094,14 @@ const AdminVideoRoom = () => {
 
             {/* Sidebar */}
             <aside className="border-l border-zinc-800 bg-zinc-900 flex flex-col overflow-hidden">
-              <Tabs defaultValue="chat" className="flex flex-col flex-1 overflow-hidden">
+              <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v === 'chat') setUnreadChat(0); }} className="flex flex-col flex-1 overflow-hidden">
                 <TabsList className={`grid w-full rounded-none border-b border-zinc-800 bg-transparent h-10 shrink-0 ${adminRole === 'admin_principal' ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   <TabsTrigger value="chat" className="rounded-none text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-500">
-                    💬 Chat
+                    💬 Chat{unreadChat > 0 && (
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                        {unreadChat > 99 ? '99+' : unreadChat}
+                      </span>
+                    )}
                   </TabsTrigger>
                   <TabsTrigger value="participants" className="rounded-none text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-500">
                     👥 ({participants.length})
@@ -1394,20 +1405,6 @@ const AdminVideoRoom = () => {
             <div className="flex flex-col items-center gap-1 rounded-xl bg-zinc-800/50 px-3 py-2 text-zinc-500 min-w-[56px]">
               <span className="text-base font-bold text-zinc-300">{participants.length}</span>
               <span className="text-[9px] font-medium">Participants</span>
-            </div>
-
-            {/* Emoji reactions — WhatsApp-style floating emoji on your video tile */}
-            <div className="flex items-center gap-0.5">
-              {QUICK_REACTIONS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => void sendEmojiReaction(emoji)}
-                  className="rounded-lg bg-zinc-800 hover:bg-zinc-700 px-1.5 py-1.5 text-sm transition-colors"
-                  title={`Réaction ${emoji}`}
-                >
-                  {emoji}
-                </button>
-              ))}
             </div>
 
             <div className="w-px h-8 bg-zinc-700 mx-0.5" />
