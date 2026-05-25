@@ -924,6 +924,12 @@ export const useAdminVideoRoom = ({
       .eq('id', roomId);
     if (roomErr) throw new Error(`Impossible de terminer la réunion : ${roomErr.message}`);
 
+    // Also end the linked scheduled_session so CallsAndLives stops showing it as live.
+    await (db as any)
+      .from('scheduled_sessions')
+      .update({ status: 'ended' })
+      .eq('video_room_id', roomId);
+
     await db.from('video_room_participants').update({ is_active: false, left_at: new Date().toISOString() }).eq('room_id', roomId);
 
     // 3. Broadcast again after DB update — catches clients who missed the first
@@ -1283,6 +1289,10 @@ export const useAdminVideoRoom = ({
               })
               .subscribe(async (status: string) => {
                 if (status === 'SUBSCRIBED') {
+                  // Optimistically reset quality — peer is actively (re)connecting
+                  if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
+                  setConnectionQuality('good');
+
                   await fetchPendingSignals();
                   void channelRef.current?.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
 

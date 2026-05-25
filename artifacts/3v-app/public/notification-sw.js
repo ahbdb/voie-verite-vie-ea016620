@@ -5,7 +5,8 @@ self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); })
 
 /* ── Classify notification payload ──────────────────────────────────────── */
 function classifyPayload(payload) {
-  const action = payload.action || '';
+  // action can be at top level (new format) or nested in data (old format)
+  const action = payload.action || payload.data?.action || '';
   const isCall = action === 'call';
   const isLive = action === 'live' || action === 'session';
   const isFeast = action === 'feast';
