@@ -17,7 +17,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Phone, Plus, Radio, RefreshCw, Trash2, Users, Video, Mic } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Image, Phone, Plus, Radio, RefreshCw, Trash2, Users, Video, Mic, Upload } from 'lucide-react';
 import type { VideoParticipantRecord, VideoRoomRecord } from '@/hooks/useAdminVideoRoom';
 import { useCallSession } from '@/contexts/CallSessionContext';
 
@@ -47,7 +47,11 @@ const AdminVideo = () => {
     title: '',
     description: '',
     roomType: 'video' as 'video' | 'audio',
+    scheduledAt: '',
+    flyerUrl: '',
   });
+  const [flyerFile, setFlyerFile] = useState<File | null>(null);
+  const [uploadingFlyer, setUploadingFlyer] = useState(false);
 
   const activeParticipantsByRoom = useMemo(() => {
     return participants.reduce<Record<string, number>>((acc, p) => {
@@ -108,14 +112,30 @@ const AdminVideo = () => {
 
     setCreating(true);
     try {
+      // Upload flyer if selected
+      let flyerUrl = formData.flyerUrl.trim() || null;
+      if (flyerFile) {
+        setUploadingFlyer(true);
+        const ext = flyerFile.name.split('.').pop() || 'jpg';
+        const path = `${user.id}/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('video-flyers').upload(path, flyerFile, { upsert: true });
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from('video-flyers').getPublicUrl(path);
+          flyerUrl = urlData.publicUrl;
+        }
+        setUploadingFlyer(false);
+      }
+
       const { data, error } = await db
         .from('video_rooms')
         .insert({
           title: formData.title.trim(),
           description: formData.description.trim() || null,
           created_by: user.id,
-          status: 'waiting',
+          status: formData.scheduledAt ? 'scheduled' : 'waiting',
           room_type: formData.roomType,
+          scheduled_at: formData.scheduledAt ? new Date(formData.scheduledAt).toISOString() : null,
+          flyer_url: flyerUrl,
           updated_at: new Date().toISOString(),
         })
         .select('*')
@@ -151,7 +171,8 @@ const AdminVideo = () => {
       }
 
       toast.success('Salle créée, appel envoyé.');
-      setFormData({ title: '', description: '', roomType: 'video' });
+      setFormData({ title: '', description: '', roomType: 'video', scheduledAt: '', flyerUrl: '' });
+      setFlyerFile(null);
       setSelectedUserIds(new Set());
       primeAudioPlayback();
       navigate(meetingPath);
@@ -324,8 +345,63 @@ const AdminVideo = () => {
                     placeholder="Description (optionnel)"
                     rows={2}
                   />
-                  <Button type="submit" disabled={creating} className="w-full">
-                    <Plus className="h-4 w-4 mr-1" /> {creating ? 'Création...' : 'Créer et appeler'}
+
+                  {/* Scheduled date/time */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium flex items-center gap-1.5">
+                      <CalendarClock className="h-4 w-4 text-muted-foreground" /> Programmer (optionnel)
+                    </label>
+                    <Input
+                      type="datetime-local"
+                      value={formData.scheduledAt}
+                      onChange={(e) => setFormData((c) => ({ ...c, scheduledAt: e.target.value }))}
+                      className="text-sm"
+                    />
+                  </div>
+
+                  {/* Flyer / cover image */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium flex items-center gap-1.5">
+                      <Image className="h-4 w-4 text-muted-foreground" /> Flyer / visuel (optionnel)
+                    </label>
+                    <div className="flex gap-2">
+                      <label className="flex-1 flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm cursor-pointer hover:bg-muted/50 transition-colors">
+                        <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="truncate text-muted-foreground">
+                          {flyerFile ? flyerFile.name : 'Choisir une image…'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          className="sr-only"
+                          onChange={(e) => { setFlyerFile(e.target.files?.[0] || null); setFormData((c) => ({ ...c, flyerUrl: '' })); }}
+                        />
+                      </label>
+                      {flyerFile && (
+                        <button type="button" onClick={() => setFlyerFile(null)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+                      )}
+                    </div>
+                    {!flyerFile && (
+                      <Input
+                        value={formData.flyerUrl}
+                        onChange={(e) => setFormData((c) => ({ ...c, flyerUrl: e.target.value }))}
+                        placeholder="…ou coller l'URL d'une image"
+                        className="text-sm"
+                      />
+                    )}
+                    {(flyerFile || formData.flyerUrl) && (
+                      <img
+                        src={flyerFile ? URL.createObjectURL(flyerFile) : formData.flyerUrl}
+                        alt="Aperçu flyer"
+                        className="w-full max-h-40 object-cover rounded-md border border-border"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    )}
+                  </div>
+
+                  <Button type="submit" disabled={creating || uploadingFlyer} className="w-full">
+                    <Plus className="h-4 w-4 mr-1" />
+                    {uploadingFlyer ? 'Upload flyer…' : creating ? 'Création…' : formData.scheduledAt ? 'Programmer' : 'Créer et appeler'}
                   </Button>
                 </form>
               </CardContent>
@@ -377,9 +453,18 @@ const AdminVideo = () => {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
+                        {room.flyer_url && (
+                          <img src={room.flyer_url} alt="flyer" className="w-full max-h-28 object-cover rounded-md" />
+                        )}
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {count}</span>
                           <span>{room.room_type === 'audio' ? '🎙️ Audio' : '📹 Vidéo'}</span>
+                          {room.scheduled_at && (
+                            <span className="flex items-center gap-1">
+                              <CalendarClock className="h-3 w-3" />
+                              {new Date(room.scheduled_at).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <Button size="sm" onClick={() => { primeAudioPlayback(); navigate(`/meeting/${room.id}`); }}>Ouvrir</Button>

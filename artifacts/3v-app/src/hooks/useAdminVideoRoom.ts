@@ -58,6 +58,8 @@ export interface VideoRoomRecord {
   ended_at: string | null;
   created_at: string;
   updated_at: string;
+  flyer_url: string | null;
+  scheduled_at: string | null;
 }
 
 export interface VideoParticipantRecord {
@@ -68,6 +70,7 @@ export interface VideoParticipantRecord {
   is_active: boolean;
   joined_at: string;
   left_at: string | null;
+  avatar_url?: string | null;
 }
 
 interface VideoSignalRecord {
@@ -447,7 +450,17 @@ export const useAdminVideoRoom = ({
       .eq('room_id', roomId)
       .order('joined_at', { ascending: true });
     if (error) throw error;
-    setParticipants((data || []) as VideoParticipantRecord[]);
+    const parts = (data || []) as VideoParticipantRecord[];
+    // Enrich with avatar_url from profiles
+    if (parts.length > 0) {
+      const ids = parts.map((p) => p.user_id);
+      const { data: profs } = await db.from('profiles').select('id, avatar_url').in('id', ids);
+      const avatarMap: Record<string, string | null> = {};
+      (profs || []).forEach((p: { id: string; avatar_url: string | null }) => { avatarMap[p.id] = p.avatar_url; });
+      setParticipants(parts.map((p) => ({ ...p, avatar_url: avatarMap[p.user_id] ?? null })));
+    } else {
+      setParticipants(parts);
+    }
   }, [roomId]);
 
   const loadMessages = useCallback(async () => {

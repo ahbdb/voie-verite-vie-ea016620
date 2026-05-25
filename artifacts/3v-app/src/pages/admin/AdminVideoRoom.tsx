@@ -13,6 +13,7 @@ import {
 import { useCallSession } from '@/contexts/CallSessionContext';
 import { useCallKeepAlive } from '@/hooks/useCallKeepAlive';
 import { useCallWakeLock } from '@/hooks/useCallWakeLock';
+import { broadcastNotificationService } from '@/hooks/useBroadcastNotifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -54,6 +55,7 @@ import {
   Wifi,
   WifiOff,
   AlertCircle,
+  Bell,
   CheckCircle2,
   LogOut,
 } from 'lucide-react';
@@ -171,6 +173,7 @@ const PermissionDeniedPanel = ({ onRetry, isRetrying }: { onRetry: () => void; i
 const VideoPanel = ({
   stream,
   title,
+  avatarUrl,
   muted = false,
   isMutedByAdmin = false,
   isSpeaking = false,
@@ -178,6 +181,7 @@ const VideoPanel = ({
 }: {
   stream: MediaStream | null;
   title: string;
+  avatarUrl?: string | null;
   muted?: boolean;
   isMutedByAdmin?: boolean;
   isSpeaking?: boolean;
@@ -241,14 +245,25 @@ const VideoPanel = ({
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3">
-            <div
-              className={cn(
-                'flex h-14 w-14 items-center justify-center rounded-full text-xl font-bold text-white transition-all',
-                isSpeaking ? 'bg-green-500 scale-110' : 'bg-zinc-700'
-              )}
-            >
-              {title.charAt(0).toUpperCase()}
-            </div>
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={title}
+                className={cn(
+                  'h-16 w-16 rounded-full object-cover border-2 transition-all',
+                  isSpeaking ? 'border-green-400 scale-110 shadow-[0_0_0_3px_rgba(74,222,128,0.4)]' : 'border-zinc-600'
+                )}
+              />
+            ) : (
+              <div
+                className={cn(
+                  'flex h-14 w-14 items-center justify-center rounded-full text-xl font-bold text-white transition-all',
+                  isSpeaking ? 'bg-green-500 scale-110' : 'bg-zinc-700'
+                )}
+              >
+                {title.charAt(0).toUpperCase()}
+              </div>
+            )}
             <p className="text-xs font-medium text-zinc-400">{title}</p>
           </div>
         )}
@@ -529,7 +544,7 @@ const AdminVideoRoom = () => {
       triggerHardLeave();
       await leaveRoom();
       callSession.endCallSession();
-      navigate(hasManagement ? '/admin/video' : '/');
+      navigate('/');
     });
 
     callSession.setMicToggleFn(toggleMicrophone);
@@ -614,7 +629,7 @@ const AdminVideoRoom = () => {
     triggerHardLeave();
     callSession.endCallSession();
     toast.info('Cette réunion a été terminée par l\'administrateur.');
-    navigate(hasManagement ? '/admin/video' : '/');
+    navigate('/');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.status]);
 
@@ -634,6 +649,13 @@ const AdminVideoRoom = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
+
+  // Map userId → avatar_url for quick lookup in VideoPanel
+  const participantAvatarMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    participants.forEach((p) => { if (p.avatar_url) map.set(p.user_id, p.avatar_url); });
+    return map;
+  }, [participants]);
 
   const reactionsByMessage = useMemo(() => {
     return reactions.reduce<Record<string, Record<string, VideoMessageReactionRecord[]>>>((acc, r) => {
@@ -670,12 +692,30 @@ const AdminVideoRoom = () => {
     } catch { toast.error('Copie impossible'); }
   };
 
+  /** Admin re-rings all participants without restarting the session. */
+  const handleReRing = async () => {
+    if (!room || !roomId) return;
+    try {
+      const typeLabel = room.room_type === 'audio' ? 'audio' : 'vidéo';
+      await broadcastNotificationService.sendToAll(
+        `📞 ${room.title}`,
+        `Appel ${typeLabel} en cours — rejoignez maintenant !`,
+        'call',
+        undefined,
+        `/meeting/${roomId}`,
+      );
+      toast.success('Sonnerie envoyée à tous');
+    } catch {
+      toast.error('Envoi de la sonnerie échoué');
+    }
+  };
+
   /** Soft leave — navigates away but keeps audio flowing in both directions.
    *  Background audio transfer happens automatically via the unmount effect. */
   const handleSoftLeave = () => {
     hardHangUpRef.current = false;
     softLeave();
-    navigate(hasManagement ? '/admin/video' : '/');
+    navigate('/');
   };
 
   /** Hard hang-up — disconnects fully and clears context. */
@@ -684,7 +724,7 @@ const AdminVideoRoom = () => {
     triggerHardLeave();
     await leaveRoom();
     callSession.endCallSession();
-    navigate(hasManagement ? '/admin/video' : '/');
+    navigate('/');
   };
 
   /** Admin end-room — confirmation required. */
@@ -695,7 +735,7 @@ const AdminVideoRoom = () => {
       await endRoom();
       callSession.endCallSession();
       toast.success('Réunion terminée pour tous');
-      navigate('/admin/video');
+      navigate('/');
       setShowEndConfirm(false);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Impossible de terminer la réunion';
@@ -954,11 +994,22 @@ const AdminVideoRoom = () => {
         {/* Video + sidebar grid — shown once connected or streams available */}
         {(isConnected || remoteStreams.length > 0 || localStream) && (
           <div className="flex-1 grid gap-0 lg:grid-cols-[1fr_360px] overflow-hidden">
-            {/* Video area */}
-            <section className="p-4 overflow-y-auto">
+            {/* Video area — with optional flyer as background */}
+            <section
+              className="p-4 overflow-y-auto relative"
+              style={room?.flyer_url ? {
+                backgroundImage: `url(${room.flyer_url})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              } : undefined}
+            >
+              {/* Semi-transparent overlay so videos remain readable over flyer */}
+              {room?.flyer_url && (
+                <div className="absolute inset-0 bg-zinc-950/70 pointer-events-none" />
+              )}
               <div
                 className={cn(
-                  'grid gap-3',
+                  'relative z-10 grid gap-3',
                   remoteStreams.length === 0 ? 'grid-cols-1 max-w-lg mx-auto' :
                   remoteStreams.length === 1 ? 'grid-cols-1 sm:grid-cols-2' :
                   remoteStreams.length <= 3 ? 'grid-cols-2' :
@@ -969,6 +1020,7 @@ const AdminVideoRoom = () => {
                   <VideoPanel
                     stream={localStream}
                     title={displayName}
+                    avatarUrl={user?.id ? participantAvatarMap.get(user.id) : null}
                     muted
                     isLocal
                     isSpeaking={activeSpeakers.has(user?.id || '')}
@@ -979,6 +1031,7 @@ const AdminVideoRoom = () => {
                     key={rs.userId}
                     stream={rs.stream}
                     title={rs.displayName}
+                    avatarUrl={participantAvatarMap.get(rs.userId)}
                     isMutedByAdmin={mutedParticipants.has(rs.userId)}
                     isSpeaking={activeSpeakers.has(rs.userId)}
                   />
@@ -1284,6 +1337,18 @@ const AdminVideoRoom = () => {
             </div>
 
             <div className="w-px h-8 bg-zinc-700 mx-1" />
+
+            {/* Re-ring — admin rings all participants again without restarting */}
+            {hasManagement && (
+              <button
+                onClick={() => void handleReRing()}
+                className="flex flex-col items-center gap-1 rounded-xl bg-amber-500/20 px-3 py-2 text-amber-400 hover:bg-amber-500/30 transition-colors min-w-[56px]"
+                title="Sonner à nouveau pour inviter les absents"
+              >
+                <Bell className="h-5 w-5" />
+                <span className="text-[9px] font-medium">Sonner</span>
+              </button>
+            )}
 
             {/* Terminer — any admin can end the session */}
             {hasManagement && (
