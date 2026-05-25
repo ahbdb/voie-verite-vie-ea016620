@@ -183,8 +183,6 @@ const CallsAndLives = () => {
     }
   };
 
-  // Direct start — no lobby. getUserMedia is called by AdminVideoRoom after navigation,
-  // which is a direct user gesture and works correctly on all PWAs.
   const startQuickCall = async (type: 'audio' | 'video' | 'live') => {
     if (!user) { toast.error(t('calls.loginRequired')); return; }
     setStartingType(type);
@@ -196,23 +194,29 @@ const CallsAndLives = () => {
       }).select('id').single();
       if (roomErr) throw roomErr;
 
-      if (isAdmin) {
-        await supabase.from('scheduled_sessions' as any).insert({
-          title, session_type: type,
-          scheduled_date: format(new Date(), 'yyyy-MM-dd'),
-          scheduled_time: format(new Date(), 'HH:mm:ss'),
-          estimated_duration: 60, access_type: 'open', recurrence: 'once',
-          status: 'live', created_by: user.id, video_room_id: room.id,
-        } as any);
-        fetchSessions();
+      const { error: sessionErr } = await supabase.from('scheduled_sessions' as any).insert({
+        title, session_type: type,
+        scheduled_date: format(new Date(), 'yyyy-MM-dd'),
+        scheduled_time: format(new Date(), 'HH:mm:ss'),
+        estimated_duration: 60, access_type: 'open', recurrence: 'once',
+        status: 'live', created_by: user.id, video_room_id: room.id,
+      } as any);
+      if (sessionErr) throw sessionErr;
+
+      const { data: created } = await (supabase as any).from('scheduled_sessions' as any)
+        .select('id').eq('video_room_id', room.id)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (created?.id) {
+        supabase.functions.invoke('notify-session', { body: { session_id: created.id, kind: 'live', target: 'all' } }).catch(() => {});
       }
 
-      sendCallJoinNotification(title, room.id, user.name ?? user.email ?? undefined).catch(() => {});
+      fetchSessions();
       toast.success(t('calls.sessionStarted'));
       primeAudioPlayback();
       navigate(`/meeting/${room.id}`);
-    } catch {
-      toast.error(t('common.error'));
+    } catch (e: any) {
+      console.error('[startQuickCall]', e);
+      toast.error(e?.message ?? t('common.error'));
     } finally {
       setStartingType(null);
     }
@@ -286,72 +290,75 @@ const CallsAndLives = () => {
 
         {/* ── Quick start ── */}
         <section>
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em] mb-4">Démarrer</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em] mb-4">
+            {isAdmin ? 'Démarrer' : 'Rejoindre'}
+          </h2>
 
-            {/* Audio */}
-            <button
-              onClick={() => startQuickCall('audio')}
-              disabled={!!startingType}
-              className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/15 hover:border-violet-500/60 transition-all active:scale-[0.97] disabled:opacity-60"
-            >
-              {startingType === 'audio'
-                ? <Loader2 className="h-7 w-7 text-violet-400 animate-spin" />
-                : <Mic className="h-7 w-7 text-violet-400 group-hover:scale-110 transition-transform" />}
-              <div className="text-center">
-                <span className="text-xs font-semibold text-foreground block">{t('calls.startAudio')}</span>
-                <span className="text-[10px] text-muted-foreground">Voix uniquement</span>
-              </div>
-            </button>
-
-            {/* Video */}
-            <button
-              onClick={() => startQuickCall('video')}
-              disabled={!!startingType}
-              className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/15 hover:border-blue-500/60 transition-all active:scale-[0.97] disabled:opacity-60"
-            >
-              {startingType === 'video'
-                ? <Loader2 className="h-7 w-7 text-blue-400 animate-spin" />
-                : <Video className="h-7 w-7 text-blue-400 group-hover:scale-110 transition-transform" />}
-              <div className="text-center">
-                <span className="text-xs font-semibold text-foreground block">{t('calls.startVideo')}</span>
-                <span className="text-[10px] text-muted-foreground">Caméra + micro</span>
-              </div>
-            </button>
-
-            {/* Join by code */}
-            <Sheet>
-              <SheetTrigger asChild>
-                <button className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 hover:border-emerald-500/60 transition-all active:scale-[0.97]">
-                  <Link2 className="h-7 w-7 text-emerald-400 group-hover:scale-110 transition-transform" />
-                  <div className="text-center">
-                    <span className="text-xs font-semibold text-foreground block">{t('calls.joinByCode', 'Rejoindre')}</span>
-                    <span className="text-[10px] text-muted-foreground">Par code ou lien</span>
-                  </div>
-                </button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="rounded-t-3xl pb-10">
-                <SheetHeader className="mb-5">
-                  <SheetTitle className="font-cinzel text-xl">Rejoindre un appel</SheetTitle>
-                </SheetHeader>
-                <div className="flex gap-2 max-w-sm mx-auto">
-                  <Input
-                    placeholder={t('calls.roomCodePlaceholder', 'Code ou lien de la réunion')}
-                    value={joinCode}
-                    onChange={e => setJoinCode(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && joinByCode()}
-                    className="rounded-xl text-base h-12"
-                    autoFocus
-                  />
-                  <Button onClick={joinByCode} disabled={!joinCode.trim()} className="rounded-xl h-12 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-                    <Phone className="h-4 w-4" />
-                  </Button>
+          {/* Admin buttons */}
+          {isAdmin && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Audio */}
+              <button
+                onClick={() => startQuickCall('audio')}
+                disabled={!!startingType}
+                className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/15 hover:border-violet-500/60 transition-all active:scale-[0.97] disabled:opacity-60"
+              >
+                {startingType === 'audio'
+                  ? <Loader2 className="h-7 w-7 text-violet-400 animate-spin" />
+                  : <Mic className="h-7 w-7 text-violet-400 group-hover:scale-110 transition-transform" />}
+                <div className="text-center">
+                  <span className="text-xs font-semibold text-foreground block">{t('calls.startAudio')}</span>
+                  <span className="text-[10px] text-muted-foreground">Voix uniquement</span>
                 </div>
-              </SheetContent>
-            </Sheet>
+              </button>
 
-            {/* Live (admin) or Schedule (user) */}
-            {isAdmin ? (
+              {/* Video */}
+              <button
+                onClick={() => startQuickCall('video')}
+                disabled={!!startingType}
+                className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/15 hover:border-blue-500/60 transition-all active:scale-[0.97] disabled:opacity-60"
+              >
+                {startingType === 'video'
+                  ? <Loader2 className="h-7 w-7 text-blue-400 animate-spin" />
+                  : <Video className="h-7 w-7 text-blue-400 group-hover:scale-110 transition-transform" />}
+                <div className="text-center">
+                  <span className="text-xs font-semibold text-foreground block">{t('calls.startVideo')}</span>
+                  <span className="text-[10px] text-muted-foreground">Caméra + micro</span>
+                </div>
+              </button>
+
+              {/* Join by code */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 hover:border-emerald-500/60 transition-all active:scale-[0.97]">
+                    <Link2 className="h-7 w-7 text-emerald-400 group-hover:scale-110 transition-transform" />
+                    <div className="text-center">
+                      <span className="text-xs font-semibold text-foreground block">{t('calls.joinByCode', 'Rejoindre')}</span>
+                      <span className="text-[10px] text-muted-foreground">Par code ou lien</span>
+                    </div>
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="rounded-t-3xl pb-10">
+                  <SheetHeader className="mb-5">
+                    <SheetTitle className="font-cinzel text-xl">Rejoindre un appel</SheetTitle>
+                  </SheetHeader>
+                  <div className="flex gap-2 max-w-sm mx-auto">
+                    <Input
+                      placeholder={t('calls.roomCodePlaceholder', 'Code ou lien de la réunion')}
+                      value={joinCode}
+                      onChange={e => setJoinCode(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && joinByCode()}
+                      className="rounded-xl text-base h-12"
+                      autoFocus
+                    />
+                    <Button onClick={joinByCode} disabled={!joinCode.trim()} className="rounded-xl h-12 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                      <Phone className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+
+              {/* Live */}
               <button
                 onClick={() => startQuickCall('live')}
                 disabled={!!startingType}
@@ -365,7 +372,41 @@ const CallsAndLives = () => {
                   <span className="text-[10px] text-muted-foreground">Live public</span>
                 </div>
               </button>
-            ) : (
+            </div>
+          )}
+
+          {/* Non-admin: join by code + schedule request */}
+          {!isAdmin && (
+            <div className="grid grid-cols-2 gap-3">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 hover:border-emerald-500/60 transition-all active:scale-[0.97]">
+                    <Link2 className="h-7 w-7 text-emerald-400 group-hover:scale-110 transition-transform" />
+                    <div className="text-center">
+                      <span className="text-xs font-semibold text-foreground block">{t('calls.joinByCode', 'Rejoindre')}</span>
+                      <span className="text-[10px] text-muted-foreground">Par code ou lien</span>
+                    </div>
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="rounded-t-3xl pb-10">
+                  <SheetHeader className="mb-5">
+                    <SheetTitle className="font-cinzel text-xl">Rejoindre un appel</SheetTitle>
+                  </SheetHeader>
+                  <div className="flex gap-2 max-w-sm mx-auto">
+                    <Input
+                      placeholder={t('calls.roomCodePlaceholder', 'Code ou lien de la réunion')}
+                      value={joinCode}
+                      onChange={e => setJoinCode(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && joinByCode()}
+                      className="rounded-xl text-base h-12"
+                      autoFocus
+                    />
+                    <Button onClick={joinByCode} disabled={!joinCode.trim()} className="rounded-xl h-12 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                      <Phone className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
               <button
                 onClick={() => user ? setShowScheduleDialog(true) : toast.error(t('calls.loginRequired'))}
                 className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-cathedral-gold/30 bg-cathedral-gold/5 hover:bg-cathedral-gold/15 hover:border-cathedral-gold/60 transition-all active:scale-[0.97]"
@@ -376,8 +417,9 @@ const CallsAndLives = () => {
                   <span className="text-[10px] text-muted-foreground">Session prévue</span>
                 </div>
               </button>
-            )}
-          </div>
+            </div>
+          )}
+
           {isAdmin && (
             <button
               onClick={() => setShowScheduleDialog(true)}
