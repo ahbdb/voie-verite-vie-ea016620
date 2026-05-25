@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ElementType } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useTranslation } from 'react-i18next';
 import Navigation from '@/components/Navigation';
@@ -69,7 +69,7 @@ const PRAYERS: Record<TimeOfDay, PrayerBlock[]> = {
     },
     {
       id: 'angeGardien',
-      title: 'Prière à l'Ange Gardien',
+      title: "Prière à l'Ange Gardien",
       text: `Ange de Dieu, qui êtes mon gardien,
 éclairez, gardez, gouvernez et conduisez
 la pauvre âme que la bonté divine

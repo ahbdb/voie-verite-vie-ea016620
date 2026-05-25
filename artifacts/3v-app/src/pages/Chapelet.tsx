@@ -33,10 +33,10 @@ const GLOIRE_AU_PERE = `Gloire au Père, au Fils et au Saint-Esprit,
 comme il était au commencement, maintenant et toujours,
 dans les siècles des siècles. Amen.`;
 
-const O_MON_JESUS = `Ô mon Jésus, pardonnez-nous nos péchés,
+const O_MON_JESUS = `Ô mon bon et doux Jésus, pardonnez-nous nos péchés,
 préservez-nous du feu de l'enfer,
-conduisez au ciel toutes les âmes,
-surtout celles qui ont le plus besoin de votre miséricorde.`;
+attirez au ciel toutes les âmes,
+secourez spécialement celles qui ont le plus besoin de votre miséricorde.`;
 
 const JE_CROIS_EN_DIEU = `Je crois en Dieu, le Père tout-puissant,
 Créateur du ciel et de la terre.
@@ -390,13 +390,11 @@ const Chapelet = () => {
   };
 
   useEffect(() => {
-    if (autoRead && step !== 'chooser' && step !== 'done') {
-      const text = getStepText(step);
-      if (text) {
-        const id = setTimeout(() => speak(text), 400);
-        return () => clearTimeout(id);
-      }
-    }
+    if (!autoRead || step === 'chooser' || step === 'done') return;
+    const text = getStepText(step);
+    if (!text) return;
+    const id = setTimeout(() => speak(text), 400);
+    return () => clearTimeout(id);
   }, [step, autoRead]);
 
   const toggleAutoRead = () => {

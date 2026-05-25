@@ -3,7 +3,6 @@ import { Helmet } from 'react-helmet-async';
 import { useTranslation } from 'react-i18next';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Heart, Check, Building2, Phone, QrCode, Copy, X as XIcon } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,6 +11,7 @@ import { toast as sonnerToast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
 
 const db = supabase as any;
+
 
 // ── Payment info (mirrors DonationModal.tsx) ────────────────────────────────
 
@@ -67,7 +67,7 @@ const Dons = () => {
   const openWhatsApp = () => {
     const causeLabel = t(CAUSES.find((c) => c.id === selectedCause)?.labelKey ?? 'dons.causes.general');
     const base = t('donation.whatsappMsg');
-    const msg = encodeURIComponent(`${base}\nCause : ${causeLabel}${user ? `\n${t('donation.yourName').replace(' *', '')} : ${user.user_metadata?.full_name ?? ''}` : ''}`);
+    const msg = encodeURIComponent(`${base}\nCause : ${causeLabel}${user ? `\n${t('donation.yourName').replace(' *', '')} : ${user.name ?? ''}` : ''}`);
     window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\+/g, '')}?text=${msg}`, '_blank');
   };
 
@@ -76,7 +76,7 @@ const Dons = () => {
     const { error } = await db.from('donations').insert({
       amount: 0,
       currency: 'XAF',
-      donor_name: user?.user_metadata?.full_name ?? null,
+      donor_name: user?.name ?? null,
       donor_email: user?.email ?? null,
       user_id: user?.id ?? null,
       message: JSON.stringify({ cause: selectedCause, method: 'iban' }),
@@ -233,7 +233,7 @@ const Dons = () => {
           {/* Communication */}
           <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 p-3">
             <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
-              {t('donation.communication')}{user?.user_metadata?.full_name ? ` — ${user.user_metadata.full_name}` : ''}
+              {t('donation.communication')}{user?.name ? ` — ${user.name}` : ''}
             </p>
           </div>
 
