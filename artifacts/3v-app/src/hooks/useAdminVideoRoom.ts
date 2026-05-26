@@ -594,20 +594,16 @@ export const useAdminVideoRoom = ({
   }, []);
 
   const createPeerConnection = useCallback(
-    (pid: string) => {
-      const existing = peerConnectionsRef.current.get(pid);
-      if (existing) return existing;
+    (pid: string, rewireExisting?: RTCPeerConnection) => {
+      // rewireExisting: re-attach fresh handlers on a saved peer connection after
+      // soft-leave restore — stale closures from the old mount reference dead state
+      // setters and must be replaced with closures from the current mount.
+      if (!rewireExisting) {
+        const existing = peerConnectionsRef.current.get(pid);
+        if (existing) return existing;
+      }
 
-      const pc = new RTCPeerConnection(RTC_CONFIGURATION);
-      const stream = localStreamRef.current;
-      const audioTracks = stream?.getAudioTracks() || [];
-      const videoTracks = stream?.getVideoTracks() || [];
-
-      audioTracks.forEach((t) => pc.addTrack(t, stream as MediaStream));
-      videoTracks.forEach((t) => pc.addTrack(t, stream as MediaStream));
-
-      if (audioTracks.length === 0) pc.addTransceiver('audio', { direction: 'recvonly' });
-      if (roomType !== 'audio' && videoTracks.length === 0) pc.addTransceiver('video', { direction: 'recvonly' });
+      const pc = rewireExisting ?? new RTCPeerConnection(RTC_CONFIGURATION);
 
       pc.onicecandidate = (ev) => {
         if (ev.candidate) void sendSignal('ice-candidate', ev.candidate.toJSON(), pid);
@@ -635,14 +631,22 @@ export const useAdminVideoRoom = ({
         }
 
         if (state === 'disconnected') {
-          // Don't immediately show "Connexion faible" — transient disconnects during network
-          // handoff or page backgrounding often recover within a few seconds.
-          // Only set 'poor' if still disconnected after 5 s.
+          // After 3 s of disconnected, show "Connexion faible" AND proactively restart ICE.
+          // Waiting for 'failed' takes 10-15 s — too long. 3 s is enough to confirm this
+          // isn't a transient flip (network handoff, tab background) that would self-heal.
           if (!qualityTimerRef.current) {
             qualityTimerRef.current = window.setTimeout(() => {
               qualityTimerRef.current = null;
-              if (pc.connectionState === 'disconnected') setConnectionQuality('poor');
-            }, 5_000);
+              if (pc.connectionState !== 'disconnected') return;
+              setConnectionQuality('poor');
+              // Proactive ICE restart — same localeCompare polarity as syncPeers/failed handler
+              if (uid && uid.localeCompare(pid) < 0) {
+                pc.createOffer({ iceRestart: true })
+                  .then(offer => pc.setLocalDescription(offer))
+                  .then(() => { if (pc.localDescription) void sendSignal('offer', pc.localDescription, pid); })
+                  .catch(() => {});
+              }
+            }, 3_000);
           }
           // Give extra time if page is hidden (user switched app)
           const timeout = isPageHiddenRef.current ? DISCONNECT_TIMEOUT_MS * 2 : DISCONNECT_TIMEOUT_MS;
@@ -669,10 +673,6 @@ export const useAdminVideoRoom = ({
               .then(offer => pc.setLocalDescription(offer))
               .then(() => {
                 if (pc.localDescription) void sendSignal('offer', pc.localDescription, pid);
-                // Give remote 15 s to answer. If still not connected (e.g. user is
-                // backgrounded and can't receive signals), remove the peer cleanly so
-                // the 'Reconnexion' badge disappears. syncPeers will recreate the
-                // connection as soon as the remote participant comes back.
                 if (!disconnectTimersRef.current.has(pid)) {
                   const tid = window.setTimeout(() => {
                     if (pc.connectionState !== 'connected') removePeer(pid);
@@ -699,7 +699,20 @@ export const useAdminVideoRoom = ({
         }
       };
 
-      peerConnectionsRef.current.set(pid, pc);
+      if (!rewireExisting) {
+        const stream = localStreamRef.current;
+        const audioTracks = stream?.getAudioTracks() || [];
+        const videoTracks = stream?.getVideoTracks() || [];
+
+        audioTracks.forEach((t) => pc.addTrack(t, stream as MediaStream));
+        videoTracks.forEach((t) => pc.addTrack(t, stream as MediaStream));
+
+        if (audioTracks.length === 0) pc.addTransceiver('audio', { direction: 'recvonly' });
+        if (roomType !== 'audio' && videoTracks.length === 0) pc.addTransceiver('video', { direction: 'recvonly' });
+
+        peerConnectionsRef.current.set(pid, pc);
+      }
+
       return pc;
     },
     [removePeer, roomType, sendSignal, upsertRemoteStream]
@@ -1298,6 +1311,11 @@ export const useAdminVideoRoom = ({
           });
 
           peerConnectionsRef.current = saved.peerConns;
+          // Replace stale event-handler closures on all restored peer connections.
+          // The saved PCs were created during the previous mount and close over that
+          // mount's state setters. Re-wiring ensures ICE state changes and new tracks
+          // after restore update the current component's state, not dead no-ops.
+          peerConnectionsRef.current.forEach((pc, pid) => createPeerConnection(pid, pc));
           localStreamRef.current = saved.stream;
           originalVideoTrackRef.current = saved.origVideoTrack;
           audioContextRef.current = saved.audioCtx;
@@ -1421,29 +1439,31 @@ export const useAdminVideoRoom = ({
           void loadReactions();
 
           // Broadcast mic state and restart ICE for any degraded connections.
+          // Always initiate ICE restart on return regardless of userId order — the
+          // polite/impolite pattern in handleIncomingSignal resolves any offer collision.
           if (saved.channel && channelRef.current) {
             void channelRef.current.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
-            const uidR = userIdRef.current;
-            if (uidR) {
-              peerConnectionsRef.current.forEach((pc, pid) => {
-                if (pc.connectionState === 'connected') return;
-                if (uidR.localeCompare(pid) >= 0) return;
-                pc.createOffer({ iceRestart: true })
-                  .then(offer => pc.setLocalDescription(offer))
-                  .then(() => {
-                    if (pc.localDescription) {
-                      void db.from('video_room_signals').insert({
-                        room_id: roomId,
-                        sender_id: uidR,
-                        recipient_id: pid,
-                        signal_type: 'offer',
-                        payload: pc.localDescription.toJSON?.() ?? pc.localDescription,
-                      });
-                    }
-                  })
-                  .catch(() => {});
-              });
-            }
+          }
+          const uidR = userIdRef.current;
+          if (uidR) {
+            peerConnectionsRef.current.forEach((pc, pid) => {
+              if (pc.connectionState === 'connected') return;
+              if (pc.signalingState !== 'stable') return; // already negotiating
+              pc.createOffer({ iceRestart: true })
+                .then(offer => pc.setLocalDescription(offer))
+                .then(() => {
+                  if (pc.localDescription) {
+                    void db.from('video_room_signals').insert({
+                      room_id: roomId,
+                      sender_id: uidR,
+                      recipient_id: pid,
+                      signal_type: 'offer',
+                      payload: pc.localDescription.toJSON?.() ?? pc.localDescription,
+                    });
+                  }
+                })
+                .catch(() => {});
+            });
           }
 
           if (active) setIsConnected(true);
