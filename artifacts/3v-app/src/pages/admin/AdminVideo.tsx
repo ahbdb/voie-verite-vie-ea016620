@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import AdminPageWrapper from '@/components/admin/AdminPageWrapper';
 import { useAdmin } from '@/hooks/useAdmin';
-import { broadcastNotificationService } from '@/hooks/useBroadcastNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -165,20 +164,20 @@ const AdminVideo = () => {
           },
         });
 
-        if (callMode === 'all') {
-          await broadcastNotificationService.sendToAll(notifTitle, notifBody, 'call', undefined, meetingPath);
-        } else {
-          if (selectedIds && selectedIds.length > 0) {
-            const payload = selectedIds.map((uid) => ({
-              user_id: uid,
-              title: notifTitle,
-              message: notifBody,
-              type: 'call',
-              link: meetingPath,
-              is_read: false,
-            }));
-            await supabase.from('notifications').insert(payload);
-          }
+        const targetIds = callMode === 'all'
+          ? allUsers.map((u) => u.id)
+          : (selectedIds || []);
+
+        if (targetIds.length > 0) {
+          const payload = targetIds.map((uid) => ({
+            user_id: uid,
+            title: notifTitle,
+            message: notifBody,
+            type: 'call',
+            link: meetingPath,
+            is_read: false,
+          }));
+          await supabase.from('notifications').insert(payload);
         }
       } catch (err) {
         console.error('[admin-video] notification error', err);
@@ -217,7 +216,17 @@ const AdminVideo = () => {
         },
       });
 
-      await broadcastNotificationService.sendToAll(notifTitle, notifBody, 'call', undefined, meetingPath);
+      if (allUsers.length > 0) {
+        const payload = allUsers.map((u) => ({
+          user_id: u.id,
+          title: notifTitle,
+          message: notifBody,
+          type: 'call',
+          link: meetingPath,
+          is_read: false,
+        }));
+        await supabase.from('notifications').insert(payload);
+      }
       toast.success('Rappel envoyé à tous');
     } catch {
       toast.error('Rappel échoué');

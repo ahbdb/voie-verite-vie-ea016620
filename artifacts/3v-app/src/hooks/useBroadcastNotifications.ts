@@ -128,10 +128,26 @@ export const useBroadcastNotifications = () => {
     void pollNotifications();
     pollingRef.current = window.setInterval(pollNotifications, 30000);
 
+    // Realtime — sonne instantanément dès qu'une notification est insérée
+    const channel = supabase
+      .channel(`notif-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const n = payload.new as { id: string; title: string; message?: string; body?: string; type: string; link?: string | null };
+          if (!n?.id) return;
+          lastSeenIdRef.current = n.id;
+          handleCallRing(n);
+        }
+      )
+      .subscribe();
+
     return () => {
       stopRinging();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (pollingRef.current) window.clearInterval(pollingRef.current);
+      supabase.removeChannel(channel);
     };
   }, [user?.id]);
 };
