@@ -138,11 +138,16 @@ interface PersistedSession {
   screenTrack: MediaStreamTrack | null;
   remoteStreams: RemoteVideoStream[];
   channel: ReturnType<typeof db.channel> | null;
+  participants: VideoParticipantRecord[];
+  messages: VideoRoomMessageRecord[];
+  reactions: VideoMessageReactionRecord[];
 }
 let _persist: PersistedSession | null = null;
 // Updated on every mount/remount; called by the kept-alive channel during soft leave
 // so incoming WebRTC signals are processed even while the call page is unmounted.
 let _bgSignalFn: ((sig: VideoSignalRecord) => void) | null = null;
+// Interval that watches peer connections during soft leave and restarts ICE if they degrade.
+let _bgHealthTimer: ReturnType<typeof setInterval> | null = null;
 
 interface UseAdminVideoRoomOptions {
   roomId?: string;
@@ -212,6 +217,8 @@ export const useAdminVideoRoom = ({
   const sourceNodesRef = useRef<Map<string, MediaStreamAudioSourceNode>>(new Map());
   const keepAliveNodeRef = useRef<OscillatorNode | null>(null);
   const remoteStreamsRef = useRef<RemoteVideoStream[]>([]);
+  const messagesRef = useRef<VideoRoomMessageRecord[]>([]);
+  const reactionsRef = useRef<VideoMessageReactionRecord[]>([]);
 
   const roomType = room?.room_type ?? 'unknown';
   const canShareScreen =
@@ -229,17 +236,24 @@ export const useAdminVideoRoom = ({
     roomRef.current = room;
     userIdRef.current = userId;
     remoteStreamsRef.current = remoteStreams;
-  }, [participants, displayName, canManageRoom, room, userId, remoteStreams]);
+    messagesRef.current = messages;
+    reactionsRef.current = reactions;
+  }, [participants, displayName, canManageRoom, room, userId, remoteStreams, messages, reactions]);
 
   // Keep micEnabledRef in sync so toggleMicrophone never reads stale state
   useEffect(() => { micEnabledRef.current = micEnabled; }, [micEnabled]);
 
-  // notifyMic from context — stored in a ref so toggleMicrophone can call it even
-  // when AdminVideoRoom is unmounted (soft leave). This keeps FloatingCallBanner
-  // icon in sync with the actual track state.
-  const { notifyMic } = useCallSession();
+  // Context helpers — stored in refs so they remain callable during soft leave
+  // (when the call page is unmounted but the context is still alive).
+  const { notifyMic, setBackgroundStreams, clearBackgroundStreams } = useCallSession();
   const notifyMicContextRef = useRef(notifyMic);
-  useEffect(() => { notifyMicContextRef.current = notifyMic; }, [notifyMic]);
+  const setBackgroundStreamsRef = useRef(setBackgroundStreams);
+  const clearBackgroundStreamsRef = useRef(clearBackgroundStreams);
+  useEffect(() => {
+    notifyMicContextRef.current = notifyMic;
+    setBackgroundStreamsRef.current = setBackgroundStreams;
+    clearBackgroundStreamsRef.current = clearBackgroundStreams;
+  }, [notifyMic, setBackgroundStreams, clearBackgroundStreams]);
 
   // ── Auto-restore from soft leave ─────────────────────────────────────────────
   // If a persisted session exists for this room, skip the "Rejoindre" button
@@ -1308,6 +1322,12 @@ export const useAdminVideoRoom = ({
         if (_persist && _persist.roomId === roomId) {
           const saved = _persist;
           _persist = null;
+
+          // Stop the background health monitor — we're back on the page.
+          if (_bgHealthTimer !== null) { clearInterval(_bgHealthTimer); _bgHealthTimer = null; }
+          // Stop background audio — the call page will render its own video elements.
+          clearBackgroundStreamsRef.current();
+
           const savedRoomType = roomRef.current?.room_type ?? 'video';
           // Kick off a background room refresh so status changes (ended, etc.)
           // are reflected in the UI without blocking the restore.
@@ -1351,6 +1371,12 @@ export const useAdminVideoRoom = ({
 
           setLocalStream(saved.stream);
           setRemoteStreams(freshStreams);
+          // Restore participants/messages/reactions immediately so the UI is
+          // fully populated before any DB call returns. The user should see
+          // everyone the moment the call page remounts — zero blank window.
+          if (saved.participants.length > 0) setParticipants(saved.participants);
+          if (saved.messages.length > 0) setMessages(saved.messages);
+          if (saved.reactions.length > 0) setReactions(saved.reactions);
           setMicEnabled(saved.stream.getAudioTracks().some((t) => t.enabled));
           setCameraEnabled(savedRoomType !== 'audio' && Boolean(saved.origVideoTrack?.enabled));
           setIsScreenSharing(Boolean(saved.screenTrack && saved.screenTrack.readyState === 'live'));
@@ -1612,6 +1638,9 @@ export const useAdminVideoRoom = ({
         // are processed via _bgSignalFn while the call page is unmounted.
         // Connections are restored seamlessly when the user comes back.
         if (localStreamRef.current && roomId) {
+          const savedRoomId = roomId;
+          const savedUserId = userIdRef.current;
+
           _persist = {
             roomId,
             peerConns: peerConnectionsRef.current,
@@ -1626,7 +1655,39 @@ export const useAdminVideoRoom = ({
             screenTrack: screenTrackRef.current,
             remoteStreams: remoteStreamsRef.current,
             channel: channelRef.current, // keep alive — do NOT removeChannel
+            participants: participantsRef.current,
+            messages: messagesRef.current,
+            reactions: reactionsRef.current,
           };
+
+          // Tell the browser this tab is still playing media so it does NOT
+          // throttle setTimeout/setInterval. Without this the DataChannel
+          // keepalive (2 s ping) stops firing and ICE goes to 'disconnected'.
+          setBackgroundStreamsRef.current(remoteStreamsRef.current.map((rs) => rs.stream));
+
+          // Background health monitor — watches peer connections while the page
+          // is unmounted and restarts ICE if they degrade.
+          if (_bgHealthTimer !== null) clearInterval(_bgHealthTimer);
+          _bgHealthTimer = setInterval(() => {
+            if (!_persist) { clearInterval(_bgHealthTimer!); _bgHealthTimer = null; return; }
+            _persist.peerConns.forEach((pc, pid) => {
+              if (pc.connectionState !== 'disconnected' && pc.connectionState !== 'failed') return;
+              if (pc.signalingState !== 'stable') return; // restart already in progress
+              pc.createOffer({ iceRestart: true })
+                .then((offer) => pc.setLocalDescription(offer))
+                .then(() => {
+                  if (!_persist || !pc.localDescription) return;
+                  void db.from('video_room_signals').insert({
+                    room_id: savedRoomId,
+                    sender_id: savedUserId,
+                    recipient_id: pid,
+                    signal_type: 'offer',
+                    payload: pc.localDescription.toJSON?.() ?? pc.localDescription,
+                  });
+                })
+                .catch(() => {});
+            });
+          }, 5_000);
         } else {
           // No valid media state — can't persist, remove channel normally
           if (channelRef.current) db.removeChannel(channelRef.current);
@@ -1636,6 +1697,8 @@ export const useAdminVideoRoom = ({
       }
 
       // ── Hard leave (explicit raccrocher or admin terminer): full cleanup ─
+      if (_bgHealthTimer !== null) { clearInterval(_bgHealthTimer); _bgHealthTimer = null; }
+      clearBackgroundStreamsRef.current();
       if (channelRef.current) db.removeChannel(channelRef.current);
       channelRef.current = null;
       _bgSignalFn = null;
