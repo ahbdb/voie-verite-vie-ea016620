@@ -189,6 +189,9 @@ export const useAdminVideoRoom = ({
 
   const channelRef = useRef<any>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  // Fallback streams for browsers/WebViews that don't populate ev.streams[0] in ontrack.
+  // Tracks are accumulated here so audio+video stay in the same MediaStream per peer.
+  const peerFallbackStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const initiatedPeersRef = useRef<Set<string>>(new Set());
   const localStreamRef = useRef<MediaStream | null>(null);
   const joinedRef = useRef(false);
@@ -584,6 +587,7 @@ export const useAdminVideoRoom = ({
       pc.close();
       peerConnectionsRef.current.delete(pid);
     }
+    peerFallbackStreamsRef.current.delete(pid);
     pendingIceCandidatesRef.current.delete(pid);
     initiatedPeersRef.current.delete(pid);
     detachAudioAnalyser(pid);
@@ -624,11 +628,23 @@ export const useAdminVideoRoom = ({
       };
 
       pc.ontrack = (ev) => {
-        // Some browsers/mobile WebViews deliver tracks without a stream — build one manually
-        const s = ev.streams[0] ?? new MediaStream([ev.track]);
-        upsertRemoteStream(pid, s);
-        // Re-notify when a muted track unmutes (e.g. remote mic enabled after join)
-        ev.track.onunmute = () => upsertRemoteStream(pid, s);
+        if (ev.streams[0]) {
+          // Normal path: browser provides a single stream containing all tracks.
+          // Audio and video are always bundled together — safe to replace directly.
+          upsertRemoteStream(pid, ev.streams[0]);
+          ev.track.onunmute = () => upsertRemoteStream(pid, ev.streams[0]);
+        } else {
+          // Fallback: some mobile WebViews (older Android, WKWebView) fire ontrack
+          // without a stream. We must accumulate ALL tracks for this peer into ONE
+          // shared MediaStream. If each ontrack creates its own stream, the second
+          // call (video) overwrites the first (audio) → silent call.
+          let s = peerFallbackStreamsRef.current.get(pid);
+          if (!s) { s = new MediaStream(); peerFallbackStreamsRef.current.set(pid, s); }
+          if (!s.getTrackById(ev.track.id)) s.addTrack(ev.track);
+          upsertRemoteStream(pid, s);
+          const capturedStream = s;
+          ev.track.onunmute = () => upsertRemoteStream(pid, capturedStream);
+        }
       };
 
       pc.onconnectionstatechange = () => {
@@ -1108,6 +1124,33 @@ export const useAdminVideoRoom = ({
       originalVideoTrackRef.current = media.getVideoTracks()[0] || null;
       localStreamRef.current = media;
       setLocalStream(media);
+
+      // If the OS kills the microphone (iOS background, permission revoked), try to
+      // re-acquire it and re-inject the new track into all peer connections silently.
+      media.getAudioTracks().forEach((track) => {
+        track.onended = async () => {
+          try {
+            const fresh = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+            });
+            const [newTrack] = fresh.getAudioTracks();
+            if (!newTrack) return;
+            newTrack.enabled = micEnabledRef.current;
+            await Promise.all(
+              Array.from(peerConnectionsRef.current.values()).map(async (pc) => {
+                const sender = pc.getSenders().find((s) => s.track?.kind === 'audio');
+                if (sender) await sender.replaceTrack(newTrack);
+              })
+            );
+            if (localStreamRef.current) {
+              localStreamRef.current.removeTrack(track);
+              localStreamRef.current.addTrack(newTrack);
+            }
+            setMicEnabled(newTrack.enabled);
+            newTrack.onended = track.onended; // keep the handler on the fresh track
+          } catch { /* can't recover — user will need to rejoin */ }
+        };
+      });
 
       // Attach audio analyser for the local stream
       if (userId) attachAudioAnalyser(userId, media);

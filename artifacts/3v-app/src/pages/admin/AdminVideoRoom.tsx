@@ -208,15 +208,19 @@ const VideoPanel = ({
     }
   }, [stream]);
 
-  // Always attach stream to a dedicated audio element for remote participants.
-  // Explicitly call .play() to bypass browser autoplay policy restrictions.
+  // Attach stream to the dedicated audio element — but only when the stream object
+  // actually changes, to avoid a brief audio cut caused by srcObject reassignment.
+  // If the stream reference is the same (e.g. after an onunmute trigger), just
+  // ensure playback is running without re-attaching.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !stream || isLocal) return;
-    audio.srcObject = stream;
-    audio.play().catch(() => {
-      // Autoplay was blocked; audio will resume on next user interaction
-    });
+    if (audio.srcObject !== stream) {
+      audio.srcObject = stream;
+      audio.play().catch(() => {});
+    } else if (audio.paused) {
+      audio.play().catch(() => {});
+    }
   }, [stream, isLocal]);
 
   // Control muted state via DOM directly — React's muted prop doesn't update
