@@ -710,6 +710,22 @@ export const useAdminVideoRoom = ({
         if (audioTracks.length === 0) pc.addTransceiver('audio', { direction: 'recvonly' });
         if (roomType !== 'audio' && videoTracks.length === 0) pc.addTransceiver('video', { direction: 'recvonly' });
 
+        // Negotiated DataChannel used purely as an ICE keepalive.
+        // Both peers create id=0 independently — no extra signaling round-trip.
+        // The 2-second heartbeat prevents ICE timeout when the call page is navigated
+        // away (soft leave) or the tab is backgrounded, keeping connectionState
+        // at 'connected' so re-entry is instant with no ICE restart needed.
+        const kaDc = pc.createDataChannel('hb', { negotiated: true, id: 0 });
+        let kaTimer: number | null = null;
+        kaDc.onopen = () => {
+          kaTimer = window.setInterval(() => {
+            try { if (kaDc.readyState === 'open') kaDc.send('\0'); } catch {}
+          }, 2_000);
+        };
+        kaDc.onclose = () => {
+          if (kaTimer !== null) { window.clearInterval(kaTimer); kaTimer = null; }
+        };
+
         peerConnectionsRef.current.set(pid, pc);
       }
 
@@ -1335,9 +1351,14 @@ export const useAdminVideoRoom = ({
           // Resume AudioContext — browsers suspend it when the page is hidden/backgrounded
           if (saved.audioCtx?.state === 'suspended') void saved.audioCtx.resume();
 
+          // Show the call UI immediately — streams are already in place from _persist.
+          // DB sync (activate row, participants, signals) runs in parallel below.
+          // This is what makes re-entry feel instant ("tic au tac").
+          if (active) { setIsConnected(true); setLoading(false); }
+
           // Re-activate participant row + load participants + fetch pending signals
-          // all in parallel — this is the critical path before showing the call UI.
-          // Messages and reactions are loaded in the background (non-blocking).
+          // all in parallel. Non-blocking from the user's perspective since the UI
+          // is already visible above.
           const activatePromise = userId
             ? db.from('video_room_participants')
                 .update({ is_active: true, left_at: null })
