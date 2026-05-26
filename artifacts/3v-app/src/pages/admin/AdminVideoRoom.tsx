@@ -61,7 +61,12 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const QUICK_REACTIONS = ['👍', '❤️', '🙏', '😂', '🔥', '👏'];
+const QUICK_REACTIONS = [
+  '👍', '❤️', '🙏', '😂', '🔥', '👏',
+  '😍', '🥰', '😭', '🤩', '🙌', '💯',
+  '✝️', '⭐', '🕊️', '🌟', '🫶', '💪',
+  '😇', '🤝', '💎', '🌹', '🦋', '🕯️',
+];
 
 // ── Permission denied panel ──────────────────────────────────────────────────
 // Shown when the browser has blocked camera/microphone access.
@@ -296,7 +301,7 @@ const VideoPanel = ({
             😊
           </button>
           {showEmojiPicker && (
-            <div className="absolute right-0 top-9 flex gap-1 rounded-xl bg-black/80 p-1.5 backdrop-blur-sm shadow-lg">
+            <div className="absolute right-0 top-9 grid grid-cols-6 gap-1 rounded-xl bg-black/80 p-1.5 backdrop-blur-sm shadow-lg w-max">
               {QUICK_REACTIONS.map((emoji) => (
                 <button
                   key={emoji}

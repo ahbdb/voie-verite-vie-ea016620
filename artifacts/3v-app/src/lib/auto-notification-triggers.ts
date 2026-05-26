@@ -1,19 +1,13 @@
-import { supabase } from '@/integrations/supabase/client';
-
 async function createBroadcast(title: string, body: string, type: string = 'announcement') {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from('broadcast_notifications').insert({
-      title,
-      body,
-      type,
-      target_role: 'all',
-      created_by: user.id,
-      is_sent: false,
+    await fetch('/api/notifications/broadcast', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, message: body, type }),
     });
   } catch {
-    // Silently ignore — FCM is best-effort
+    // Silently ignore — notifications are best-effort
   }
 }
 

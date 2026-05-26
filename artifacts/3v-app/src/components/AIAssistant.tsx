@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, User, RefreshCw, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import logo3v from '@/assets/logo-3v.png';
 
@@ -29,18 +28,11 @@ export const AIAssistant = () => {
   }, [messages]);
 
   const streamChat = useCallback(async (userMessage: Message, allMessages: Message[]) => {
-    const chatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
-    
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await fetch(chatUrl, {
+      const response = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: [...allMessages, userMessage] }),
       });
 

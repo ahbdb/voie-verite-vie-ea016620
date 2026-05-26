@@ -62,6 +62,9 @@ timeoutMs = 20000
 [userenv.shared]
 VITE_SUPABASE_URL = "https://kaddsojhnkyfavaulrfc.supabase.co"
 VITE_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZGRzb2pobmt5ZmF2YXVscmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Njg1MjcsImV4cCI6MjA3NzM0NDUyN30.hFAbVxHmfDY1Xqkij62R8dTBfHw6ff5mSb3faq_4CPs"
+VAPID_PUBLIC_KEY = "BMLtv56mbtQef-qvdKPAvxl6AzUZQxCOGl1riyDSVzdL_RatZclqfYYNeSPybQFtYdbuNLuRDzAU1tY8caJTS_A"
+VAPID_PRIVATE_KEY = "Qq0pwCtoq5EAj8CdNI78atmD8VQGaCHUQAuhGE5NfDI"
+VAPID_EMAIL = "mailto:admin@voie-verite-vie.app"
 
 [[ports]]
 localPort = 5000

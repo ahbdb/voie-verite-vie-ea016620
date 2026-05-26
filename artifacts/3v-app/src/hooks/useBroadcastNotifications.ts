@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { playAttentionTone, sendVisibleNotification } from '@/lib/notification-service';
 import { createElement } from 'react';
@@ -23,6 +22,7 @@ export const useBroadcastNotifications = () => {
   const { user } = useAuth();
   const ringIntervalRef = useRef<number | null>(null);
   const lastSeenIdRef = useRef<string | null>(null);
+  const pollingRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -40,28 +40,6 @@ export const useBroadcastNotifications = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Récupérer les notifications existantes
-    const loadInitialNotifications = async () => {
-      try {
-        const { data: rows } = await supabase
-          .from('user_notifications')
-          .select('id, title, message, type, link')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        if (rows && rows.length > 0) {
-          const newest = rows[0];
-          lastSeenIdRef.current = newest.id;
-        }
-      } catch {
-        // Silently fail
-      }
-    };
-
-    void loadInitialNotifications();
-
-    // Common handler for call ring events (used by both subscriptions below)
     const handleCallRing = (n: { id: string; title: string; message?: string; body?: string; type: string; link?: string | null }) => {
       const isCall = n.type === 'call';
       const url = n.link || '/calls-lives';
@@ -118,49 +96,38 @@ export const useBroadcastNotifications = () => {
       );
     };
 
-    // S'abonner aux nouvelles notifications via Realtime
-    const channel = supabase
-      .channel(`user_notifications:${user.id}`)
-      // ── Subscription 1: personal user_notifications rows (created by RPC) ──
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'user_notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const n = payload.new as any;
-          if (lastSeenIdRef.current === null) { lastSeenIdRef.current = n.id; return; }
-          if (n.id === lastSeenIdRef.current) return;
-          lastSeenIdRef.current = n.id;
+    // Poll for new notifications via API
+    const pollNotifications = async () => {
+      try {
+        const res = await fetch('/api/notifications', { credentials: 'include' });
+        if (!res.ok) return;
+        const rows: any[] = await res.json();
+        if (!rows.length) return;
+
+        const newest = rows[0];
+        if (lastSeenIdRef.current === null) {
+          lastSeenIdRef.current = newest.id;
+          return;
+        }
+        if (newest.id === lastSeenIdRef.current) return;
+
+        const newRows = rows.filter(r => r.id !== lastSeenIdRef.current);
+        lastSeenIdRef.current = newest.id;
+        for (const n of newRows) {
           handleCallRing(n);
         }
-      )
-      // ── Subscription 2: broadcast_notifications (direct insert by admin) ──
-      // Fallback when the send_broadcast_notification RPC does not create
-      // individual user_notifications rows. All authenticated users receive
-      // this event directly from the admin's insert.
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'broadcast_notifications',
-        },
-        (payload) => {
-          const n = payload.new as any;
-          if (n.type !== 'call') return;
-          handleCallRing({ ...n, message: n.body });
-        }
-      )
-      .subscribe();
+      } catch {
+        // silent
+      }
+    };
+
+    void pollNotifications();
+    pollingRef.current = window.setInterval(pollNotifications, 30000);
 
     return () => {
       stopRinging();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      void channel.unsubscribe();
+      if (pollingRef.current) window.clearInterval(pollingRef.current);
     };
   }, [user?.id]);
 };
@@ -174,54 +141,13 @@ export const broadcastNotificationService = {
     link: string | null = null
   ) {
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) throw new Error('Not authenticated');
-
-      // Créer la notification de broadcast
-      const { error } = await supabase
-        .from('broadcast_notifications')
-        .insert({
-          title,
-          body: message,
-          type,
-          target_role: 'all',
-          created_by: authUser.id,
-          is_sent: true,
-          sent_at: new Date().toISOString(),
-        });
-
-      if (error) throw error;
-
-      // Envoyer via RPC si elle existe
-      try {
-        await (supabase.rpc as any)('send_broadcast_notification', {
-          p_title: title,
-          p_body: message,
-          p_type: type,
-          p_target_role: 'all',
-          p_link: link,
-        });
-      } catch {
-        // RPC might not exist, continue anyway
-      }
-
-      // Web Push — atteint les appareils mobiles même quand l'app est fermée/en arrière-plan
-      try {
-        await supabase.functions.invoke('send-push-notification', {
-          body: {
-            title,
-            body: message,
-            action: type,
-            url: link || (type === 'call' ? '/calls-lives' : '/'),
-            tag: `${type}-${Date.now()}`,
-            requireInteraction: type === 'call',
-            vibrate: type === 'call' ? [400, 200, 400, 200, 600] : [200, 100, 200],
-          },
-        });
-      } catch {
-        // Push best-effort — Realtime delivery already done above
-      }
-
+      const res = await fetch('/api/notifications/broadcast', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, message, type, link }),
+      });
+      if (!res.ok) throw new Error('Failed to broadcast');
       return { error: null };
     } catch (err) {
       return { error: err };
@@ -237,54 +163,13 @@ export const broadcastNotificationService = {
     link: string | null = null
   ) {
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) throw new Error('Not authenticated');
-
-      // Créer la notification de broadcast
-      const { error } = await supabase
-        .from('broadcast_notifications')
-        .insert({
-          title,
-          body: message,
-          type,
-          target_role: role,
-          created_by: authUser.id,
-          is_sent: true,
-          sent_at: new Date().toISOString(),
-        });
-
-      if (error) throw error;
-
-      // Envoyer via RPC si elle existe
-      try {
-        await (supabase.rpc as any)('send_broadcast_notification', {
-          p_title: title,
-          p_body: message,
-          p_type: type,
-          p_target_role: role,
-          p_link: link,
-        });
-      } catch {
-        // RPC might not exist, continue anyway
-      }
-
-      // Web Push pour les appareils hors ligne / en arrière-plan
-      try {
-        await supabase.functions.invoke('send-push-notification', {
-          body: {
-            title,
-            body: message,
-            action: type,
-            url: link || (type === 'call' ? '/calls-lives' : '/'),
-            tag: `${type}-${Date.now()}`,
-            requireInteraction: type === 'call',
-            vibrate: type === 'call' ? [400, 200, 400, 200, 600] : [200, 100, 200],
-          },
-        });
-      } catch {
-        // Push best-effort
-      }
-
+      const res = await fetch('/api/notifications/broadcast-role', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, message, role, type, link }),
+      });
+      if (!res.ok) throw new Error('Failed to broadcast to role');
       return { error: null };
     } catch (err) {
       return { error: err };
@@ -299,27 +184,15 @@ export const broadcastNotificationService = {
     );
   },
 
-  async sendReminder(
-    title: string,
-    message: string,
-    _icon?: string
-  ) {
+  async sendReminder(title: string, message: string, _icon?: string) {
     return this.sendToAll(title, message, 'reminder', _icon);
   },
 
-  async sendAnnouncement(
-    title: string,
-    message: string,
-    _icon?: string
-  ) {
+  async sendAnnouncement(title: string, message: string, _icon?: string) {
     return this.sendToAll(title, message, 'announcement', _icon);
   },
 
-  async sendUpdate(
-    title: string,
-    message: string,
-    _icon?: string
-  ) {
+  async sendUpdate(title: string, message: string, _icon?: string) {
     return this.sendToAll(title, message, 'update', _icon);
   },
 };

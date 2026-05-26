@@ -1248,6 +1248,26 @@ export const useAdminVideoRoom = ({
           const saved = _persist;
           _persist = null;
 
+          // ── Close any peer connections that degraded while the user was away ──
+          // A non-connected peer cannot recover via ICE-restart alone after a long
+          // background period; tearing it down here lets syncPeers() create fresh
+          // connections on both sides, restoring audio within 1-2 s instead of 5-10 s.
+          const freshStreams = saved.remoteStreams.filter((rs) => {
+            const pc = saved.peerConns.get(rs.userId);
+            if (!pc) return false;
+            if (pc.connectionState !== 'connected') {
+              pc.close();
+              saved.peerConns.delete(rs.userId);
+              saved.initiated.delete(rs.userId);
+              // Detach audio analyser for the dropped peer
+              try { saved.sources.get(rs.userId)?.disconnect(); } catch {}
+              saved.sources.delete(rs.userId);
+              saved.analysers.delete(rs.userId);
+              return false; // exclude stream — it will be recreated by syncPeers
+            }
+            return true;
+          });
+
           peerConnectionsRef.current = saved.peerConns;
           localStreamRef.current = saved.stream;
           originalVideoTrackRef.current = saved.origVideoTrack;
@@ -1260,7 +1280,7 @@ export const useAdminVideoRoom = ({
           screenTrackRef.current = saved.screenTrack;
 
           setLocalStream(saved.stream);
-          setRemoteStreams(saved.remoteStreams);
+          setRemoteStreams(freshStreams);
           setMicEnabled(saved.stream.getAudioTracks().some((t) => t.enabled));
           setCameraEnabled(currentRoom.room_type !== 'audio' && Boolean(saved.origVideoTrack?.enabled));
           setIsScreenSharing(Boolean(saved.screenTrack && saved.screenTrack.readyState === 'live'));

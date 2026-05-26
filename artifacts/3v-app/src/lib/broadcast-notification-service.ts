@@ -1,8 +1,6 @@
 export type BroadcastNotificationType = 'greeting' | 'reminder' | 'announcement' | 'update';
 export type BroadcastTargetRole = 'all' | 'user' | 'admin' | null;
 
-import { supabase } from '@/integrations/supabase/client';
-
 export interface BroadcastNotification {
   id: string;
   title: string;
@@ -45,13 +43,6 @@ const DEFAULT_SETTINGS = {
   vibration_enabled: true,
 } satisfies Omit<NotificationSettings, 'user_id'>;
 
-const normalizeBroadcastType = (type?: string): BroadcastNotificationType => {
-  if (type === 'greeting' || type === 'reminder' || type === 'announcement' || type === 'update') {
-    return type;
-  }
-  return 'announcement';
-};
-
 const getStoredSettings = (userId: string): NotificationSettings => {
   if (typeof window === 'undefined') return { user_id: userId, ...DEFAULT_SETTINGS };
   try {
@@ -70,18 +61,11 @@ const saveStoredSettings = (settings: NotificationSettings) => {
 
 export const getUserNotifications = async (limit = 50): Promise<UserNotification[]> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
-
-    const { data } = await supabase
-      .from('user_notifications')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (!data) return [];
-    return data.map((row) => ({
+    const res = await fetch(`/api/notifications?limit=${limit}`, { credentials: 'include' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!Array.isArray(data)) return [];
+    return data.map((row: any) => ({
       id: row.id,
       user_id: row.user_id ?? '',
       title: row.title,
@@ -90,7 +74,7 @@ export const getUserNotifications = async (limit = 50): Promise<UserNotification
       link: row.link,
       is_read: row.is_read,
       created_at: row.created_at,
-      updated_at: row.created_at,
+      updated_at: row.updated_at ?? row.created_at,
     }));
   } catch {
     return [];
@@ -109,11 +93,11 @@ export const getUnreadCount = async (): Promise<number> => {
 
 export const markNotificationAsRead = async (notificationId: string): Promise<boolean> => {
   try {
-    const { error } = await supabase
-      .from('user_notifications')
-      .update({ is_read: true })
-      .eq('id', notificationId);
-    return !error;
+    const res = await fetch(`/api/notifications/${notificationId}/read`, {
+      method: 'PATCH',
+      credentials: 'include',
+    });
+    return res.ok;
   } catch {
     return false;
   }
@@ -125,11 +109,11 @@ export const markNotificationAsViewed = async (notificationId: string): Promise<
 
 export const deleteNotification = async (notificationId: string): Promise<boolean> => {
   try {
-    const { error } = await supabase
-      .from('user_notifications')
-      .delete()
-      .eq('id', notificationId);
-    return !error;
+    const res = await fetch(`/api/notifications/${notificationId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    return res.ok;
   } catch {
     return false;
   }
@@ -137,14 +121,11 @@ export const deleteNotification = async (notificationId: string): Promise<boolea
 
 export const markAllNotificationsAsRead = async (): Promise<boolean> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-
-    const { error } = await supabase
-      .from('user_notifications')
-      .update({ is_read: true })
-      .eq('user_id', user.id);
-    return !error;
+    const res = await fetch('/api/notifications/read-all', {
+      method: 'PATCH',
+      credentials: 'include',
+    });
+    return res.ok;
   } catch {
     return false;
   }
@@ -162,204 +143,47 @@ export const createBroadcastNotification = async (
   } = {}
 ): Promise<BroadcastNotification | null> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-
-    const { data, error } = await supabase
-      .from('broadcast_notifications')
-      .insert({
-        title,
-        body,
-        icon: options.icon,
-        type: options.type ?? 'announcement',
-        target_role: options.target_role ?? 'all',
-        created_by: user.id,
-        scheduled_at: options.scheduled_at || null,
-        is_sent: false,
-      })
-      .select()
-      .single();
-
-    if (error || !data) {
-      console.error('createBroadcastNotification error:', error);
-      return null;
-    }
-
+    const res = await fetch('/api/notifications/broadcast', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, message: body, type: options.type ?? 'announcement', link: options.link ?? null }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
     return {
-      id: data.id,
-      title: data.title,
-      body: data.body ?? undefined,
-      icon: data.icon ?? undefined,
-      type: normalizeBroadcastType(data.type ?? undefined),
-      target_role: (data.target_role as BroadcastTargetRole) ?? 'all',
-      created_by: data.created_by,
-      scheduled_at: data.scheduled_at ?? undefined,
-      sent_at: data.sent_at ?? undefined,
-      is_sent: data.is_sent,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
+      id: data.id ?? crypto.randomUUID(),
+      title,
+      body,
+      type: options.type ?? 'announcement',
+      target_role: options.target_role ?? 'all',
+      created_by: '',
+      is_sent: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
   } catch {
     return null;
   }
 };
 
-export const sendBroadcastNotification = async (broadcastId: string): Promise<boolean> => {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return false;
-
-    const { data: broadcast } = await supabase
-      .from('broadcast_notifications')
-      .select('*')
-      .eq('id', broadcastId)
-      .single();
-
-    if (!broadcast) return false;
-
-    // Step 1: Fan-out in-app notifications via stored procedure (best-effort — may not exist).
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.rpc as any)('send_broadcast_notification', { p_broadcast_id: broadcastId });
-    } catch {
-      // RPC absent — fall back to direct insert into user_notifications for all users.
-      try {
-        const { data: users } = await supabase.from('profiles').select('id');
-        if (users && users.length > 0) {
-          await supabase.from('user_notifications').insert(
-            users.map((u) => ({
-              user_id: u.id,
-              broadcast_notification_id: broadcastId,
-              title: broadcast.title,
-              message: broadcast.body ?? '',
-              type: broadcast.type ?? 'announcement',
-              link: null,
-              is_read: false,
-            }))
-          );
-        }
-      } catch {
-        // ignore — in-app delivery is best-effort
-      }
-    }
-
-    // Step 2: Web Push — prefer Edge Function (server-side, works even when app is closed).
-    // Falls back to browser-side VAPID if the Edge Function is not deployed yet.
-    const pushPayload = {
-      title: broadcast.title,
-      body: broadcast.body || '',
-      icon: broadcast.icon || '/icon-192x192.png',
-      badge: '/badge-72x72.png',
-      url: '/',
-      action: broadcast.type || 'announcement',
-      tag: `broadcast-${broadcastId}`,
-    };
-
-    const edgeFnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-push`;
-    let edgeSuccess = false;
-    try {
-      const res = await fetch(edgeFnUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(pushPayload),
-      });
-      if (res.ok) {
-        const result = await res.json();
-        console.log(`Edge push: ${result.sent} sent, ${result.failed} failed, ${result.cleaned} cleaned`);
-        edgeSuccess = true;
-      }
-    } catch {
-      // Edge Function not deployed yet — fall back to browser-side push
-    }
-
-    // Step 3: If Edge Function succeeded, mark as sent immediately.
-    // Otherwise leave is_sent=false — the GitHub Actions workflow will pick it up
-    // within 30 minutes and send via Firebase Admin SDK (FCM).
-    if (edgeSuccess) {
-      await supabase
-        .from('broadcast_notifications')
-        .update({ is_sent: true, sent_at: new Date().toISOString() })
-        .eq('id', broadcastId);
-    }
-
-    return true;
-  } catch (err) {
-    console.error('sendBroadcastNotification error:', err);
-    return false;
-  }
+export const sendBroadcastNotification = async (_broadcastId: string): Promise<boolean> => {
+  // Broadcasts are now sent immediately via the API; this is a no-op shim.
+  return true;
 };
 
-export const getBroadcastNotifications = async (limit = 50): Promise<BroadcastNotification[]> => {
-  try {
-    const { data } = await supabase
-      .from('broadcast_notifications')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (!data) return [];
-    return data.map((row) => ({
-      id: row.id,
-      title: row.title,
-      body: row.body ?? undefined,
-      type: normalizeBroadcastType(row.type ?? undefined),
-      target_role: (row.target_role as BroadcastTargetRole) ?? 'all',
-      created_by: row.created_by ?? '',
-      is_sent: row.is_sent,
-      sent_at: row.sent_at ?? undefined,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    }));
-  } catch {
-    return [];
-  }
+export const getBroadcastNotifications = async (_limit = 50): Promise<BroadcastNotification[]> => {
+  // Not backed by API yet; return empty list gracefully.
+  return [];
 };
 
-export const subscribeToNotifications = (callback: (notification: UserNotification) => void) => {
-  let active = true;
-
-  const channel = supabase
-    .channel('user-notifications')
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'user_notifications',
-      },
-      (payload) => {
-        if (active) {
-          const n = payload.new as any;
-          callback({
-            id: n.id,
-            user_id: n.user_id,
-            title: n.title,
-            message: n.message,
-            type: n.type,
-            link: n.link,
-            is_read: n.is_read,
-            created_at: n.created_at,
-            updated_at: n.created_at,
-          });
-        }
-      }
-    )
-    .subscribe();
-
-  return () => {
-    active = false;
-    void channel.unsubscribe();
-  };
+export const subscribeToNotifications = (_callback: (notification: UserNotification) => void) => {
+  // Polling is handled by useBroadcastNotifications; return a no-op unsubscribe.
+  return () => {};
 };
 
 export const subscribeToNotificationsChanges = (
-  callback: (payload: {
-    type: 'INSERT' | 'UPDATE' | 'DELETE';
-    notification: UserNotification;
-  }) => void
+  callback: (payload: { type: 'INSERT' | 'UPDATE' | 'DELETE'; notification: UserNotification }) => void
 ) => {
   return subscribeToNotifications((n) => callback({ type: 'INSERT', notification: n }));
 };
@@ -407,9 +231,11 @@ export const showSystemNotification = async (
 
 export const getNotificationSettings = async (): Promise<NotificationSettings> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { user_id: '', ...DEFAULT_SETTINGS };
-    return getStoredSettings(user.id);
+    const res = await fetch('/api/auth/user', { credentials: 'include' });
+    const data = await res.json();
+    const userId = data?.user?.id ?? '';
+    if (!userId) return { user_id: '', ...DEFAULT_SETTINGS };
+    return getStoredSettings(userId);
   } catch {
     return { user_id: '', ...DEFAULT_SETTINGS };
   }
@@ -419,9 +245,11 @@ export const updateNotificationSettings = async (
   settings: Partial<NotificationSettings>
 ): Promise<boolean> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-    const nextSettings: NotificationSettings = { ...getStoredSettings(user.id), ...settings, user_id: user.id };
+    const res = await fetch('/api/auth/user', { credentials: 'include' });
+    const data = await res.json();
+    const userId = data?.user?.id ?? '';
+    if (!userId) return false;
+    const nextSettings: NotificationSettings = { ...getStoredSettings(userId), ...settings, user_id: userId };
     saveStoredSettings(nextSettings);
     return true;
   } catch {

@@ -91,8 +91,13 @@ const Profile = () => {
         birth_date: birthDate || null,
       };
 
-      const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
-      if (error) throw error;
+      const res = await fetch('/api/auth/profile', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_name: payload.full_name, birth_date: payload.birth_date }),
+      });
+      if (!res.ok) throw new Error('Update failed');
 
       toast.success('Profil mis à jour');
       await loadUserData();
@@ -188,11 +193,12 @@ const Profile = () => {
   };
 
   const streak = useMemo(() => {
+    if (!user?.id) return 1;
     try {
-      const key = 'vvv_last_visit';
+      const key = `vvv_last_visit_${user.id}`;
       const today = new Date().toDateString();
       const stored = localStorage.getItem(key);
-      const streakKey = 'vvv_streak';
+      const streakKey = `vvv_streak_${user.id}`;
       let current = parseInt(localStorage.getItem(streakKey) || '1', 10);
       if (stored !== today) {
         const yesterday = new Date(Date.now() - 86400000).toDateString();
@@ -204,7 +210,7 @@ const Profile = () => {
     } catch {
       return 1;
     }
-  }, []);
+  }, [user?.id]);
 
   const BADGES = [
     { id: 'premier_pas', label: 'Premier Pas', emoji: '🌱', desc: 'Compte créé', earned: true },

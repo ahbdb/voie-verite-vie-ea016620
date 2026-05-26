@@ -1,16 +1,11 @@
-import { supabase } from "@/integrations/supabase/client";
-
-// VAPID public key — must match the send-push-notification Edge Function.
-// This is a public value; it is safe to embed here.
 const VAPID_PUBLIC_KEY =
   (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) ||
-  "BDZP1G3CVzMfjpDGH7MGktPHySL1O1ZqqpP6B5QSgp09f8xu3lN9BLnQ527CZNXIY9q6KoISzbKbmbIAS8_I0AU";
+  "BMLtv56mbtQef-qvdKPAvxl6AzUZQxCOGl1riyDSVzdL_RatZclqfYYNeSPybQFtYdbuNLuRDzAU1tY8caJTS_A";
 
 function urlBase64ToUint8Array(b64url: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (b64url.length % 4)) % 4);
   const b64 = (b64url + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = atob(b64);
-  // Explicit ArrayBuffer so TS infers Uint8Array<ArrayBuffer> not Uint8Array<ArrayBufferLike>
   const buffer = new ArrayBuffer(raw.length);
   const arr = new Uint8Array(buffer);
   for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
@@ -18,11 +13,7 @@ function urlBase64ToUint8Array(b64url: string): Uint8Array<ArrayBuffer> {
 }
 
 /**
- * Register a Web Push subscription for this device and store it in Supabase.
- * The stored JSON matches what send-push-notification Edge Function expects:
- *   { endpoint: string, keys: { p256dh: string, auth: string } }
- *
- * Works on: Android Chrome/Samsung, Firefox, iOS 16.4+ (home-screen PWA).
+ * Register a Web Push subscription for this device and store it via the API.
  */
 export async function registerFCMToken(): Promise<string | null> {
   try {
@@ -31,14 +22,12 @@ export async function registerFCMToken(): Promise<string | null> {
       return null;
     }
 
-    // Ask permission
     if (Notification.permission === "default") {
       const perm = await Notification.requestPermission();
       if (perm !== "granted") return null;
     }
     if (Notification.permission !== "granted") return null;
 
-    // Register notification-sw.js — this is the SW that handles push events
     let swReg: ServiceWorkerRegistration;
     try {
       swReg = await navigator.serviceWorker.register("/notification-sw.js", { scope: "/" });
@@ -47,30 +36,27 @@ export async function registerFCMToken(): Promise<string | null> {
       swReg = await navigator.serviceWorker.ready;
     }
 
-    // Check if DB already has a valid Web Push JSON token for this user.
-    // If it doesn't (old Firebase string token), force re-subscription so the
-    // Edge Function can deliver pushes with our VAPID key.
+    // Check if the API already has a valid Web Push JSON token for this user
     let forceRefresh = false;
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    if (currentUser) {
-      const { data: row } = await supabase
-        .from('fcm_tokens')
-        .select('token')
-        .eq('user_id', currentUser.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (!row?.token) {
-        forceRefresh = true;
+    try {
+      const res = await fetch('/api/notifications/token', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        if (!data?.token) {
+          forceRefresh = true;
+        } else {
+          try {
+            const p = JSON.parse(data.token);
+            if (!p?.endpoint || !p?.keys?.p256dh) forceRefresh = true;
+          } catch { forceRefresh = true; }
+        }
       } else {
-        try {
-          const p = JSON.parse(row.token);
-          if (!p?.endpoint || !p?.keys?.p256dh) forceRefresh = true;
-        } catch { forceRefresh = true; }
+        forceRefresh = true;
       }
+    } catch {
+      forceRefresh = true;
     }
 
-    // Get existing subscription or create a new one
     let subscription = await swReg.pushManager.getSubscription();
     if (!subscription || forceRefresh) {
       if (subscription && forceRefresh) await subscription.unsubscribe();
@@ -80,24 +66,20 @@ export async function registerFCMToken(): Promise<string | null> {
       });
     }
 
-    // Serialise to JSON — this is what the Edge Function parses
     const subJson = JSON.stringify(subscription.toJSON());
 
-    // Persist in Supabase
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return subJson;
-
-    await supabase.from("fcm_tokens").upsert(
-      {
-        user_id: user.id,
+    await fetch('/api/notifications/token', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         token: subJson,
         platform: detectPlatform(),
         device_info: navigator.userAgent.substring(0, 200),
         language: navigator.language?.substring(0, 2) || "fr",
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Douala",
-      },
-      { onConflict: "token" }
-    );
+      }),
+    });
 
     console.log("✓ Web Push subscription registered");
     return subJson;
@@ -109,12 +91,12 @@ export async function registerFCMToken(): Promise<string | null> {
 
 export async function updateFCMLanguage(lang: string) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase
-      .from("fcm_tokens")
-      .update({ language: lang.substring(0, 2) })
-      .eq("user_id", user.id);
+    await fetch('/api/notifications/token/language', {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ language: lang.substring(0, 2) }),
+    });
   } catch (err) {
     console.log("Error updating push language:", err);
   }
