@@ -485,15 +485,17 @@ export const useAdminVideoRoom = ({
       .order('joined_at', { ascending: true });
     if (error) throw error;
     const parts = (data || []) as VideoParticipantRecord[];
-    // Enrich with avatar_url from profiles
+    // Publish participants immediately so syncPeers() fires without delay.
+    // Avatar URLs are enriched in the background — non-critical for audio.
+    setParticipants(parts);
     if (parts.length > 0) {
       const ids = parts.map((p) => p.user_id);
-      const { data: profs } = await db.from('profiles').select('id, avatar_url').in('id', ids);
-      const avatarMap: Record<string, string | null> = {};
-      (profs || []).forEach((p: { id: string; avatar_url: string | null }) => { avatarMap[p.id] = p.avatar_url; });
-      setParticipants(parts.map((p) => ({ ...p, avatar_url: avatarMap[p.user_id] ?? null })));
-    } else {
-      setParticipants(parts);
+      void db.from('profiles').select('id, avatar_url').in('id', ids).then(({ data: profs }) => {
+        if (!profs?.length) return;
+        const avatarMap: Record<string, string | null> = {};
+        (profs as { id: string; avatar_url: string | null }[]).forEach((p) => { avatarMap[p.id] = p.avatar_url; });
+        setParticipants(parts.map((p) => ({ ...p, avatar_url: avatarMap[p.user_id] ?? null })));
+      });
     }
   }, [roomId]);
 
@@ -1276,23 +1278,23 @@ export const useAdminVideoRoom = ({
           _persist = null;
 
           // ── Close any peer connections that degraded while the user was away ──
-          // A non-connected peer cannot recover via ICE-restart alone after a long
-          // background period; tearing it down here lets syncPeers() create fresh
-          // connections on both sides, restoring audio within 1-2 s instead of 5-10 s.
+          // Only tear down definitively dead connections ('failed' or 'closed').
+          // 'disconnected' connections often self-heal within a few hundred ms.
+          // 'checking' connections have an ICE restart already in progress — killing
+          // them would abort that restart and add an extra round-trip.
           const freshStreams = saved.remoteStreams.filter((rs) => {
             const pc = saved.peerConns.get(rs.userId);
             if (!pc) return false;
-            if (pc.connectionState !== 'connected') {
+            if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
               pc.close();
               saved.peerConns.delete(rs.userId);
               saved.initiated.delete(rs.userId);
-              // Detach audio analyser for the dropped peer
               try { saved.sources.get(rs.userId)?.disconnect(); } catch {}
               saved.sources.delete(rs.userId);
               saved.analysers.delete(rs.userId);
-              return false; // exclude stream — it will be recreated by syncPeers
+              return false;
             }
-            return true;
+            return true; // keep connected, disconnected, checking, new
           });
 
           peerConnectionsRef.current = saved.peerConns;
@@ -1315,49 +1317,25 @@ export const useAdminVideoRoom = ({
           // Resume AudioContext — browsers suspend it when the page is hidden/backgrounded
           if (saved.audioCtx?.state === 'suspended') void saved.audioCtx.resume();
 
-          // Re-activate participant row without resetting joined_at
-          if (userId) {
-            await db
-              .from('video_room_participants')
-              .update({ is_active: true, left_at: null })
-              .eq('room_id', roomId)
-              .eq('user_id', userId);
-            joinedRef.current = true;
-          }
+          // Re-activate participant row + load participants + fetch pending signals
+          // all in parallel — this is the critical path before showing the call UI.
+          // Messages and reactions are loaded in the background (non-blocking).
+          const activatePromise = userId
+            ? db.from('video_room_participants')
+                .update({ is_active: true, left_at: null })
+                .eq('room_id', roomId)
+                .eq('user_id', userId)
+                .then(() => { joinedRef.current = true; })
+            : Promise.resolve();
 
-          await Promise.all([loadParticipants(), loadMessages(), loadReactions()]);
-
+          // Wire up the channel BEFORE the parallel DB calls so fetchPendingSignals()
+          // can race alongside loadParticipants() instead of waiting for it.
           if (saved.channel) {
             // ── Reuse the channel that stayed subscribed during soft leave ─────
-            // No re-subscribe needed — signals already flowing. Just refresh the
-            // signal handler pointer and catch up on anything that arrived while away.
             channelRef.current = saved.channel;
             _bgSignalFn = handleIncomingSignal;
             if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
             setConnectionQuality('good');
-            await fetchPendingSignals();
-            void channelRef.current.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
-            const uidR = userIdRef.current;
-            if (uidR) {
-              peerConnectionsRef.current.forEach((pc, pid) => {
-                if (pc.connectionState === 'connected') return;
-                if (uidR.localeCompare(pid) >= 0) return;
-                pc.createOffer({ iceRestart: true })
-                  .then(offer => pc.setLocalDescription(offer))
-                  .then(() => {
-                    if (pc.localDescription) {
-                      void db.from('video_room_signals').insert({
-                        room_id: roomId,
-                        sender_id: uidR,
-                        recipient_id: pid,
-                        signal_type: 'offer',
-                        payload: pc.localDescription.toJSON?.() ?? pc.localDescription,
-                      });
-                    }
-                  })
-                  .catch(() => {});
-              });
-            }
           } else if (!channelRef.current) {
             // ── No saved channel — create a new subscription (first mount or fallback) ─
             const channel = db
@@ -1430,6 +1408,42 @@ export const useAdminVideoRoom = ({
                 }
               });
             channelRef.current = channel;
+          }
+
+          // Critical parallel path — activate, load participants, and (for reused
+          // channel) process any signals that queued while the call page was unmounted.
+          await Promise.all([
+            activatePromise,
+            loadParticipants(),
+            saved.channel ? fetchPendingSignals() : Promise.resolve(),
+          ]);
+          void loadMessages();
+          void loadReactions();
+
+          // Broadcast mic state and restart ICE for any degraded connections.
+          if (saved.channel && channelRef.current) {
+            void channelRef.current.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
+            const uidR = userIdRef.current;
+            if (uidR) {
+              peerConnectionsRef.current.forEach((pc, pid) => {
+                if (pc.connectionState === 'connected') return;
+                if (uidR.localeCompare(pid) >= 0) return;
+                pc.createOffer({ iceRestart: true })
+                  .then(offer => pc.setLocalDescription(offer))
+                  .then(() => {
+                    if (pc.localDescription) {
+                      void db.from('video_room_signals').insert({
+                        room_id: roomId,
+                        sender_id: uidR,
+                        recipient_id: pid,
+                        signal_type: 'offer',
+                        payload: pc.localDescription.toJSON?.() ?? pc.localDescription,
+                      });
+                    }
+                  })
+                  .catch(() => {});
+              });
+            }
           }
 
           if (active) setIsConnected(true);
