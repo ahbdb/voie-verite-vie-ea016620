@@ -9,10 +9,15 @@ const router = Router();
 // Login — redirects to Replit Auth, which injects X-Replit-User-* headers
 router.get("/auth/login", (req, res) => {
   const returnTo = (req.query.return_to as string) || "/";
-  const host = req.get("host") || "";
-  // Use Replit's auth_with_repl_site flow
+  // REPLIT_DOMAINS is the canonical public domain injected by the Replit runtime.
+  // Falling back to X-Forwarded-Host (set by Vite proxy) then Host as a last resort.
+  const domain =
+    (process.env.REPLIT_DOMAINS || "").split(",")[0].trim() ||
+    (req.get("x-forwarded-host") || "").split(",")[0].trim() ||
+    req.get("host") ||
+    "";
   res.redirect(
-    `https://replit.com/auth_with_repl_site?domain=${host}&redirect_url=${encodeURIComponent(returnTo)}`
+    `https://replit.com/auth_with_repl_site?domain=${domain}&redirect_url=${encodeURIComponent(returnTo)}`
   );
 });
 
