@@ -545,10 +545,13 @@ const ConnectionBadge = ({
 
 // ── Main component ───────────────────────────────────────────────────────────
 
-const AdminVideoRoom = () => {
+const AdminVideoRoom = ({ roomId: roomIdProp }: { roomId?: string }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { roomId } = useParams();
+  const { roomId: roomIdParam } = useParams();
+  // When rendered by AlwaysOnCallPage (app-level), roomId comes as a prop.
+  // When rendered directly via a route (legacy), it comes from useParams().
+  const roomId = roomIdProp ?? roomIdParam;
   const { user } = useAuth();
   const { adminRole } = useAdmin();
   const hasManagement = adminRole === 'admin' || adminRole === 'admin_principal';

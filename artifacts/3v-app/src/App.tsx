@@ -2,13 +2,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useMatch } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { toast } from "sonner";
 import { SettingsProvider } from "@/hooks/useSettings";
 import { AuthProvider } from "@/hooks/useAuth";
 import { CallSessionProvider } from "@/contexts/CallSessionContext";
+import { useCallSession } from "@/contexts/CallSessionContext";
 import { FloatingCallBanner } from "@/components/FloatingCallBanner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LoadingScreen from "@/components/LoadingScreen";
@@ -78,6 +79,35 @@ import FloatingSupportButton from "@/components/FloatingSupportButton";
 
 const queryClient = new QueryClient();
 
+// ── Always-on call engine ─────────────────────────────────────────────────────
+// Keeps AdminVideoRoom mounted for the entire duration of a call, even when the
+// user navigates to other pages. The component is hidden via CSS (not unmounted),
+// so WebRTC peer connections never drop during in-app navigation.
+const AlwaysOnCallPage = () => {
+  const { activeCall } = useCallSession();
+  const roomMatchAdmin = useMatch('/admin/video/:roomId');
+  const roomMatchMeeting = useMatch('/meeting/:roomId');
+  const routeMatch = roomMatchAdmin || roomMatchMeeting;
+
+  // Determine which roomId to use: active call or current route (for first load)
+  const roomId = activeCall?.roomId ?? (routeMatch?.params as { roomId?: string })?.roomId;
+  if (!roomId) return null;
+
+  const isVisible = !!routeMatch && (routeMatch.params as { roomId?: string }).roomId === roomId;
+
+  return (
+    <div
+      style={
+        isVisible
+          ? { position: 'fixed', inset: 0, zIndex: 50 }
+          : { position: 'fixed', width: 0, height: 0, overflow: 'hidden', visibility: 'hidden', pointerEvents: 'none' }
+      }
+    >
+      <AdminVideoRoom roomId={roomId} />
+    </div>
+  );
+};
+
 const AppNotificationInitializer = ({ children }: { children: React.ReactNode }) => {
   return (
     <>
@@ -125,6 +155,8 @@ const App = () => {
                     <ScrollToTop />
                     <FloatingCallBanner />
                     <FloatingSupportButton />
+                    {/* Always-on: keeps the call alive during in-app navigation */}
+                    <AlwaysOnCallPage />
                     <Routes>
                       <Route path="/" element={<Index />} />
                       <Route path="/about" element={<About />} />
@@ -175,8 +207,9 @@ const App = () => {
                       <Route path="/admin/notifications" element={<AdminNotifications />} />
                       <Route path="/admin/notification-scheduler" element={<AdminNotificationScheduler />} />
                       <Route path="/admin/video" element={<AdminVideo />} />
-                      <Route path="/admin/video/:roomId" element={<AdminVideoRoom />} />
-                      <Route path="/meeting/:roomId" element={<AdminVideoRoom />} />
+                      {/* These routes render null — AdminVideoRoom is in AlwaysOnCallPage */}
+                      <Route path="/admin/video/:roomId" element={null} />
+                      <Route path="/meeting/:roomId" element={null} />
                       <Route path="/admin/users" element={<AdminUsers />} />
                       <Route path="/admin/admins" element={<AdminManagement />} />
                       <Route path="/admin/testimonials" element={<AdminTemoignages />} />
