@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { playAttentionTone, sendVisibleNotification } from '@/lib/notification-service';
 import { createElement } from 'react';
@@ -96,13 +97,16 @@ export const useBroadcastNotifications = () => {
       );
     };
 
-    // Poll for new notifications via API
+    // Poll for new notifications via Supabase
     const pollNotifications = async () => {
       try {
-        const res = await fetch('/api/notifications', { credentials: 'include' });
-        if (!res.ok) return;
-        const rows: any[] = await res.json();
-        if (!rows.length) return;
+        const { data: rows, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (error || !rows?.length) return;
 
         const newest = rows[0];
         if (lastSeenIdRef.current === null) {
@@ -111,7 +115,7 @@ export const useBroadcastNotifications = () => {
         }
         if (newest.id === lastSeenIdRef.current) return;
 
-        const newRows = rows.filter(r => r.id !== lastSeenIdRef.current);
+        const newRows = rows.filter((r: any) => r.id !== lastSeenIdRef.current);
         lastSeenIdRef.current = newest.id;
         for (const n of newRows) {
           handleCallRing(n);

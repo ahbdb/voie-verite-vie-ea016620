@@ -44,13 +44,16 @@ export default function AdminRepairPage() {
     try {
       // 1. Get current user
       const userRes = await fetch('/api/auth/user', { credentials: 'include' });
-      const userData = await userRes.json();
+      let userData: any = null;
+      if (userRes.ok) {
+        try { userData = await userRes.json(); } catch { /* non-JSON response */ }
+      }
       const currentUser = userData?.user;
 
       if (!currentUser) {
         setResult({
           success: false,
-          message: '❌ Not logged in. Please login first.',
+          message: '❌ Not logged in or API unavailable. Please login first.',
         });
         setLoading(false);
         return;
@@ -58,7 +61,10 @@ export default function AdminRepairPage() {
 
       // 2. Query admin role
       const roleRes = await fetch('/api/auth/admin-role', { credentials: 'include' });
-      const roleData = await roleRes.json();
+      let roleData: any = null;
+      if (roleRes.ok) {
+        try { roleData = await roleRes.json(); } catch { /* non-JSON response */ }
+      }
       const currentRole = roleData?.role as string | null;
 
       const details = {

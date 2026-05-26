@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 export type AdminRole = 'admin_principal' | 'admin' | 'moderator' | null;
 
@@ -44,13 +45,14 @@ export const useAdmin = () => {
     setLoading(true);
 
     const fetchRole = async (): Promise<AdminRole> => {
-      const res = await fetch('/api/auth/admin-role', { credentials: 'include' });
-      if (!res.ok) return null;
-      const data = await res.json();
-      const r = data.role as string;
-      if (r === 'admin_principal') return 'admin_principal';
-      if (r === 'admin') return 'admin';
-      if (r === 'moderator') return 'moderator';
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+      if (error || !data) return null;
+      if (data.some((r) => r.role === 'admin_principal')) return 'admin_principal';
+      if (data.some((r) => r.role === 'admin')) return 'admin';
+      if (data.some((r) => r.role === 'moderator')) return 'moderator';
       return null;
     };
 

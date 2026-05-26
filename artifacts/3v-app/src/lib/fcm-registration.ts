@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 const VAPID_PUBLIC_KEY =
   (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) ||
   "BMLtv56mbtQef-qvdKPAvxl6AzUZQxCOGl1riyDSVzdL_RatZclqfYYNeSPybQFtYdbuNLuRDzAU1tY8caJTS_A";
@@ -36,22 +38,28 @@ export async function registerFCMToken(): Promise<string | null> {
       swReg = await navigator.serviceWorker.ready;
     }
 
-    // Check if the API already has a valid Web Push JSON token for this user
+    // Get the current Supabase user
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return null;
+
+    // Check if Supabase already has a valid Web Push JSON token for this user
     let forceRefresh = false;
     try {
-      const res = await fetch('/api/notifications/token', { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        if (!data?.token) {
-          forceRefresh = true;
-        } else {
-          try {
-            const p = JSON.parse(data.token);
-            if (!p?.endpoint || !p?.keys?.p256dh) forceRefresh = true;
-          } catch { forceRefresh = true; }
-        }
-      } else {
+      const { data } = await supabase
+        .from('fcm_tokens')
+        .select('token')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (!data?.token) {
         forceRefresh = true;
+      } else {
+        try {
+          const p = JSON.parse(data.token);
+          if (!p?.endpoint || !p?.keys?.p256dh) forceRefresh = true;
+        } catch { forceRefresh = true; }
       }
     } catch {
       forceRefresh = true;
@@ -68,18 +76,16 @@ export async function registerFCMToken(): Promise<string | null> {
 
     const subJson = JSON.stringify(subscription.toJSON());
 
-    await fetch('/api/notifications/token', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        token: subJson,
-        platform: detectPlatform(),
-        device_info: navigator.userAgent.substring(0, 200),
-        language: navigator.language?.substring(0, 2) || "fr",
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Douala",
-      }),
-    });
+    // Upsert the push subscription in Supabase fcm_tokens
+    await supabase.from('fcm_tokens').upsert({
+      user_id: userId,
+      token: subJson,
+      platform: detectPlatform(),
+      device_info: navigator.userAgent.substring(0, 200),
+      language: navigator.language?.substring(0, 2) || "fr",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Douala",
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,token' });
 
     console.log("✓ Web Push subscription registered");
     return subJson;
@@ -91,12 +97,13 @@ export async function registerFCMToken(): Promise<string | null> {
 
 export async function updateFCMLanguage(lang: string) {
   try {
-    await fetch('/api/notifications/token/language', {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ language: lang.substring(0, 2) }),
-    });
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return;
+    await supabase
+      .from('fcm_tokens')
+      .update({ language: lang.substring(0, 2) })
+      .eq('user_id', userId);
   } catch (err) {
     console.log("Error updating push language:", err);
   }

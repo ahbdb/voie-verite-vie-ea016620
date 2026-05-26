@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 export type BroadcastNotificationType = 'greeting' | 'reminder' | 'announcement' | 'update';
 export type BroadcastTargetRole = 'all' | 'user' | 'admin' | null;
 
@@ -231,9 +233,8 @@ export const showSystemNotification = async (
 
 export const getNotificationSettings = async (): Promise<NotificationSettings> => {
   try {
-    const res = await fetch('/api/auth/user', { credentials: 'include' });
-    const data = await res.json();
-    const userId = data?.user?.id ?? '';
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id ?? '';
     if (!userId) return { user_id: '', ...DEFAULT_SETTINGS };
     return getStoredSettings(userId);
   } catch {
@@ -245,9 +246,8 @@ export const updateNotificationSettings = async (
   settings: Partial<NotificationSettings>
 ): Promise<boolean> => {
   try {
-    const res = await fetch('/api/auth/user', { credentials: 'include' });
-    const data = await res.json();
-    const userId = data?.user?.id ?? '';
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id ?? '';
     if (!userId) return false;
     const nextSettings: NotificationSettings = { ...getStoredSettings(userId), ...settings, user_id: userId };
     saveStoredSettings(nextSettings);

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { toast } from "sonner";
@@ -137,6 +137,7 @@ const App = () => {
                       <Route path="/gallery" element={<Gallery />} />
                       <Route path="/install" element={<Install />} />
                       <Route path="/auth" element={<Auth />} />
+                      <Route path="/api/auth/login" element={<Navigate to="/auth" replace />} />
                       <Route path="/ai-chat" element={<AIChat />} />
                       <Route path="/prayer-forum" element={<PrayerForum />} />
                       <Route path="/careme" element={<Careme />} />
