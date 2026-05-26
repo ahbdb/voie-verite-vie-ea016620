@@ -555,6 +555,14 @@ export const useAdminVideoRoom = ({
     initiatedPeersRef.current.delete(pid);
     detachAudioAnalyser(pid);
     setRemoteStreams((cur) => cur.filter((e) => e.userId !== pid));
+    // Clear quality badge if no remaining peer is in a degraded state
+    const anyBad = Array.from(peerConnectionsRef.current.values()).some(
+      (c) => c.connectionState === 'disconnected' || c.connectionState === 'failed'
+    );
+    if (!anyBad) {
+      if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
+      setConnectionQuality('good');
+    }
   }, [detachAudioAnalyser]);
 
   const flushPendingIceCandidates = useCallback(async (pid: string, pc: RTCPeerConnection) => {
@@ -640,7 +648,20 @@ export const useAdminVideoRoom = ({
           if (shouldOffer) {
             pc.createOffer({ iceRestart: true })
               .then(offer => pc.setLocalDescription(offer))
-              .then(() => { if (pc.localDescription) void sendSignal('offer', pc.localDescription, pid); })
+              .then(() => {
+                if (pc.localDescription) void sendSignal('offer', pc.localDescription, pid);
+                // Give remote 15 s to answer. If still not connected (e.g. user is
+                // backgrounded and can't receive signals), remove the peer cleanly so
+                // the 'Reconnexion' badge disappears. syncPeers will recreate the
+                // connection as soon as the remote participant comes back.
+                if (!disconnectTimersRef.current.has(pid)) {
+                  const tid = window.setTimeout(() => {
+                    if (pc.connectionState !== 'connected') removePeer(pid);
+                    disconnectTimersRef.current.delete(pid);
+                  }, 15_000);
+                  disconnectTimersRef.current.set(pid, tid);
+                }
+              })
               .catch(() => removePeer(pid));
           } else {
             // The other side will restart ICE — give it 10 s
