@@ -515,20 +515,6 @@ const ConnectionBadge = ({
       </span>
     );
   }
-  if (isConnected && quality === 'reconnecting') {
-    return (
-      <span className="flex items-center gap-1.5 rounded-full bg-orange-500/15 px-2.5 py-1 text-xs font-medium text-orange-400">
-        <Loader2 className="h-3 w-3 animate-spin" /> Reconnexion…
-      </span>
-    );
-  }
-  if (isConnected && quality === 'poor') {
-    return (
-      <span className="flex items-center gap-1.5 rounded-full bg-yellow-500/15 px-2.5 py-1 text-xs font-medium text-yellow-400">
-        <Wifi className="h-3 w-3" /> Connexion faible
-      </span>
-    );
-  }
   if (isConnected) {
     return (
       <span className="flex items-center gap-1.5 rounded-full bg-green-500/15 px-2.5 py-1 text-xs font-medium text-green-500">

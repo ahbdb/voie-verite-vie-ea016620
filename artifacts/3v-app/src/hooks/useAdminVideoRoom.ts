@@ -645,21 +645,18 @@ export const useAdminVideoRoom = ({
         }
 
         if (state === 'disconnected') {
-          // After 3 s of disconnected, show "Reconnexion…" AND proactively restart ICE.
-          // Waiting for 'failed' takes 10-15 s — too long. 3 s is enough to confirm this
-          // isn't a transient flip (network handoff, tab background) that would self-heal.
+          // After 3 s of disconnected, proactively restart ICE — silently, no badge change.
+          // 'disconnected' is a transient state that often self-heals; showing a badge
+          // for it is alarming and misleading. Only 'failed' (below) warrants a visible indicator.
           if (!qualityTimerRef.current) {
             qualityTimerRef.current = window.setTimeout(() => {
               qualityTimerRef.current = null;
               if (pc.connectionState !== 'disconnected') return;
-              setConnectionQuality('reconnecting');
-              // Proactive ICE restart — same localeCompare polarity as syncPeers/failed handler
-              if (uid && uid.localeCompare(pid) < 0) {
-                pc.createOffer({ iceRestart: true })
-                  .then(offer => pc.setLocalDescription(offer))
-                  .then(() => { if (pc.localDescription) void sendSignal('offer', pc.localDescription, pid); })
-                  .catch(() => {});
-              }
+              // Restart ICE silently — both sides attempt, polite/impolite handles glare
+              pc.createOffer({ iceRestart: true })
+                .then(offer => pc.setLocalDescription(offer))
+                .then(() => { if (pc.localDescription) void sendSignal('offer', pc.localDescription, pid); })
+                .catch(() => {});
             }, 3_000);
           }
           // Give extra time if page is hidden (user switched app)
@@ -678,7 +675,6 @@ export const useAdminVideoRoom = ({
 
         if (state === 'failed') {
           if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
-          setConnectionQuality('reconnecting');
           if (existingTimer) { window.clearTimeout(existingTimer); disconnectTimersRef.current.delete(pid); }
           // Try ICE restart before giving up
           const shouldOffer = uid && uid.localeCompare(pid) < 0;
