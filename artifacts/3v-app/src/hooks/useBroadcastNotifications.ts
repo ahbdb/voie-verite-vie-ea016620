@@ -24,6 +24,8 @@ export const useBroadcastNotifications = () => {
   const ringIntervalRef = useRef<number | null>(null);
   const lastSeenIdRef = useRef<string | null>(null);
   const pollingRef = useRef<number | null>(null);
+  const activeCallRoomIdRef = useRef<string | null>(null);
+  const activeCallToastIdRef = useRef<string | number | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -33,6 +35,15 @@ export const useBroadcastNotifications = () => {
         window.clearInterval(ringIntervalRef.current);
         ringIntervalRef.current = null;
       }
+    };
+
+    const stopCallToast = () => {
+      stopRinging();
+      if (activeCallToastIdRef.current !== null) {
+        toast.dismiss(activeCallToastIdRef.current);
+        activeCallToastIdRef.current = null;
+      }
+      activeCallRoomIdRef.current = null;
     };
 
     const handleVisibilityChange = () => {
@@ -46,7 +57,11 @@ export const useBroadcastNotifications = () => {
       const url = n.link || '/calls-lives';
 
       if (isCall) {
-        stopRinging();
+        stopCallToast();
+        // Extract roomId from link e.g. /meeting/<id>
+        const roomId = n.link?.split('/meeting/')[1] || null;
+        if (roomId) activeCallRoomIdRef.current = roomId;
+
         void playAttentionTone();
         let ringCount = 0;
         ringIntervalRef.current = window.setInterval(() => {
@@ -75,8 +90,8 @@ export const useBroadcastNotifications = () => {
         data: { url },
       });
 
-      toast.custom(
-        (toastId) =>
+      const toastId = toast.custom(
+        (id) =>
           createElement(NotificationToast, {
             title: n.title,
             message: n.message || n.body || '',
@@ -84,17 +99,18 @@ export const useBroadcastNotifications = () => {
             link: n.link || undefined,
             isCall,
             onOpen: () => {
-              stopRinging();
-              toast.dismiss(toastId);
+              stopCallToast();
+              toast.dismiss(id);
               if (n.link) window.location.href = n.link;
             },
             onDismiss: () => {
-              stopRinging();
-              toast.dismiss(toastId);
+              stopCallToast();
+              toast.dismiss(id);
             },
           }),
         { duration: isCall ? 20000 : 7000, position: 'top-right' }
       );
+      if (isCall) activeCallToastIdRef.current = toastId;
     };
 
     // Poll for new notifications via Supabase
@@ -129,7 +145,7 @@ export const useBroadcastNotifications = () => {
     pollingRef.current = window.setInterval(pollNotifications, 30000);
 
     // Realtime — sonne instantanément dès qu'une notification est insérée
-    const channel = supabase
+    const notifChannel = supabase
       .channel(`notif-${user.id}`)
       .on(
         'postgres_changes',
@@ -143,11 +159,27 @@ export const useBroadcastNotifications = () => {
       )
       .subscribe();
 
+    // Realtime — ferme le popup immédiatement quand l'admin termine l'appel
+    const roomChannel = supabase
+      .channel('room-ended-watcher')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'video_rooms' },
+        (payload) => {
+          const room = payload.new as { id: string; status: string };
+          if (room.status === 'ended' && room.id === activeCallRoomIdRef.current) {
+            stopCallToast();
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       stopRinging();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (pollingRef.current) window.clearInterval(pollingRef.current);
-      supabase.removeChannel(channel);
+      supabase.removeChannel(notifChannel);
+      supabase.removeChannel(roomChannel);
     };
   }, [user?.id]);
 };

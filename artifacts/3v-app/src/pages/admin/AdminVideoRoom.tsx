@@ -362,15 +362,14 @@ type ParticipantLike = { user_id: string; display_name: string | null };
 
 const CandidateBadge = ({ type, iceState }: { type: string; iceState?: string }) => {
   if (type === 'relay')
-    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-500/20 text-green-400">RELAY ✓</span>;
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-500/20 text-green-400">Relais ✓</span>;
   if (type === 'srflx')
-    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400">SRFLX</span>;
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400">Direct</span>;
   if (type === 'host')
-    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-600/40 text-zinc-300">LOCAL</span>;
-  // neutral during ICE negotiation or transient reconnection
-  if (iceState === 'checking' || iceState === 'new' || iceState === 'disconnected')
-    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-600/20 text-zinc-500">…</span>;
-  return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">ICE ✗</span>;
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-600/40 text-zinc-300">Local</span>;
+  if (iceState === 'failed')
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">Échec</span>;
+  return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-600/20 text-zinc-500">…</span>;
 };
 
 const DiagnosticPanel = ({
@@ -406,25 +405,28 @@ const DiagnosticPanel = ({
                 stat.iceState === 'failed' ? 'text-red-400' :
                 'text-yellow-400'
               )}>
-                {stat.iceState}
+                {stat.iceState === 'connected' ? 'Connecté' :
+                 stat.iceState === 'failed' ? 'Échec connexion' :
+                 stat.iceState === 'checking' ? 'Connexion…' :
+                 stat.iceState === 'disconnected' ? 'Reconnexion…' :
+                 stat.iceState}
               </span>
             </div>
 
-            {/* Warning: ICE hard failure — no relay path found */}
             {stat.iceState === 'failed' && (
               <div className="rounded bg-orange-500/10 border border-orange-500/20 px-2 py-1.5 text-[10px] text-orange-300">
-                ⚠️ ICE échoué — réseau restrictif ou TURN inaccessible.
+                ⚠️ Connexion impossible avec ce participant — réseau trop restrictif.
               </div>
             )}
 
             {/* Candidate types */}
             <div className="grid grid-cols-2 gap-2 text-[11px]">
               <div>
-                <p className="text-zinc-500 mb-1">Local</p>
+                <p className="text-zinc-500 mb-1">Votre réseau</p>
                 <CandidateBadge type={stat.localCandidateType} iceState={stat.iceState} />
               </div>
               <div>
-                <p className="text-zinc-500 mb-1">Distant</p>
+                <p className="text-zinc-500 mb-1">Réseau distant</p>
                 <CandidateBadge type={stat.remoteCandidateType} iceState={stat.iceState} />
               </div>
             </div>
@@ -444,13 +446,14 @@ const DiagnosticPanel = ({
                 </div>
               )}
               <div>
-                <p className="text-zinc-500 mb-0.5">Perte audio</p>
+                <p className="text-zinc-500 mb-0.5">Qualité audio</p>
                 <p className={cn(
                   'font-mono',
                   stat.audioPacketsLost === 0 ? 'text-green-400' :
                   stat.audioPacketsLost < 20 ? 'text-yellow-400' : 'text-red-400'
                 )}>
-                  {stat.audioPacketsLost} paquets
+                  {stat.audioPacketsLost === 0 ? '✓ Bonne' :
+                   stat.audioPacketsLost < 20 ? '~ Moyenne' : '✗ Mauvaise'}
                 </p>
               </div>
               <div>
@@ -478,16 +481,16 @@ const DiagnosticPanel = ({
           <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Légende</p>
           <div className="space-y-1 text-[10px] text-zinc-500">
             <div className="flex items-center gap-2">
-              <span className="text-green-400 font-bold">RELAY</span>
-              <span>= via serveur TURN (cross-continent ✓)</span>
+              <span className="text-green-400 font-bold">Relais ✓</span>
+              <span>= via serveur intermédiaire (idéal à distance)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-blue-400 font-bold">SRFLX</span>
-              <span>= direct via STUN (même opérateur)</span>
+              <span className="text-blue-400 font-bold">Direct</span>
+              <span>= connexion directe entre participants</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-zinc-300 font-bold">LOCAL</span>
-              <span>= direct sur le même réseau</span>
+              <span className="text-zinc-300 font-bold">Local</span>
+              <span>= même réseau Wi-Fi</span>
             </div>
           </div>
           <p className="text-[10px] text-zinc-600 pt-1">Mis à jour en continu</p>
