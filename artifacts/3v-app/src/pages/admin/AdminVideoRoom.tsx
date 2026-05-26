@@ -367,8 +367,8 @@ const CandidateBadge = ({ type, iceState }: { type: string; iceState?: string })
     return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400">SRFLX</span>;
   if (type === 'host')
     return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-600/40 text-zinc-300">LOCAL</span>;
-  // 'checking' = ICE still in progress → neutral; anything else with unknown type = problem
-  if (iceState === 'checking' || iceState === 'new')
+  // neutral during ICE negotiation or transient reconnection
+  if (iceState === 'checking' || iceState === 'new' || iceState === 'disconnected')
     return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-600/20 text-zinc-500">…</span>;
   return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">ICE ✗</span>;
 };
@@ -410,11 +410,10 @@ const DiagnosticPanel = ({
               </span>
             </div>
 
-            {/* Warning: connection exists but no data ever flowed */}
-            {stat.iceState !== 'connected' && stat.iceState !== 'completed' &&
-             stat.bytesSent === 0 && stat.bytesReceived === 0 && (
+            {/* Warning: ICE hard failure — no relay path found */}
+            {stat.iceState === 'failed' && (
               <div className="rounded bg-orange-500/10 border border-orange-500/20 px-2 py-1.5 text-[10px] text-orange-300">
-                ⚠️ Aucun flux média — ICE bloqué. Réseau restrictif ou TURN inaccessible.
+                ⚠️ ICE échoué — réseau restrictif ou TURN inaccessible.
               </div>
             )}
 
@@ -491,7 +490,7 @@ const DiagnosticPanel = ({
               <span>= direct sur le même réseau</span>
             </div>
           </div>
-          <p className="text-[10px] text-zinc-600 pt-1">Mis à jour toutes les 3 s</p>
+          <p className="text-[10px] text-zinc-600 pt-1">Mis à jour en continu</p>
         </div>
       </div>
     </ScrollArea>

@@ -631,14 +631,14 @@ export const useAdminVideoRoom = ({
         }
 
         if (state === 'disconnected') {
-          // After 3 s of disconnected, show "Connexion faible" AND proactively restart ICE.
+          // After 3 s of disconnected, show "Reconnexion…" AND proactively restart ICE.
           // Waiting for 'failed' takes 10-15 s — too long. 3 s is enough to confirm this
           // isn't a transient flip (network handoff, tab background) that would self-heal.
           if (!qualityTimerRef.current) {
             qualityTimerRef.current = window.setTimeout(() => {
               qualityTimerRef.current = null;
               if (pc.connectionState !== 'disconnected') return;
-              setConnectionQuality('poor');
+              setConnectionQuality('reconnecting');
               // Proactive ICE restart — same localeCompare polarity as syncPeers/failed handler
               if (uid && uid.localeCompare(pid) < 0) {
                 pc.createOffer({ iceRestart: true })
