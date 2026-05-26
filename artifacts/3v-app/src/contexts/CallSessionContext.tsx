@@ -198,15 +198,18 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
     primeNotificationAudio();
   }, [ensureSrc]);
 
-  // Start / stop in sync with the WebRTC connection state
+  // Start / stop in sync with the WebRTC connection state.
+  // Only stop the keepalive when the call session is fully over (activeCall===null)
+  // — NOT during the brief isConnected=false window that occurs when the call page
+  // remounts and restores _persist, which would cut audio and break iOS autoplay unlock.
   useEffect(() => {
     if (isConnected) {
       startSilentAudio();
-    } else {
+    } else if (!activeCall) {
       stopSilentAudio();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected]);
+  }, [isConnected, activeCall]);
 
   // Resume if the system paused it while the page was hidden (spec-required
   // for Screen Wake Lock; some browsers also pause audio on visibility change)

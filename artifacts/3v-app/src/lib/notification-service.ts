@@ -48,6 +48,28 @@ const buildNotificationOptions = (payload: NotificationPayload) => ({
  */
 let _sharedAudioCtx: AudioContext | null = null;
 
+// ── Push-triggered call ring manager ─────────────────────────────────────────
+// Started when the service worker sends PLAY_RING to a backgrounded page.
+let _pushRingTimer: ReturnType<typeof setInterval> | null = null;
+
+export function startPushCallRing(): void {
+  if (_pushRingTimer !== null) return; // already ringing
+  void playAttentionTone();
+  let count = 0;
+  _pushRingTimer = setInterval(() => {
+    count += 1;
+    if (count >= 15) { stopPushCallRing(); return; } // ~37 s max
+    void playAttentionTone();
+  }, 2500);
+}
+
+export function stopPushCallRing(): void {
+  if (_pushRingTimer !== null) {
+    clearInterval(_pushRingTimer);
+    _pushRingTimer = null;
+  }
+}
+
 export function primeNotificationAudio(): void {
   try {
     const AC = window.AudioContext || (window as any).webkitAudioContext;
@@ -301,7 +323,23 @@ export const initNotificationClickHandler = () => {
   (window as any).__notificationClickHandlerInitialized = true;
 
   navigator.serviceWorker.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'NOTIFICATION_CLICK') {
+    if (!event.data) return;
+
+    // ── Service worker sent PLAY_RING (call push arrived while app is backgrounded)
+    if (event.data.type === 'PLAY_RING') {
+      startPushCallRing();
+      return;
+    }
+
+    // ── Service worker relayed SW_HANG_UP (user tapped "Raccrocher" on notification)
+    if (event.data.type === 'SW_HANG_UP') {
+      stopPushCallRing();
+      return;
+    }
+
+    if (event.data.type === 'NOTIFICATION_CLICK') {
+      // Stop any push-triggered ring before navigating
+      stopPushCallRing();
       const { url, action, data } = event.data.payload || {};
 
       // Use explicit URL first (handles meeting URLs properly)

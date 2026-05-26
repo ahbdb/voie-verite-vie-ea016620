@@ -116,8 +116,24 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  const { isCall } = classifyPayload(payload);
+
   event.waitUntil(
     self.registration.showNotification(payload.title, buildOptions(payload))
+      .then(() => {
+        // For incoming calls, also message every open client so it can ring
+        // with audio (works when the PWA is backgrounded but still in memory).
+        if (!isCall) return;
+        return self.clients
+          .matchAll({ type: 'window', includeUncontrolled: true })
+          .then((clients) => {
+            const ringData = {
+              roomId: payload.roomId || payload.data?.roomId || null,
+              title:  payload.title,
+            };
+            clients.forEach((c) => c.postMessage({ type: 'PLAY_RING', payload: ringData }));
+          });
+      })
   );
 });
 
