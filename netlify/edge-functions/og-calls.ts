@@ -27,14 +27,18 @@ export default async function handler(
   const type  = p.get('type')  ?? 'audio';
   const date  = p.get('date')  ?? '';
   const time  = p.get('time')  ?? '';
+  const desc  = p.get('desc')  ?? '';
   const img   = p.get('img')   ?? 'https://voie-verite-vie.netlify.app/opengraph.jpg';
 
-  const label       = sessionLabel(type, title);
-  const ogTitle     = `Rejoins ${label} — ${title}`;
-  const dateStr     = formatDate(date);
-  const timeStr     = time ? `${time} (heure locale)` : '';
-  const ogDesc      = [dateStr, timeStr].filter(Boolean).join(' · ')
-    + ' — Communauté Voie Vérité Vie';
+  const label    = sessionLabel(type, title);
+  const ogTitle  = `Rejoins ${label} — ${title}`;
+  const dateStr  = formatDate(date);
+  const timeStr  = time ? `${time} GMT` : '';           // time stored in DB is UTC/GMT
+  const dateLine = [dateStr, timeStr].filter(Boolean).join(' à ');
+  // Use the session description when available; fall back to a generic line
+  const ogDesc = desc
+    ? `${dateLine} · ${desc}`
+    : `${dateLine} — Rejoindre la communauté Voie Vérité Vie`;
 
   const html = `<!DOCTYPE html>
 <html lang="fr">

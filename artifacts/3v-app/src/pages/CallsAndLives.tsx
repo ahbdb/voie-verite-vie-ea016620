@@ -37,6 +37,11 @@ const buildShareUrl = (session: ScheduledSession): string => {
     `time=${encodeURIComponent(time)}`,
     `type=${encodeURIComponent(session.session_type)}`,
   ];
+  if (session.description) {
+    // Truncate so the URL stays reasonable; edge function uses it for og:description
+    const desc = session.description.slice(0, 200);
+    parts.push(`desc=${encodeURIComponent(desc)}`);
+  }
   if (session.thumbnail_url) parts.push(`img=${encodeURIComponent(session.thumbnail_url)}`);
   return `${base}?${parts.join('&')}`;
 };
@@ -233,7 +238,8 @@ const CallsAndLives = () => {
     const statusEmoji = session.status === 'live' ? '🔴 EN DIRECT' : '📅';
     const shareTitle = `Lien pour rejoindre ${label}`;
     const fullDate = formatScheduledFull(session);
-    const body = `${statusEmoji} *${session.title}*\n${fullDate}\n\n${shareTitle} :\n${link}`;
+    const descLine = session.description ? `\n${session.description}` : '';
+    const body = `${statusEmoji} *${session.title}*\n${fullDate}${descLine}\n\n${shareTitle} :\n${link}`;
     if (navigator.share) {
       try {
         await navigator.share({ title: shareTitle, text: body, url: link });
