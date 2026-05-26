@@ -26,16 +26,36 @@ import { cn } from '@/lib/utils';
 import { sendCallJoinNotification } from '@/lib/notification-service';
 import { useCallSession } from '@/contexts/CallSessionContext';
 
-const buildShareUrl = (session: ScheduledSession) => {
+/** Returns a clean share URL without URLSearchParams encoding artifacts (+, %3A…). */
+const buildShareUrl = (session: ScheduledSession): string => {
   const base = 'https://voie-verite-vie.netlify.app/calls-lives';
-  const params = new URLSearchParams({
-    session: session.id,
-    title: session.title,
-    date: session.scheduled_date,
-    time: session.scheduled_time,
-    type: session.session_type,
-  });
-  return `${base}?${params.toString()}`;
+  const time = session.scheduled_time.slice(0, 5); // HH:MM — drop seconds
+  const parts = [
+    `session=${encodeURIComponent(session.id)}`,
+    `title=${encodeURIComponent(session.title)}`,
+    `date=${session.scheduled_date}`,
+    `time=${encodeURIComponent(time)}`,
+    `type=${encodeURIComponent(session.session_type)}`,
+  ];
+  if (session.thumbnail_url) parts.push(`img=${encodeURIComponent(session.thumbnail_url)}`);
+  return `${base}?${parts.join('&')}`;
+};
+
+/** Maps session type + title keywords to a human-readable French label. */
+const getSessionLabel = (type: string, title: string): string => {
+  const t = (title || '').toLowerCase();
+  if (/pri[eè]re|adoration|chapelet|rosaire|onction/.test(t)) return 'la Prière';
+  if (/d[eé]bat|inquisition|discussion|forum/.test(t)) return 'le Débat';
+  if (/messe|eucharistie|liturgie/.test(t)) return 'la Messe';
+  if (/conf[eé]rence/.test(t)) return 'la Conférence';
+  if (/formation|cours/.test(t)) return 'la Formation';
+  if (/veill[eé]e/.test(t)) return 'la Veillée';
+  if (/louange|worship/.test(t)) return 'la Louange';
+  if (/partage|t[eé]moignage/.test(t)) return 'le Partage';
+  if (/retraite/.test(t)) return 'la Retraite';
+  if (type === 'video') return 'la Visioconférence';
+  if (type === 'live') return 'le Live';
+  return "l'Appel";
 };
 
 const formatGmtTime = (timeStr: string) => {
@@ -209,16 +229,19 @@ const CallsAndLives = () => {
 
   const copyShareLink = async (session: ScheduledSession) => {
     const link = buildShareUrl(session);
+    const label = getSessionLabel(session.session_type, session.title);
     const statusEmoji = session.status === 'live' ? '🔴 EN DIRECT' : '📅';
-    const text = `${statusEmoji} ${session.title}\n${formatScheduledFull(session)}\n\n${link}`;
+    const shareTitle = `Lien pour rejoindre ${label}`;
+    const fullDate = formatScheduledFull(session);
+    const body = `${statusEmoji} *${session.title}*\n${fullDate}\n\n${shareTitle} :\n${link}`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: session.title, text, url: link });
+        await navigator.share({ title: shareTitle, text: body, url: link });
         return;
-      } catch { /* fall through */ }
+      } catch { /* user cancelled or API not available */ }
     }
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(body);
       toast.success(t('calls.linkCopied'));
     } catch {
       toast.error(t('common.error'));

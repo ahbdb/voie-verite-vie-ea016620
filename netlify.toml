@@ -37,6 +37,13 @@
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
 
+# ── Edge Functions ────────────────────────────────────────────────────────────
+# og-calls: serves dynamic OG meta tags to social media bots so WhatsApp,
+# Telegram, etc. show a rich preview when a call share link is pasted.
+[[edge_functions]]
+  function = "og-calls"
+  path = "/calls-lives"
+
 # ── Redirects ─────────────────────────────────────────────────────────────────
 [[redirects]]
   from = "/neuvaines/*.pdf"
