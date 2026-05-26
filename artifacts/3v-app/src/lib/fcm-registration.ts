@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 const VAPID_PUBLIC_KEY =
   (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) ||
-  "BMLtv56mbtQef-qvdKPAvxl6AzUZQxCOGl1riyDSVzdL_RatZclqfYYNeSPybQFtYdbuNLuRDzAU1tY8caJTS_A";
+  "BDZP1G3CVzMfjpDGH7MGktPHySL1O1ZqqpP6B5QSgp09f8xu3lN9BLnQ527CZNXIY9q6KoISzbKbmbIAS8_I0AU";
 
 function urlBase64ToUint8Array(b64url: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (b64url.length % 4)) % 4);

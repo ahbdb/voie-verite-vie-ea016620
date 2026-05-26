@@ -149,13 +149,27 @@ const AdminVideo = () => {
       const notifBody = `${adminDisplayName()} a lancé un appel ${callLabel}. Rejoins maintenant !`;
 
       try {
+        const selectedIds = callMode === 'select' ? Array.from(selectedUserIds) : undefined;
+
+        // Web Push — reaches devices even when app is closed/background
+        void supabase.functions.invoke('send-push', {
+          body: {
+            title: notifTitle,
+            body: notifBody,
+            url: meetingPath,
+            action: 'call',
+            tag: `call-${data.id}`,
+            requireInteraction: true,
+            vibrate: [400, 200, 400, 200, 600],
+            ...(selectedIds ? { user_ids: selectedIds } : {}),
+          },
+        });
+
         if (callMode === 'all') {
           await broadcastNotificationService.sendToAll(notifTitle, notifBody, 'call', undefined, meetingPath);
         } else {
-          // Send only to selected users
-          const ids = Array.from(selectedUserIds);
-          if (ids.length > 0) {
-            const payload = ids.map((uid) => ({
+          if (selectedIds && selectedIds.length > 0) {
+            const payload = selectedIds.map((uid) => ({
               user_id: uid,
               title: notifTitle,
               message: notifBody,
@@ -188,7 +202,22 @@ const AdminVideo = () => {
     try {
       const notifTitle = `📞 Rappel : ${roomTitle}`;
       const notifBody = `${adminDisplayName()} vous rappelle pour l'appel ${roomType === 'audio' ? 'audio' : 'vidéo'}. Rejoignez maintenant !`;
-      await broadcastNotificationService.sendToAll(notifTitle, notifBody, 'call', undefined, `/meeting/${roomId}`);
+      const meetingPath = `/meeting/${roomId}`;
+
+      // Web Push — reaches devices even when app is closed/background
+      void supabase.functions.invoke('send-push', {
+        body: {
+          title: notifTitle,
+          body: notifBody,
+          url: meetingPath,
+          action: 'call',
+          tag: `call-${roomId}`,
+          requireInteraction: true,
+          vibrate: [400, 200, 400, 200, 600],
+        },
+      });
+
+      await broadcastNotificationService.sendToAll(notifTitle, notifBody, 'call', undefined, meetingPath);
       toast.success('Rappel envoyé à tous');
     } catch {
       toast.error('Rappel échoué');
