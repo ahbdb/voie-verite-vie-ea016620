@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useSettings, type Theme, type TextSize, PRESET_PALETTES, type PaletteId, hslStringToHex, hexToHsl } from '@/hooks/useSettings';
 import { Sun, Moon, Monitor, Type, Bell, Globe, Lock, Download, Trash2, AlertTriangle, Volume2, Palette } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-
+import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogHeader, AlertDialogTitle,
@@ -53,11 +53,16 @@ const Settings = memo(() => {
   const handleDeleteAccount = async () => {
     try {
       setDeletingAccount(true);
-      const res = await fetch('/api/auth/account', { method: 'DELETE', credentials: 'include' });
-      if (!res.ok) { toast({ title: t('common.error'), variant: 'destructive' }); return; }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) { toast({ title: t('common.error'), variant: 'destructive' }); return; }
+      const userId = session.user.id;
+      await supabase.from('profiles').delete().eq('id', userId).select();
+      await supabase.from('user_roles').delete().eq('user_id', userId).select();
+      try { await supabase.rpc('hard_delete_auth_user', { target_user_id: userId }); } catch {}
+      try { await supabase.auth.signOut(); } catch {}
       localStorage.clear(); sessionStorage.clear();
       toast({ title: '✅ ' + t('settings.deleteAccount') });
-      setTimeout(() => { window.location.href = '/'; }, 2000);
+      setTimeout(() => navigate('/'), 2000);
     } catch (error) {
       console.error('Erreur:', error);
       toast({ title: t('common.error'), variant: 'destructive' });

@@ -91,13 +91,8 @@ const Profile = () => {
         birth_date: birthDate || null,
       };
 
-      const res = await fetch('/api/auth/profile', {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full_name: payload.full_name, birth_date: payload.birth_date }),
-      });
-      if (!res.ok) throw new Error('Update failed');
+      const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
+      if (error) throw error;
 
       toast.success('Profil mis à jour');
       await loadUserData();

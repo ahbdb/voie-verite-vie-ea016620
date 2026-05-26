@@ -242,13 +242,14 @@ const AIChat = () => {
 
   const streamChat = async (userMessage: Message, convId: string) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
       const ctrl = new AbortController();
       abortRef.current = ctrl;
 
-      const res = await fetch('/api/ai/chat', {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ messages: [...messages, userMessage] }),
         signal: ctrl.signal,
       });
