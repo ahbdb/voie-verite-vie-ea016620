@@ -137,8 +137,12 @@ interface PersistedSession {
   pendingIce: Map<string, RTCIceCandidateInit[]>;
   screenTrack: MediaStreamTrack | null;
   remoteStreams: RemoteVideoStream[];
+  channel: ReturnType<typeof db.channel> | null;
 }
 let _persist: PersistedSession | null = null;
+// Updated on every mount/remount; called by the kept-alive channel during soft leave
+// so incoming WebRTC signals are processed even while the call page is unmounted.
+let _bgSignalFn: ((sig: VideoSignalRecord) => void) | null = null;
 
 interface UseAdminVideoRoomOptions {
   roomId?: string;
@@ -1004,6 +1008,15 @@ export const useAdminVideoRoom = ({
       setLoading(false);
       return;
     }
+
+    // Soft-leave restore: a live stream is already saved — skip getUserMedia entirely.
+    // Jumping straight to setStartRequested triggers startRoom() which takes the
+    // _persist restore path and reconnects in <500 ms without touching the camera/mic.
+    if (_persist && _persist.roomId === roomId) {
+      setStartRequested(true);
+      return;
+    }
+
     setIsJoining(true);
     setLoading(true);
     setMediaError(null);
@@ -1209,6 +1222,20 @@ export const useAdminVideoRoom = ({
     [reactions, roomId, userId]
   );
 
+  // ── Auto-restore soft-leave session ──────────────────────────────────────
+  // When the call page remounts and _persist has a live session for this room,
+  // skip the join button entirely and restore immediately.
+  // Safe to do without a user gesture because the restore path never calls
+  // getUserMedia — it reuses the stream already captured in _persist.
+  useEffect(() => {
+    if (!enabled || !roomId || !userId || startRequested || isJoining) return;
+    if (_persist && _persist.roomId === roomId) {
+      setStartRequested(true);
+    }
+  // startRequested / isJoining guards prevent infinite loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, roomId, userId]);
+
   // ── Preload room ──────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -1300,18 +1327,49 @@ export const useAdminVideoRoom = ({
 
           await Promise.all([loadParticipants(), loadMessages(), loadReactions()]);
 
-          if (!channelRef.current) {
+          if (saved.channel) {
+            // ── Reuse the channel that stayed subscribed during soft leave ─────
+            // No re-subscribe needed — signals already flowing. Just refresh the
+            // signal handler pointer and catch up on anything that arrived while away.
+            channelRef.current = saved.channel;
+            _bgSignalFn = handleIncomingSignal;
+            if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
+            setConnectionQuality('good');
+            await fetchPendingSignals();
+            void channelRef.current.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
+            const uidR = userIdRef.current;
+            if (uidR) {
+              peerConnectionsRef.current.forEach((pc, pid) => {
+                if (pc.connectionState === 'connected') return;
+                if (uidR.localeCompare(pid) >= 0) return;
+                pc.createOffer({ iceRestart: true })
+                  .then(offer => pc.setLocalDescription(offer))
+                  .then(() => {
+                    if (pc.localDescription) {
+                      void db.from('video_room_signals').insert({
+                        room_id: roomId,
+                        sender_id: uidR,
+                        recipient_id: pid,
+                        signal_type: 'offer',
+                        payload: pc.localDescription.toJSON?.() ?? pc.localDescription,
+                      });
+                    }
+                  })
+                  .catch(() => {});
+              });
+            }
+          } else if (!channelRef.current) {
+            // ── No saved channel — create a new subscription (first mount or fallback) ─
             const channel = db
               .channel(`video-room:${roomId}`)
               .on('postgres_changes', { event: '*', schema: 'public', table: 'video_room_participants', filter: `room_id=eq.${roomId}` }, () => void loadParticipants())
-              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'video_room_signals', filter: `room_id=eq.${roomId}` }, (sig: { new: VideoSignalRecord }) => void handleIncomingSignal(sig.new))
+              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'video_room_signals', filter: `room_id=eq.${roomId}` }, (sig: { new: VideoSignalRecord }) => { _bgSignalFn?.(sig.new); })
               .on('postgres_changes', { event: '*', schema: 'public', table: 'video_room_messages', filter: `room_id=eq.${roomId}` }, () => void loadMessages())
               .on('postgres_changes', { event: '*', schema: 'public', table: 'video_message_reactions', filter: `room_id=eq.${roomId}` }, () => void loadReactions())
               .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'video_rooms', filter: `id=eq.${roomId}` }, (ev: { new: VideoRoomRecord }) => setRoom(ev.new))
               .on('broadcast', { event: 'session-ended' }, () => {
                 setRoom((prev) => (prev ? { ...prev, status: 'ended' } : prev));
               })
-              // ── Admin-mute: disable/enable this client's own mic track ──────
               .on('broadcast', { event: 'admin-mute' }, (ev: { payload: { targetUserId: string; muted: boolean } }) => {
                 if (ev.payload?.targetUserId !== userIdRef.current) return;
                 const shouldMute = ev.payload.muted;
@@ -1343,16 +1401,11 @@ export const useAdminVideoRoom = ({
               })
               .subscribe(async (status: string) => {
                 if (status === 'SUBSCRIBED') {
-                  // Optimistically reset quality — peer is actively (re)connecting
+                  _bgSignalFn = handleIncomingSignal;
                   if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
                   setConnectionQuality('good');
-
                   await fetchPendingSignals();
                   void channelRef.current?.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
-
-                  // Proactive ICE restart for any peer whose connection degraded while backgrounded.
-                  // Only the lexicographically-lower peer ID sends the offer to avoid both sides
-                  // simultaneously restarting (which would cause a glare condition).
                   const uid = userIdRef.current;
                   if (uid) {
                     peerConnectionsRef.current.forEach((pc, pid) => {
@@ -1406,7 +1459,7 @@ export const useAdminVideoRoom = ({
             .on('postgres_changes', {
               event: 'INSERT', schema: 'public', table: 'video_room_signals',
               filter: `room_id=eq.${roomId}`,
-            }, (p: { new: VideoSignalRecord }) => void handleIncomingSignal(p.new))
+            }, (p: { new: VideoSignalRecord }) => { _bgSignalFn?.(p.new); })
             .on('postgres_changes', {
               event: '*', schema: 'public', table: 'video_room_messages',
               filter: `room_id=eq.${roomId}`,
@@ -1460,10 +1513,8 @@ export const useAdminVideoRoom = ({
             })
             .subscribe(async (status: string) => {
               if (status === 'SUBSCRIBED') {
-                // ★ KEY FIX: now that we're subscribed, fetch any signals
-                //   that were sent BEFORE our subscription was ready.
+                _bgSignalFn = handleIncomingSignal;
                 await fetchPendingSignals();
-                // Announce our initial mic state to other participants
                 void channelRef.current?.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
               }
             });
@@ -1483,9 +1534,6 @@ export const useAdminVideoRoom = ({
 
     return () => {
       active = false;
-      // Always remove the Supabase realtime channel
-      if (channelRef.current) db.removeChannel(channelRef.current);
-      channelRef.current = null;
       disconnectTimersRef.current.forEach((t) => window.clearTimeout(t));
       disconnectTimersRef.current.clear();
 
@@ -1494,9 +1542,10 @@ export const useAdminVideoRoom = ({
       softLeaveRef.current = false;
 
       if (!isHard) {
-        // ── Soft leave: save all WebRTC state to module-level so GC doesn't
-        //    close the RTCPeerConnections while the user browses other pages.
-        //    Connections are restored seamlessly when the user comes back.
+        // ── Soft leave: save all WebRTC state + keep channel subscribed ──────
+        // The channel stays alive so incoming signals (ICE restarts, new offers)
+        // are processed via _bgSignalFn while the call page is unmounted.
+        // Connections are restored seamlessly when the user comes back.
         if (localStreamRef.current && roomId) {
           _persist = {
             roomId,
@@ -1511,12 +1560,20 @@ export const useAdminVideoRoom = ({
             pendingIce: pendingIceCandidatesRef.current,
             screenTrack: screenTrackRef.current,
             remoteStreams: remoteStreamsRef.current,
+            channel: channelRef.current, // keep alive — do NOT removeChannel
           };
+        } else {
+          // No valid media state — can't persist, remove channel normally
+          if (channelRef.current) db.removeChannel(channelRef.current);
         }
+        channelRef.current = null;
         return;
       }
 
       // ── Hard leave (explicit raccrocher or admin terminer): full cleanup ─
+      if (channelRef.current) db.removeChannel(channelRef.current);
+      channelRef.current = null;
+      _bgSignalFn = null;
       void leaveRoom();
       peerConnectionsRef.current.forEach((pc) => pc.close());
       peerConnectionsRef.current.clear();
@@ -1550,6 +1607,13 @@ export const useAdminVideoRoom = ({
     joinRoom, leaveRoom, loadMessages, loadParticipants, loadReactions,
     loadRoom, roomId, startRequested, userId,
   ]);
+
+  // Keep _bgSignalFn pointing to the latest handler on every re-render.
+  // This ensures signals processed during soft leave use up-to-date closures
+  // over peerConnectionsRef, pendingIceCandidatesRef, sendSignal, etc.
+  useEffect(() => {
+    _bgSignalFn = handleIncomingSignal;
+  }, [handleIncomingSignal]);
 
   // ── Sync peers on participant changes ─────────────────────────────────────
 
