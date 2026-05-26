@@ -348,12 +348,25 @@ export const useAdminVideoRoom = ({
           });
 
           reports.forEach((r: RTCStats & Record<string, unknown>) => {
-            if (r.type === 'candidate-pair' && r.nominated && r.state === 'succeeded') {
-              rttMs = r.currentRoundTripTime != null ? Math.round((r.currentRoundTripTime as number) * 1000) : null;
-              bytesSent = (r.bytesSent as number) || 0;
-              bytesReceived = (r.bytesReceived as number) || 0;
-              localCandidateType = (candidateMap.get(r.localCandidateId as string) || 'unknown') as PeerStat['localCandidateType'];
-              remoteCandidateType = (candidateMap.get(r.remoteCandidateId as string) || 'unknown') as PeerStat['remoteCandidateType'];
+            if (r.type === 'candidate-pair' && r.nominated) {
+              // Prefer succeeded pair; fall back to any nominated pair so candidate
+              // types are visible even when the connection is 'disconnected' (in which
+              // case the previously-succeeded pair may have flipped to 'in-progress').
+              const lc = (candidateMap.get(r.localCandidateId as string) || 'unknown') as PeerStat['localCandidateType'];
+              const rc = (candidateMap.get(r.remoteCandidateId as string) || 'unknown') as PeerStat['remoteCandidateType'];
+              if (r.state === 'succeeded') {
+                rttMs = r.currentRoundTripTime != null ? Math.round((r.currentRoundTripTime as number) * 1000) : null;
+                bytesSent = (r.bytesSent as number) || 0;
+                bytesReceived = (r.bytesReceived as number) || 0;
+                localCandidateType = lc;
+                remoteCandidateType = rc;
+              } else if (localCandidateType === 'unknown') {
+                // Fallback — fills in candidate types while ICE is re-checking
+                localCandidateType = lc;
+                remoteCandidateType = rc;
+                bytesSent = (r.bytesSent as number) || bytesSent;
+                bytesReceived = (r.bytesReceived as number) || bytesReceived;
+              }
             }
             if (r.type === 'inbound-rtp' && r.kind === 'audio') {
               audioPacketsLost = (r.packetsLost as number) || 0;

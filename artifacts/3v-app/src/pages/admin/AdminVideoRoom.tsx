@@ -355,14 +355,17 @@ const formatTime = (v: string) =>
 
 type ParticipantLike = { user_id: string; display_name: string | null };
 
-const CandidateBadge = ({ type }: { type: string }) => {
+const CandidateBadge = ({ type, iceState }: { type: string; iceState?: string }) => {
   if (type === 'relay')
     return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-500/20 text-green-400">RELAY ✓</span>;
   if (type === 'srflx')
     return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400">SRFLX</span>;
   if (type === 'host')
     return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-600/40 text-zinc-300">LOCAL</span>;
-  return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">?</span>;
+  // 'checking' = ICE still in progress → neutral; anything else with unknown type = problem
+  if (iceState === 'checking' || iceState === 'new')
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-600/20 text-zinc-500">…</span>;
+  return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">ICE ✗</span>;
 };
 
 const DiagnosticPanel = ({
@@ -402,15 +405,23 @@ const DiagnosticPanel = ({
               </span>
             </div>
 
+            {/* Warning: connection exists but no data ever flowed */}
+            {stat.iceState !== 'connected' && stat.iceState !== 'completed' &&
+             stat.bytesSent === 0 && stat.bytesReceived === 0 && (
+              <div className="rounded bg-orange-500/10 border border-orange-500/20 px-2 py-1.5 text-[10px] text-orange-300">
+                ⚠️ Aucun flux média — ICE bloqué. Réseau restrictif ou TURN inaccessible.
+              </div>
+            )}
+
             {/* Candidate types */}
             <div className="grid grid-cols-2 gap-2 text-[11px]">
               <div>
                 <p className="text-zinc-500 mb-1">Local</p>
-                <CandidateBadge type={stat.localCandidateType} />
+                <CandidateBadge type={stat.localCandidateType} iceState={stat.iceState} />
               </div>
               <div>
                 <p className="text-zinc-500 mb-1">Distant</p>
-                <CandidateBadge type={stat.remoteCandidateType} />
+                <CandidateBadge type={stat.remoteCandidateType} iceState={stat.iceState} />
               </div>
             </div>
 
