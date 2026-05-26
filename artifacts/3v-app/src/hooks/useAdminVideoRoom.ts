@@ -1289,22 +1289,29 @@ export const useAdminVideoRoom = ({
     const startRoom = async () => {
       setLoading(true);
       try {
-        const currentRoom = roomRef.current || (await loadRoom());
-        if (!currentRoom) throw new Error('Salle introuvable.');
-
-        // ── Restore from soft leave ──────────────────────────────────────────
-        // We have a module-level snapshot of all WebRTC state from the previous
-        // soft leave. Restore refs, update React state, re-subscribe to signaling.
-        // First: discard if the room was ended while the user was away.
-        if (_persist && _persist.roomId === roomId && currentRoom.status === 'ended') {
-          _persist.peerConns.forEach((pc) => pc.close());
-          _persist.stream.getTracks().forEach((t) => t.stop());
-          _persist = null;
+        // ── Fast path: soft-leave restore — NO loadRoom() wait ───────────────
+        // loadRoom() can take 200-500 ms on slow networks. For soft-leave
+        // restore we already have everything we need in _persist + roomRef.
+        // room_type never changes mid-session; status is checked from cache.
+        // A background loadRoom() below catches any "room ended" edge case.
+        if (_persist && _persist.roomId === roomId) {
+          const cachedRoom = roomRef.current;
+          if (cachedRoom?.status === 'ended') {
+            // Room was ended while the user was away.
+            _persist.peerConns.forEach((pc) => pc.close());
+            _persist.stream.getTracks().forEach((t) => t.stop());
+            _persist = null;
+            // Fall through to cold-join path which will throw / show ended UI.
+          }
         }
 
         if (_persist && _persist.roomId === roomId) {
           const saved = _persist;
           _persist = null;
+          const savedRoomType = roomRef.current?.room_type ?? 'video';
+          // Kick off a background room refresh so status changes (ended, etc.)
+          // are reflected in the UI without blocking the restore.
+          void loadRoom();
 
           // ── Close any peer connections that degraded while the user was away ──
           // Only tear down definitively dead connections ('failed' or 'closed').
@@ -1345,7 +1352,7 @@ export const useAdminVideoRoom = ({
           setLocalStream(saved.stream);
           setRemoteStreams(freshStreams);
           setMicEnabled(saved.stream.getAudioTracks().some((t) => t.enabled));
-          setCameraEnabled(currentRoom.room_type !== 'audio' && Boolean(saved.origVideoTrack?.enabled));
+          setCameraEnabled(savedRoomType !== 'audio' && Boolean(saved.origVideoTrack?.enabled));
           setIsScreenSharing(Boolean(saved.screenTrack && saved.screenTrack.readyState === 'live'));
 
           // Resume AudioContext — browsers suspend it when the page is hidden/backgrounded
@@ -1491,7 +1498,10 @@ export const useAdminVideoRoom = ({
           return;
         }
 
-        // ── Normal join path ─────────────────────────────────────────────────
+        // ── Cold join path (no saved session, or room was ended) ────────────
+        const currentRoom = roomRef.current || (await loadRoom());
+        if (!currentRoom) throw new Error('Salle introuvable.');
+
         if (!localStreamRef.current) {
           localStreamRef.current = new MediaStream();
           setLocalStream(localStreamRef.current);
