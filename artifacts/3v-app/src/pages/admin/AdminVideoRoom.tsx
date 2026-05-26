@@ -1379,127 +1379,132 @@ const AdminVideoRoom = ({ roomId: roomIdProp }: { roomId?: string }) => {
       </main>
 
       {/* ── Floating bottom control bar ────────────────────────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-2 bg-zinc-900/95 backdrop-blur border-t border-zinc-800 px-4 py-3">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-900/95 backdrop-blur border-t border-zinc-800">
         {isConnected ? (
-          <>
-            {/* Mic */}
-            <button
-              onClick={toggleMicrophone}
-              className={cn(
-                'flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors min-w-[56px]',
-                micEnabled
-                  ? 'bg-zinc-800 text-white hover:bg-zinc-700'
-                  : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-              )}
-              title={micEnabled ? 'Couper le micro' : 'Activer le micro'}
-            >
-              {micEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-              <span className="text-[9px] font-medium">{micEnabled ? 'Micro' : 'Muet'}</span>
-            </button>
+          <div className="flex items-center justify-between px-3 py-2 gap-2 max-w-3xl mx-auto">
 
-            {/* Camera (video only) */}
-            {roomType !== 'audio' && (
+            {/* ── Groupe 1 : Contrôles média ───────────────────────────── */}
+            <div className="flex items-center gap-1.5">
+              {/* Micro */}
               <button
-                onClick={toggleCamera}
+                onClick={toggleMicrophone}
+                title={micEnabled ? 'Couper le micro' : 'Activer le micro'}
                 className={cn(
-                  'flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors min-w-[56px]',
-                  cameraEnabled
+                  'flex flex-col items-center gap-0.5 rounded-2xl px-3 py-2 min-w-[52px] transition-all',
+                  micEnabled
                     ? 'bg-zinc-800 text-white hover:bg-zinc-700'
-                    : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                    : 'bg-red-500/20 text-red-400 ring-1 ring-red-500/40 hover:bg-red-500/30'
                 )}
-                title={cameraEnabled ? 'Couper la caméra' : 'Activer la caméra'}
               >
-                {cameraEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-                <span className="text-[9px] font-medium">{cameraEnabled ? 'Caméra' : 'Cam. off'}</span>
+                {micEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+                <span className="text-[9px] font-semibold tracking-wide">{micEnabled ? 'Micro' : 'Muet'}</span>
               </button>
-            )}
 
-            {/* Flip camera (mobile) */}
-            {roomType !== 'audio' && (
-              <button
-                onClick={() => void flipCamera()}
-                className="flex flex-col items-center gap-1 rounded-xl bg-zinc-800 px-3 py-2 text-white hover:bg-zinc-700 transition-colors min-w-[56px]"
-                title="Retourner la caméra"
-              >
-                <SwitchCamera className="h-5 w-5" />
-                <span className="text-[9px] font-medium">Retourner</span>
-              </button>
-            )}
+              {/* Caméra */}
+              {roomType !== 'audio' && (
+                <button
+                  onClick={toggleCamera}
+                  title={cameraEnabled ? 'Couper la caméra' : 'Activer la caméra'}
+                  className={cn(
+                    'flex flex-col items-center gap-0.5 rounded-2xl px-3 py-2 min-w-[52px] transition-all',
+                    cameraEnabled
+                      ? 'bg-zinc-800 text-white hover:bg-zinc-700'
+                      : 'bg-red-500/20 text-red-400 ring-1 ring-red-500/40 hover:bg-red-500/30'
+                  )}
+                >
+                  {cameraEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+                  <span className="text-[9px] font-semibold tracking-wide">{cameraEnabled ? 'Caméra' : 'Off'}</span>
+                </button>
+              )}
 
-            {/* Screen share */}
-            {canShareScreen && (
-              <button
-                onClick={() => void handleToggleScreenShare()}
-                className={cn(
-                  'flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors min-w-[56px]',
-                  isScreenSharing
-                    ? 'bg-primary/20 text-primary hover:bg-primary/30'
-                    : 'bg-zinc-800 text-white hover:bg-zinc-700'
-                )}
-                title={isScreenSharing ? 'Arrêter le partage' : 'Partager l\'écran'}
-              >
-                {isScreenSharing ? <MonitorX className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />}
-                <span className="text-[9px] font-medium">{isScreenSharing ? 'Arrêter' : 'Partager'}</span>
-              </button>
-            )}
+              {/* Flip caméra (mobile) */}
+              {roomType !== 'audio' && (
+                <button
+                  onClick={() => void flipCamera()}
+                  title="Retourner la caméra"
+                  className="flex flex-col items-center gap-0.5 rounded-2xl bg-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-700 hover:text-white transition-all min-w-[52px]"
+                >
+                  <SwitchCamera className="h-5 w-5" />
+                  <span className="text-[9px] font-semibold tracking-wide">Flip</span>
+                </button>
+              )}
 
-            {/* Participants count */}
-            <div className="flex flex-col items-center gap-1 rounded-xl bg-zinc-800/50 px-3 py-2 text-zinc-500 min-w-[56px]">
-              <span className="text-base font-bold text-zinc-300">{participants.length}</span>
-              <span className="text-[9px] font-medium">Participants</span>
+              {/* Partage d'écran */}
+              {canShareScreen && (
+                <button
+                  onClick={() => void handleToggleScreenShare()}
+                  title={isScreenSharing ? "Arrêter le partage" : "Partager l'écran"}
+                  className={cn(
+                    'flex flex-col items-center gap-0.5 rounded-2xl px-3 py-2 min-w-[52px] transition-all',
+                    isScreenSharing
+                      ? 'bg-sky-500/20 text-sky-400 ring-1 ring-sky-500/40 hover:bg-sky-500/30'
+                      : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                  )}
+                >
+                  {isScreenSharing ? <MonitorX className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />}
+                  <span className="text-[9px] font-semibold tracking-wide">{isScreenSharing ? 'Arrêter' : 'Écran'}</span>
+                </button>
+              )}
             </div>
 
-            <div className="w-px h-8 bg-zinc-700 mx-0.5" />
+            {/* ── Centre : compteur participants ───────────────────────── */}
+            <div className="flex flex-col items-center gap-0 px-2">
+              <span className="text-sm font-bold text-white leading-none">{participants.length}</span>
+              <span className="text-[9px] text-zinc-500 font-medium">en ligne</span>
+            </div>
 
-            {/* Re-ring — admin rings all participants again without restarting */}
-            {hasManagement && (
+            {/* ── Groupe 2 : Actions + Quitter ─────────────────────────── */}
+            <div className="flex items-center gap-1.5">
+              {/* Sonner (admin) */}
+              {hasManagement && (
+                <button
+                  onClick={() => void handleReRing()}
+                  title="Sonner à nouveau pour inviter les absents"
+                  className="flex flex-col items-center gap-0.5 rounded-2xl bg-amber-500/15 px-3 py-2 text-amber-400 ring-1 ring-amber-500/30 hover:bg-amber-500/25 transition-all min-w-[52px]"
+                >
+                  <Bell className="h-5 w-5" />
+                  <span className="text-[9px] font-semibold tracking-wide">Sonner</span>
+                </button>
+              )}
+
+              {/* Quitter en douceur (reste dans l'appel, navigue ailleurs) */}
               <button
-                onClick={() => void handleReRing()}
-                className="flex flex-col items-center gap-1 rounded-xl bg-amber-500/20 px-3 py-2 text-amber-400 hover:bg-amber-500/30 transition-colors min-w-[56px]"
-                title="Sonner à nouveau pour inviter les absents"
+                onClick={handleSoftLeave}
+                title="Naviguer ailleurs sans raccrocher — l'appel continue"
+                className="flex flex-col items-center gap-0.5 rounded-2xl bg-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-700 hover:text-white transition-all min-w-[52px]"
               >
-                <Bell className="h-5 w-5" />
-                <span className="text-[9px] font-medium">Sonner</span>
+                <LogOut className="h-5 w-5" />
+                <span className="text-[9px] font-semibold tracking-wide">Quitter</span>
               </button>
-            )}
 
-            {/* Terminer — any admin can end the session */}
-            {hasManagement && (
+              {/* Raccrocher (déconnecte cet utilisateur uniquement) */}
               <button
-                onClick={() => setShowEndConfirm(true)}
-                className="flex flex-col items-center gap-1 rounded-xl bg-red-500 px-3 py-2 text-white hover:bg-red-600 transition-colors min-w-[56px]"
-                title="Terminer la réunion pour tous les participants"
+                onClick={() => void handleHardHangUp()}
+                title="Raccrocher — quitter l'appel définitivement"
+                className="flex flex-col items-center gap-0.5 rounded-2xl bg-red-600/20 px-3 py-2 text-red-400 ring-1 ring-red-500/40 hover:bg-red-600/40 hover:text-red-300 transition-all min-w-[52px]"
               >
-                <Radio className="h-5 w-5" />
-                <span className="text-[9px] font-medium">Terminer</span>
+                <PhoneOff className="h-5 w-5" />
+                <span className="text-[9px] font-semibold tracking-wide">Raccrocher</span>
               </button>
-            )}
 
-            {/* Soft leave — stay in call, visible to everyone */}
-            <button
-              onClick={handleSoftLeave}
-              className="flex flex-col items-center gap-1 rounded-xl bg-zinc-700 px-3 py-2 text-white hover:bg-zinc-600 transition-colors min-w-[56px]"
-              title="Naviguer ailleurs sans raccrocher"
-            >
-              <LogOut className="h-5 w-5" />
-              <span className="text-[9px] font-medium">Quitter</span>
-            </button>
-
-            {/* Hard hang-up — everyone except the session creator sees this as main exit */}
-            <button
-              onClick={() => void handleHardHangUp()}
-              className="flex flex-col items-center gap-1 rounded-xl bg-red-600 px-3 py-2 text-white hover:bg-red-700 transition-colors min-w-[56px]"
-              title="Raccrocher (quitter l'appel)"
-            >
-              <PhoneOff className="h-5 w-5" />
-              <span className="text-[9px] font-medium">Raccrocher</span>
-            </button>
-          </>
+              {/* Terminer pour TOUS (admin uniquement — bouton le plus dangereux) */}
+              {hasManagement && (
+                <button
+                  onClick={() => setShowEndConfirm(true)}
+                  title="Terminer la réunion pour tous les participants"
+                  className="flex flex-col items-center gap-0.5 rounded-2xl bg-red-600 px-3 py-2 text-white hover:bg-red-500 transition-all min-w-[52px] shadow-lg shadow-red-900/30"
+                >
+                  <Radio className="h-5 w-5" />
+                  <span className="text-[9px] font-semibold tracking-wide">Terminer</span>
+                </button>
+              )}
+            </div>
+          </div>
         ) : (
-          /* Still joining / connecting */
-          <div className="flex items-center gap-2 text-zinc-500 text-sm">
+          /* En cours de connexion */
+          <div className="flex items-center justify-center gap-2 px-4 py-3 text-zinc-500 text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
-            {isJoining ? 'Connexion au micro/caméra…' : 'Connexion à la salle…'}
+            <span>{isJoining ? 'Connexion au micro/caméra…' : 'Connexion à la salle…'}</span>
             {mediaError && (
               <Button
                 size="sm"
