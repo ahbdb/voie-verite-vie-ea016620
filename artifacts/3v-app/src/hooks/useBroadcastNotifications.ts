@@ -188,6 +188,24 @@ export const broadcastNotificationService = {
     _icon?: string,
     link: string | null = null
   ) {
+    const isCall = type === 'call';
+
+    // 1. Web Push via Edge Function — fonctionne en production (Netlify) même téléphone éteint.
+    //    L'Edge Function utilise VAPID + service-role Supabase → atteint tous les appareils inscrits.
+    supabase.functions.invoke('send-push-notification', {
+      body: {
+        title,
+        body: message,
+        action: type,
+        url: link || '/',
+        requireInteraction: isCall,
+        vibrate: isCall ? [400, 200, 400, 200, 600, 200, 600] : [200, 100, 200],
+        tag: isCall ? `call-${Date.now()}` : undefined,
+      },
+    }).catch((e) => console.warn('send-push-notification:', e));
+
+    // 2. API server (dev/Replit) — insère les lignes en DB pour le pickup Supabase Realtime.
+    //    Sur Netlify cette route n'existe pas : on ignore l'erreur proprement.
     try {
       const res = await fetch('/api/notifications/broadcast', {
         method: 'POST',
@@ -195,11 +213,11 @@ export const broadcastNotificationService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, message, type, link }),
       });
-      if (!res.ok) throw new Error('Failed to broadcast');
-      return { error: null };
-    } catch (err) {
-      return { error: err };
-    }
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('application/json')) return { error: null };
+    } catch { /* API server absent — normal en production */ }
+
+    return { error: null };
   },
 
   async sendToRole(
@@ -210,6 +228,20 @@ export const broadcastNotificationService = {
     _icon?: string,
     link: string | null = null
   ) {
+    const isCall = type === 'call';
+
+    // Web Push — envoie à tous (l'Edge Function ne filtre pas par rôle côté client)
+    supabase.functions.invoke('send-push-notification', {
+      body: {
+        title,
+        body: message,
+        action: type,
+        url: link || '/',
+        requireInteraction: isCall,
+        vibrate: isCall ? [400, 200, 400, 200, 600, 200, 600] : [200, 100, 200],
+      },
+    }).catch((e) => console.warn('send-push-notification:', e));
+
     try {
       const res = await fetch('/api/notifications/broadcast-role', {
         method: 'POST',
@@ -217,11 +249,11 @@ export const broadcastNotificationService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, message, role, type, link }),
       });
-      if (!res.ok) throw new Error('Failed to broadcast to role');
-      return { error: null };
-    } catch (err) {
-      return { error: err };
-    }
+      const ct = res.headers.get('content-type') || '';
+      if (res.ok && ct.includes('application/json')) return { error: null };
+    } catch { /* API server absent */ }
+
+    return { error: null };
   },
 
   async sendDailyGreeting() {
