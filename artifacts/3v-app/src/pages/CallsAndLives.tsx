@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
@@ -72,7 +72,7 @@ const formatGmtTime = (timeStr: string) => {
 import {
   Radio, Video, Mic, Calendar as CalendarIcon, Clock, Users, Play,
   Bell, Share2, Download, Trash2, Plus, Eye,
-  Loader2, Sparkles, Crown, X,
+  Loader2, Sparkles, Crown, X, Pencil, Rocket, Upload,
   BookOpen, ChevronDown, ChevronUp, TrendingUp, Activity,
 } from 'lucide-react';
 
@@ -376,7 +376,7 @@ const CallsAndLives = () => {
           </TabsContent>
 
           <TabsContent value="scheduled" className="mt-6">
-            <ScheduledTab sessions={scheduledSessions} isAdmin={isAdmin} myReminders={myReminders} onToggleReminder={toggleReminder} onCopyLink={copyShareLink} onJoin={joinSession} onScheduleNew={() => setShowScheduleDialog(true)} t={t} dateLocale={dateLocale} />
+            <ScheduledTab sessions={scheduledSessions} isAdmin={isAdmin} myReminders={myReminders} onToggleReminder={toggleReminder} onCopyLink={copyShareLink} onJoin={joinSession} onScheduleNew={() => setShowScheduleDialog(true)} onRefresh={fetchSessions} t={t} dateLocale={dateLocale} />
           </TabsContent>
 
           <TabsContent value="recordings" className="mt-6">
@@ -405,6 +405,23 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number }[]>([]);
   const [starting, setStarting] = useState(false);
   const [sessionToEnd, setSessionToEnd] = useState<ScheduledSession | null>(null);
+  const [quickFlyerFile, setQuickFlyerFile] = useState<File | null>(null);
+  const [quickFlyerUrl, setQuickFlyerUrl] = useState<string | null>(null);
+  const [uploadingFlyer, setUploadingFlyer] = useState(false);
+
+  const handleQuickFlyerChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setQuickFlyerFile(file);
+    setUploadingFlyer(true);
+    const path = `quick/${user.id}/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from('video-flyers').upload(path, file, { upsert: true });
+    if (!error) {
+      const { data } = supabase.storage.from('video-flyers').getPublicUrl(path);
+      setQuickFlyerUrl(data.publicUrl);
+    }
+    setUploadingFlyer(false);
+  };
 
   const sendReaction = (emoji: string) => {
     const id = Date.now();
@@ -426,6 +443,7 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
           status: 'active',
           created_by: user.id,
           started_at: new Date().toISOString(),
+          ...(quickFlyerUrl ? { flyer_url: quickFlyerUrl } : {}),
         })
         .select('id')
         .single();
@@ -524,6 +542,26 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
               </div>
               <h3 className="font-cinzel text-2xl font-bold text-foreground mb-1">{t('calls.startNewSession')}</h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">{t('calls.startNewSessionDesc')}</p>
+            </div>
+
+            {/* Optional flyer image */}
+            <div className="max-w-2xl mx-auto mb-4">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <span className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  <Upload className="h-4 w-4" />
+                  {quickFlyerUrl ? 'Image ajoutée ✓' : 'Ajouter une image (facultatif)'}
+                  {uploadingFlyer && <Loader2 className="h-3 w-3 animate-spin" />}
+                </span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleQuickFlyerChange} />
+              </label>
+              {quickFlyerUrl && (
+                <div className="mt-2 flex items-center gap-2">
+                  <img src={quickFlyerUrl} alt="flyer" className="h-12 w-20 object-cover rounded-lg border border-border/60" />
+                  <button onClick={() => { setQuickFlyerUrl(null); setQuickFlyerFile(null); }} className="text-xs text-destructive hover:underline">
+                    Supprimer
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
@@ -718,9 +756,63 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
 /* ════════════════════════════════════════════
    SCHEDULED TAB
 ════════════════════════════════════════════ */
-const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopyLink, onJoin, onScheduleNew, t, dateLocale }: any) => {
+const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopyLink, onJoin, onScheduleNew, t, dateLocale, onRefresh }: any) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { primeAudioPlayback } = useCallSession();
+  const [editingSession, setEditingSession] = useState<ScheduledSession | null>(null);
+  const [launchingId, setLaunchingId] = useState<string | null>(null);
+
+  const handleLaunchCall = async (session: ScheduledSession) => {
+    if (!user) return;
+    setLaunchingId(session.id);
+    try {
+      const { data: room, error: roomError } = await supabase
+        .from('video_rooms')
+        .insert({
+          title: session.title,
+          room_type: session.session_type === 'live' ? 'broadcast' : (session.session_type as 'audio' | 'video'),
+          status: 'active',
+          created_by: user.id,
+          started_at: new Date().toISOString(),
+          ...(session.thumbnail_url ? { flyer_url: session.thumbnail_url } : {}),
+        })
+        .select('id')
+        .single();
+      if (roomError) throw roomError;
+
+      await supabase.from('scheduled_sessions' as any).update({
+        status: 'live',
+        video_room_id: room.id,
+      } as any).eq('id', session.id);
+
+      supabase.functions.invoke('notify-session', {
+        body: { session_id: session.id, kind: 'live', target: 'all' },
+      }).catch((e) => console.warn('notify-session failed', e));
+
+      toast.success('Appel lancé !');
+      onRefresh();
+      primeAudioPlayback();
+      navigate(`/meeting/${room.id}`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Impossible de lancer l\'appel');
+    } finally {
+      setLaunchingId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {editingSession && (
+        <EditSessionDialog
+          session={editingSession}
+          onOpenChange={(open) => !open && setEditingSession(null)}
+          onUpdated={() => { setEditingSession(null); onRefresh(); }}
+          t={t}
+          dateLocale={dateLocale}
+        />
+      )}
       {/* Header */}
       <div className="flex items-center justify-between gap-3 mb-2">
         <div>
@@ -862,11 +954,34 @@ const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopy
 
                 {/* Action buttons */}
                 <div className="flex items-center gap-2 mt-5 pt-4 border-t border-border/40 flex-wrap">
-                  {isStartingNow ? (
+                  {isAdmin && !session.video_room_id && (
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-accent to-accent/80 text-accent-foreground shadow-[0_4px_15px_hsl(var(--accent)/0.3)] rounded-lg gap-1.5"
+                      onClick={() => handleLaunchCall(session)}
+                      disabled={launchingId === session.id}
+                    >
+                      {launchingId === session.id
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <Rocket className="h-3.5 w-3.5" />}
+                      Lancer l'appel
+                    </Button>
+                  )}
+                  {isAdmin && (
+                    <Button size="sm" variant="outline" className="rounded-lg gap-1.5" onClick={() => setEditingSession(session)}>
+                      <Pencil className="h-3.5 w-3.5" /> Modifier
+                    </Button>
+                  )}
+                  {isStartingNow && session.video_room_id ? (
                     <Button size="sm" className="bg-gradient-to-r from-primary to-primary-glow text-primary-foreground shadow-[0_4px_15px_hsl(var(--primary)/0.3)] rounded-lg" onClick={() => onJoin(session)}>
                       ➡️ {t('calls.joinNow')}
                     </Button>
-                  ) : (
+                  ) : !session.video_room_id ? null : (
+                    <Button size="sm" variant="outline" className="rounded-lg" onClick={() => onJoin(session)}>
+                      ➡️ {t('calls.joinNow')}
+                    </Button>
+                  )}
+                  {!isStartingNow && !session.video_room_id && (
                     <Button size="sm" variant={myReminders.has(session.id) ? "secondary" : "outline"} onClick={() => onToggleReminder(session.id)} className="rounded-lg">
                       <Bell className={cn("h-4 w-4 mr-1.5", myReminders.has(session.id) && "fill-current")} />
                       {myReminders.has(session.id) ? t('calls.reminded') : t('calls.remindMe')}
@@ -1122,6 +1237,21 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
   const [saving, setSaving] = useState(false);
   const [showTextOption, setShowTextOption] = useState(false);
   const [associatedTextSource, setAssociatedTextSource] = useState<string>('');
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [uploadingThumb, setUploadingThumb] = useState(false);
+
+  const handleThumbChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setUploadingThumb(true);
+    const path = `scheduled/${user.id}/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from('video-flyers').upload(path, file, { upsert: true });
+    if (!error) {
+      const { data } = supabase.storage.from('video-flyers').getPublicUrl(path);
+      setThumbnailUrl(data.publicUrl);
+    }
+    setUploadingThumb(false);
+  };
 
   const handleCreate = async () => {
     if (!title || !date || !user) return;
@@ -1144,6 +1274,7 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
       created_by: user.id,
       status: 'scheduled',
       agenda: agendaData,
+      thumbnail_url: thumbnailUrl,
     } as any).select('id').maybeSingle();
 
     setSaving(false);
@@ -1156,7 +1287,7 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
         }).catch((e) => console.warn('notify-session failed', e));
       }
       toast.success(t('calls.sessionCreated'));
-      setTitle(''); setDescription(''); setDate(undefined);
+      setTitle(''); setDescription(''); setDate(undefined); setThumbnailUrl(null);
       onCreated();
     }
   };
@@ -1258,6 +1389,27 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
             <Input value={tags} onChange={e => setTags(e.target.value)} placeholder={t('calls.form.tagsPlaceholder')} className="mt-1 rounded-lg" />
           </div>
 
+          {/* Thumbnail image */}
+          <div>
+            <label className="text-sm font-medium text-foreground">Image / affiche (facultatif)</label>
+            <div className="mt-1">
+              <label className="flex items-center gap-2 cursor-pointer w-fit">
+                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground px-3 py-1.5 rounded-lg border border-dashed border-border hover:border-primary hover:text-primary transition-colors">
+                  <Upload className="h-4 w-4" />
+                  {uploadingThumb ? 'Chargement…' : thumbnailUrl ? 'Changer l\'image' : 'Choisir une image'}
+                  {uploadingThumb && <Loader2 className="h-3 w-3 animate-spin" />}
+                </span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleThumbChange} />
+              </label>
+              {thumbnailUrl && (
+                <div className="mt-2 flex items-center gap-2">
+                  <img src={thumbnailUrl} alt="thumbnail" className="h-14 w-24 object-cover rounded-lg border border-border/60" />
+                  <button onClick={() => setThumbnailUrl(null)} className="text-xs text-destructive hover:underline">Supprimer</button>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Associated text */}
           <div className="border border-border/60 rounded-xl overflow-hidden">
             <button
@@ -1310,6 +1462,182 @@ const ScheduleSessionDialog = ({ open, onOpenChange, onCreated, t, dateLocale }:
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
             {t('calls.createSession')}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+/* ════════════════════════════════════════════
+   EDIT SESSION DIALOG
+════════════════════════════════════════════ */
+const EditSessionDialog = ({ session, onOpenChange, onUpdated, t, dateLocale }: any) => {
+  const { user } = useAuth();
+  const [title, setTitle] = useState(session.title || '');
+  const [description, setDescription] = useState(session.description || '');
+  const [sessionType, setSessionType] = useState(session.session_type || 'video');
+  const [date, setDate] = useState<Date | undefined>(
+    session.scheduled_date ? new Date(session.scheduled_date) : undefined
+  );
+  const [time, setTime] = useState(session.scheduled_time?.slice(0, 5) || '19:00');
+  const [duration, setDuration] = useState(String(session.estimated_duration || 60));
+  const [accessType, setAccessType] = useState(session.access_type || 'open');
+  const [recurrence, setRecurrence] = useState(session.recurrence || 'once');
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(session.thumbnail_url || null);
+  const [uploadingThumb, setUploadingThumb] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleThumbChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setUploadingThumb(true);
+    const path = `scheduled/${user?.id}/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from('video-flyers').upload(path, file, { upsert: true });
+    if (!error) {
+      const { data } = supabase.storage.from('video-flyers').getPublicUrl(path);
+      setThumbnailUrl(data.publicUrl);
+    }
+    setUploadingThumb(false);
+  };
+
+  const handleSave = async () => {
+    if (!title || !date) return;
+    setSaving(true);
+    const { error } = await (supabase as any).from('scheduled_sessions' as any).update({
+      title,
+      description: description || null,
+      session_type: sessionType,
+      scheduled_date: format(date, 'yyyy-MM-dd'),
+      scheduled_time: time + ':00',
+      estimated_duration: parseInt(duration),
+      access_type: accessType,
+      recurrence,
+      thumbnail_url: thumbnailUrl,
+    } as any).eq('id', session.id);
+    setSaving(false);
+    if (error) {
+      toast.error(t('common.error'));
+    } else {
+      toast.success('Session modifiée');
+      onUpdated();
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="font-cinzel flex items-center gap-2">
+            <Pencil className="h-4 w-4" /> Modifier la session
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
+          <div>
+            <label className="text-sm font-medium text-foreground">{t('calls.form.title')}</label>
+            <Input value={title} onChange={e => setTitle(e.target.value)} className="mt-1 rounded-lg" />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground">{t('calls.form.description')}</label>
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className="mt-1 rounded-lg" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-foreground">{t('calls.form.type')}</label>
+              <Select value={sessionType} onValueChange={setSessionType}>
+                <SelectTrigger className="mt-1 rounded-lg"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="audio">🎙️ {t('calls.type.audio')}</SelectItem>
+                  <SelectItem value="video">📹 {t('calls.type.video')}</SelectItem>
+                  <SelectItem value="live">🔴 {t('calls.type.live')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">{t('calls.form.access')}</label>
+              <Select value={accessType} onValueChange={setAccessType}>
+                <SelectTrigger className="mt-1 rounded-lg"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">🌐 {t('calls.access.open')}</SelectItem>
+                  <SelectItem value="members">🔒 {t('calls.access.members')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-foreground">{t('calls.form.date')}</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full mt-1 justify-start text-left font-normal rounded-lg">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? format(date, 'PPP', { locale: dateLocale }) : t('calls.form.selectDate')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={date} onSelect={(d: Date | undefined) => d && setDate(d)} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">{t('calls.form.time')}</label>
+              <Input type="time" value={time} onChange={e => setTime(e.target.value)} className="mt-1 rounded-lg" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-foreground">{t('calls.form.duration')}</label>
+              <Select value={duration} onValueChange={setDuration}>
+                <SelectTrigger className="mt-1 rounded-lg"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30">30 min</SelectItem>
+                  <SelectItem value="60">1h</SelectItem>
+                  <SelectItem value="90">1h30</SelectItem>
+                  <SelectItem value="120">2h</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">{t('calls.form.recurrence')}</label>
+              <Select value={recurrence} onValueChange={setRecurrence}>
+                <SelectTrigger className="mt-1 rounded-lg"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="once">{t('calls.recurrence.once')}</SelectItem>
+                  <SelectItem value="daily">{t('calls.recurrence.daily')}</SelectItem>
+                  <SelectItem value="weekly">{t('calls.recurrence.weekly')}</SelectItem>
+                  <SelectItem value="monthly">{t('calls.recurrence.monthly')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {/* Thumbnail */}
+          <div>
+            <label className="text-sm font-medium text-foreground">Image / affiche (facultatif)</label>
+            <div className="mt-1">
+              <label className="flex items-center gap-2 cursor-pointer w-fit">
+                <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground px-3 py-1.5 rounded-lg border border-dashed border-border hover:border-primary hover:text-primary transition-colors">
+                  <Upload className="h-4 w-4" />
+                  {uploadingThumb ? 'Chargement…' : thumbnailUrl ? "Changer l'image" : 'Choisir une image'}
+                  {uploadingThumb && <Loader2 className="h-3 w-3 animate-spin" />}
+                </span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleThumbChange} />
+              </label>
+              {thumbnailUrl && (
+                <div className="mt-2 flex items-center gap-2">
+                  <img src={thumbnailUrl} alt="thumbnail" className="h-14 w-24 object-cover rounded-lg border border-border/60" />
+                  <button onClick={() => setThumbnailUrl(null)} className="text-xs text-destructive hover:underline">Supprimer</button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <Button
+            onClick={handleSave}
+            disabled={!title || !date || saving}
+            className="w-full bg-gradient-to-r from-primary to-primary-glow text-primary-foreground rounded-xl py-5"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
+            Enregistrer les modifications
           </Button>
         </div>
       </DialogContent>

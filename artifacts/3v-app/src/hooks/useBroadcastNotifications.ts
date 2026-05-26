@@ -46,12 +46,6 @@ export const useBroadcastNotifications = () => {
       activeCallRoomIdRef.current = null;
     };
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') stopRinging();
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
     const handleCallRing = (n: { id: string; title: string; message?: string; body?: string; type: string; link?: string | null }) => {
       const isCall = n.type === 'call';
       const url = n.link || '/calls-lives';
@@ -63,11 +57,14 @@ export const useBroadcastNotifications = () => {
         if (roomId) activeCallRoomIdRef.current = roomId;
 
         void playAttentionTone();
+        // Vibrate on Android for physical feedback
+        if (navigator.vibrate) navigator.vibrate([400, 200, 400, 200, 600]);
         let ringCount = 0;
         ringIntervalRef.current = window.setInterval(() => {
           ringCount += 1;
           if (ringCount >= 12) { stopRinging(); return; }
           void playAttentionTone();
+          if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
           void sendVisibleNotification({
             title: n.title,
             body: n.message || n.body || '',
@@ -176,7 +173,6 @@ export const useBroadcastNotifications = () => {
 
     return () => {
       stopRinging();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (pollingRef.current) window.clearInterval(pollingRef.current);
       supabase.removeChannel(notifChannel);
       supabase.removeChannel(roomChannel);

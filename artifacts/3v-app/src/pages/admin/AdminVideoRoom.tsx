@@ -177,6 +177,14 @@ const PermissionDeniedPanel = ({ onRetry, isRetrying }: { onRetry: () => void; i
 
 // ── Video panel ──────────────────────────────────────────────────────────────
 
+function getSignalQuality(stat?: PeerStat): 'medium' | 'poor' | undefined {
+  if (!stat) return undefined;
+  if (stat.iceState === 'failed' || stat.iceState === 'disconnected') return 'poor';
+  if ((stat.rttMs !== null && stat.rttMs > 400) || stat.audioPacketsLost > 20) return 'poor';
+  if ((stat.rttMs !== null && stat.rttMs > 200) || stat.audioPacketsLost > 5) return 'medium';
+  return undefined;
+}
+
 const VideoPanel = ({
   stream,
   title,
@@ -187,6 +195,7 @@ const VideoPanel = ({
   isLocal = false,
   reactions = [],
   onReact,
+  signalQuality,
 }: {
   stream: MediaStream | null;
   title: string;
@@ -197,12 +206,14 @@ const VideoPanel = ({
   isLocal?: boolean;
   reactions?: Array<{ id: number; emoji: string }>;
   onReact?: (emoji: string) => void;
+  signalQuality?: 'medium' | 'poor';
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const hasVideo = Boolean(stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled));
   const hasAudio = Boolean(stream?.getAudioTracks().some((t) => t.readyState === 'live'));
+  const firstName = title.split(' ')[0];
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -280,7 +291,6 @@ const VideoPanel = ({
                 {title.charAt(0).toUpperCase()}
               </div>
             )}
-            <p className="text-xs font-medium text-zinc-400">{title}</p>
           </div>
         )}
       </div>
@@ -307,7 +317,7 @@ const VideoPanel = ({
             😊
           </button>
           {showEmojiPicker && (
-            <div className="absolute right-0 top-9 grid grid-cols-6 gap-1 rounded-xl bg-black/80 p-1.5 backdrop-blur-sm shadow-lg w-max">
+            <div className="absolute right-0 top-9 grid grid-cols-6 gap-1 rounded-xl bg-black/80 p-1.5 backdrop-blur-sm shadow-lg w-max max-h-48 overflow-y-auto">
               {QUICK_REACTIONS.map((emoji) => (
                 <button
                   key={emoji}
@@ -341,10 +351,24 @@ const VideoPanel = ({
             </span>
           )}
           <span className="text-xs font-medium text-white drop-shadow">
-            {title}{isLocal ? ' (Vous)' : ''}
+            {firstName}{isLocal ? ' (Vous)' : ''}
           </span>
         </div>
         <div className="flex items-center gap-1">
+          {signalQuality === 'poor' && (
+            <span title="Connexion faible" className="flex items-end gap-[2px]">
+              <span className="inline-block w-1 rounded-sm bg-red-400" style={{ height: '6px' }} />
+              <span className="inline-block w-1 rounded-sm bg-red-400/30" style={{ height: '9px' }} />
+              <span className="inline-block w-1 rounded-sm bg-red-400/30" style={{ height: '12px' }} />
+            </span>
+          )}
+          {signalQuality === 'medium' && (
+            <span title="Connexion moyenne" className="flex items-end gap-[2px]">
+              <span className="inline-block w-1 rounded-sm bg-yellow-400" style={{ height: '6px' }} />
+              <span className="inline-block w-1 rounded-sm bg-yellow-400" style={{ height: '9px' }} />
+              <span className="inline-block w-1 rounded-sm bg-yellow-400/30" style={{ height: '12px' }} />
+            </span>
+          )}
           {isMutedByAdmin && (
             <span className="flex items-center gap-0.5 rounded-full bg-red-500/80 px-1.5 py-0.5 text-[9px] text-white">
               <VolumeX className="h-2.5 w-2.5" /> sourdine
@@ -1126,8 +1150,9 @@ const AdminVideoRoom = ({ roomId: roomIdProp }: { roomId?: string }) => {
                       avatarUrl={participantAvatarMap.get(rs.userId)}
                       isMutedByAdmin={mutedParticipants.has(rs.userId)}
                       isSpeaking={activeSpeakers.has(rs.userId)}
-                      reactions={emojiReactions.get(rs.userId) || []}
+                      reactions={[]}
                       onReact={(emoji) => void sendEmojiReaction(emoji)}
+                      signalQuality={getSignalQuality(peerStats.get(rs.userId))}
                     />
                   ))}
                 {isConnected && remoteStreams.filter(rs => !lobbyParticipants.has(rs.userId)).length === 0 && !isInLobby && (
