@@ -183,11 +183,15 @@ export const useAdminVideoRoom = ({
   const [activeSpeakers, setActiveSpeakers] = useState<Set<string>>(new Set());
   const [participantMicState, setParticipantMicState] = useState<Map<string, boolean>>(new Map());
   const [ejected, setEjected] = useState(false);
+  const [lobbyParticipants, setLobbyParticipants] = useState<Set<string>>(new Set());
+  const [isInLobby, setIsInLobby] = useState(false);
   const [emojiReactions, setEmojiReactions] = useState<Map<string, Array<{ id: number; emoji: string }>>>(new Map());
   const [connectionQuality, setConnectionQuality] = useState<'good' | 'poor' | 'reconnecting'>('good');
   const [peerStats, setPeerStats] = useState<Map<string, PeerStat>>(new Map());
 
   const channelRef = useRef<any>(null);
+  const isInLobbyRef = useRef(false);
+  const lobbyRingTimerRef = useRef<number | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   // Fallback streams for browsers/WebViews that don't populate ev.streams[0] in ontrack.
   // Tracks are accumulated here so audio+video stay in the same MediaStream per peer.
@@ -736,6 +740,11 @@ export const useAdminVideoRoom = ({
         if (audioTracks.length === 0) pc.addTransceiver('audio', { direction: 'recvonly' });
         if (roomType !== 'audio' && videoTracks.length === 0) pc.addTransceiver('video', { direction: 'recvonly' });
 
+        // Lobby mode: null outgoing tracks so the participant is silent/invisible until admitted
+        if (isInLobbyRef.current) {
+          pc.getSenders().forEach((s) => void s.replaceTrack(null));
+        }
+
         // Negotiated DataChannel used purely as an ICE keepalive.
         // Both peers create id=0 independently — no extra signaling round-trip.
         // The 2-second heartbeat prevents ICE timeout when the call page is navigated
@@ -1059,11 +1068,10 @@ export const useAdminVideoRoom = ({
 
   const requestJoin = useCallback(async () => {
     if (!enabled || !roomId || !userId || isJoining || startRequested) return;
-    // Check if this user was ejected from this room
-    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(`ejected:${roomId}`) === 'true') {
-      setMediaError('Vous avez été éjecté de cette session par un administrateur.');
-      setLoading(false);
-      return;
+    // Check if this user was ejected — allow re-entry but place in lobby (muted, invisible to non-admins)
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(`ejected:${roomId}:${userId}`) === '1') {
+      isInLobbyRef.current = true;
+      setIsInLobby(true);
     }
 
     // Soft-leave restore: a live stream is already saved — skip getUserMedia entirely.
@@ -1222,6 +1230,14 @@ export const useAdminVideoRoom = ({
       await channelRef.current?.send({ type: 'broadcast', event: 'admin-eject', payload: { targetUserId: pid } });
     } catch { /* non-critical */ }
   }, [roomId]);
+
+  const admitParticipant = useCallback(async (pid: string) => {
+    if (!canManageRoomRef.current) return;
+    setLobbyParticipants(prev => { const next = new Set(prev); next.delete(pid); return next; });
+    try {
+      await channelRef.current?.send({ type: 'broadcast', event: 'lobby-admit', payload: { targetUserId: pid } });
+    } catch { /* non-critical */ }
+  }, []);
 
   const sendEmojiReaction = useCallback(async (emoji: string) => {
     if (!userId) return;
@@ -1471,7 +1487,7 @@ export const useAdminVideoRoom = ({
               })
               .on('broadcast', { event: 'admin-eject' }, (ev: { payload: { targetUserId: string } }) => {
                 if (ev.payload?.targetUserId !== userIdRef.current) return;
-                if (roomId) sessionStorage.setItem(`ejected:${roomId}`, 'true');
+                if (roomId) localStorage.setItem(`ejected:${roomId}:${userIdRef.current}`, '1');
                 hardLeaveRef.current = true;
                 setEjected(true);
               })
@@ -1488,6 +1504,33 @@ export const useAdminVideoRoom = ({
                   });
                 }, 3500);
               })
+              .on('broadcast', { event: 'lobby-request' }, (ev: { payload: { userId: string } }) => {
+                const { userId: uid } = ev.payload || {};
+                if (!uid || uid === userIdRef.current) return;
+                setLobbyParticipants(prev => { const next = new Set(prev); next.add(uid); return next; });
+              })
+              .on('broadcast', { event: 'lobby-admit' }, (ev: { payload: { targetUserId: string } }) => {
+                const { targetUserId } = ev.payload || {};
+                if (!targetUserId) return;
+                setLobbyParticipants(prev => { const next = new Set(prev); next.delete(targetUserId); return next; });
+                if (targetUserId !== userIdRef.current) return;
+                const admitStream = localStreamRef.current;
+                if (admitStream) {
+                  peerConnectionsRef.current.forEach((pc) => {
+                    pc.getTransceivers().forEach((transceiver) => {
+                      const kind = transceiver.receiver.track?.kind;
+                      const track = kind === 'audio'
+                        ? admitStream.getAudioTracks()[0] || null
+                        : admitStream.getVideoTracks()[0] || null;
+                      void transceiver.sender.replaceTrack(track);
+                    });
+                  });
+                }
+                if (roomId && userIdRef.current) localStorage.removeItem(`ejected:${roomId}:${userIdRef.current}`);
+                isInLobbyRef.current = false;
+                setIsInLobby(false);
+                if (lobbyRingTimerRef.current) { window.clearInterval(lobbyRingTimerRef.current); lobbyRingTimerRef.current = null; }
+              })
               .subscribe(async (status: string) => {
                 if (status === 'SUBSCRIBED') {
                   _bgSignalFn = handleIncomingSignal;
@@ -1495,6 +1538,14 @@ export const useAdminVideoRoom = ({
                   setConnectionQuality('good');
                   await fetchPendingSignals();
                   void channelRef.current?.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
+                  if (isInLobbyRef.current) {
+                    peerConnectionsRef.current.forEach((pc) => pc.getSenders().forEach((s) => void s.replaceTrack(null)));
+                    void channelRef.current?.send({ type: 'broadcast', event: 'lobby-request', payload: { userId } });
+                    if (lobbyRingTimerRef.current) window.clearInterval(lobbyRingTimerRef.current);
+                    lobbyRingTimerRef.current = window.setInterval(() => {
+                      void channelRef.current?.send({ type: 'broadcast', event: 'lobby-request', payload: { userId } });
+                    }, 20_000);
+                  }
                   const uid = userIdRef.current;
                   if (uid) {
                     peerConnectionsRef.current.forEach((pc, pid) => {
@@ -1623,7 +1674,7 @@ export const useAdminVideoRoom = ({
             // ── Admin eject: kick this client out ───────────────────────────
             .on('broadcast', { event: 'admin-eject' }, (ev: { payload: { targetUserId: string } }) => {
               if (ev.payload?.targetUserId !== userIdRef.current) return;
-              if (roomId) sessionStorage.setItem(`ejected:${roomId}`, 'true');
+              if (roomId) localStorage.setItem(`ejected:${roomId}:${userIdRef.current}`, '1');
               hardLeaveRef.current = true;
               setEjected(true);
             })
@@ -1641,11 +1692,46 @@ export const useAdminVideoRoom = ({
                 });
               }, 3500);
             })
+            .on('broadcast', { event: 'lobby-request' }, (ev: { payload: { userId: string } }) => {
+              const { userId: uid } = ev.payload || {};
+              if (!uid || uid === userIdRef.current) return;
+              setLobbyParticipants(prev => { const next = new Set(prev); next.add(uid); return next; });
+            })
+            .on('broadcast', { event: 'lobby-admit' }, (ev: { payload: { targetUserId: string } }) => {
+              const { targetUserId } = ev.payload || {};
+              if (!targetUserId) return;
+              setLobbyParticipants(prev => { const next = new Set(prev); next.delete(targetUserId); return next; });
+              if (targetUserId !== userIdRef.current) return;
+              const admitStream = localStreamRef.current;
+              if (admitStream) {
+                peerConnectionsRef.current.forEach((pc) => {
+                  pc.getTransceivers().forEach((transceiver) => {
+                    const kind = transceiver.receiver.track?.kind;
+                    const track = kind === 'audio'
+                      ? admitStream.getAudioTracks()[0] || null
+                      : admitStream.getVideoTracks()[0] || null;
+                    void transceiver.sender.replaceTrack(track);
+                  });
+                });
+              }
+              if (roomId && userIdRef.current) localStorage.removeItem(`ejected:${roomId}:${userIdRef.current}`);
+              isInLobbyRef.current = false;
+              setIsInLobby(false);
+              if (lobbyRingTimerRef.current) { window.clearInterval(lobbyRingTimerRef.current); lobbyRingTimerRef.current = null; }
+            })
             .subscribe(async (status: string) => {
               if (status === 'SUBSCRIBED') {
                 _bgSignalFn = handleIncomingSignal;
                 await fetchPendingSignals();
                 void channelRef.current?.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
+                if (isInLobbyRef.current) {
+                  peerConnectionsRef.current.forEach((pc) => pc.getSenders().forEach((s) => void s.replaceTrack(null)));
+                  void channelRef.current?.send({ type: 'broadcast', event: 'lobby-request', payload: { userId } });
+                  if (lobbyRingTimerRef.current) window.clearInterval(lobbyRingTimerRef.current);
+                  lobbyRingTimerRef.current = window.setInterval(() => {
+                    void channelRef.current?.send({ type: 'broadcast', event: 'lobby-request', payload: { userId } });
+                  }, 20_000);
+                }
               }
             });
           channelRef.current = channel;
@@ -1736,6 +1822,8 @@ export const useAdminVideoRoom = ({
       }
 
       // ── Hard leave (explicit raccrocher or admin terminer): full cleanup ─
+      if (lobbyRingTimerRef.current) { window.clearInterval(lobbyRingTimerRef.current); lobbyRingTimerRef.current = null; }
+      isInLobbyRef.current = false;
       if (_bgHealthTimer !== null) { clearInterval(_bgHealthTimer); _bgHealthTimer = null; }
       clearBackgroundStreamsRef.current();
       if (channelRef.current) db.removeChannel(channelRef.current);
@@ -1821,9 +1909,12 @@ export const useAdminVideoRoom = ({
     toggleReaction,
     muteParticipant,
     ejectParticipant,
+    admitParticipant,
     sendEmojiReaction,
     participantMicState,
     ejected,
+    lobbyParticipants,
+    isInLobby,
     emojiReactions,
     leaveRoom,
     endRoom,
