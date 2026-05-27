@@ -444,7 +444,7 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
           created_by: user.id,
           started_at: new Date().toISOString(),
           ...(quickFlyerUrl ? { flyer_url: quickFlyerUrl } : {}),
-        })
+        } as any)
         .select('id')
         .single();
 
@@ -776,7 +776,7 @@ const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopy
           created_by: user.id,
           started_at: new Date().toISOString(),
           ...(session.thumbnail_url ? { flyer_url: session.thumbnail_url } : {}),
-        })
+        } as any)
         .select('id')
         .single();
       if (roomError) throw roomError;
@@ -807,7 +807,7 @@ const ScheduledTab = ({ sessions, isAdmin, myReminders, onToggleReminder, onCopy
       {editingSession && (
         <EditSessionDialog
           session={editingSession}
-          onOpenChange={(open) => !open && setEditingSession(null)}
+          onOpenChange={(open: boolean) => !open && setEditingSession(null)}
           onUpdated={() => { setEditingSession(null); onRefresh(); }}
           t={t}
           dateLocale={dateLocale}

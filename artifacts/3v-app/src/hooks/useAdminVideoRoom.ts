@@ -511,7 +511,7 @@ export const useAdminVideoRoom = ({
     setParticipants(parts);
     if (parts.length > 0) {
       const ids = parts.map((p) => p.user_id);
-      void db.from('profiles').select('id, avatar_url').in('id', ids).then(({ data: profs }) => {
+      void db.from('profiles').select('id, avatar_url').in('id', ids).then(({ data: profs }: { data: { id: string; avatar_url: string | null }[] | null }) => {
         if (!profs?.length) return;
         const avatarMap: Record<string, string | null> = {};
         (profs as { id: string; avatar_url: string | null }[]).forEach((p) => { avatarMap[p.id] = p.avatar_url; });
