@@ -28,7 +28,7 @@ import { useCallSession } from '@/contexts/CallSessionContext';
 
 /** Returns a clean share URL without URLSearchParams encoding artifacts (+, %3A…). */
 const buildShareUrl = (session: ScheduledSession): string => {
-  const base = 'https://voie-verite-vie.netlify.app/calls-lives';
+  const base = 'https://voieveritevie.org/calls-lives';
   const time = session.scheduled_time.slice(0, 5); // HH:MM — drop seconds
   const parts = [
     `session=${encodeURIComponent(session.id)}`,

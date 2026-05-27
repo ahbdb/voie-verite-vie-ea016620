@@ -96,7 +96,7 @@ const PLATFORM_STEPS: Record<string, { title: string; icon: string; steps: strin
       'Fais défiler vers le bas et tape sur Safari',
       'Appuie sur « Paramètres des sites web »',
       'Appuie sur « Appareil photo » puis « Microphone »',
-      'Trouve voie-verite-vie.netlify.app et mets sur Autoriser',
+      'Trouve voieveritevie.org et mets sur Autoriser',
       "Reviens dans l'application et retente",
     ],
   },

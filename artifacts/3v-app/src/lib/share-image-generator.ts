@@ -59,7 +59,7 @@ export const createBrandedImage = async (options: BrandedImageOptions): Promise<
           <span style="color: #4b5563; font-size: 14px;">YouTube</span>
         </div>
         <div style="color: #6b7280; font-size: 13px; word-break: break-all;">
-          https://voie-verite-vie.netlify.app
+          https://voieveritevie.org
         </div>
       </div>
     `;
