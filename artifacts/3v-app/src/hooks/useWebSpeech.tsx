@@ -7,9 +7,10 @@
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
 
-// ── Gemini TTS helpers ────────────────────────────────────────────────────────
-const GEMINI_TTS_MODEL = 'gemini-3.1-flash-tts-preview';
-const GEMINI_TTS_VOICE = 'Aoede';
+// ── Edge Function TTS ─────────────────────────────────────────────────────────
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const TTS_FUNCTION_URL  = `${SUPABASE_URL}/functions/v1/gemini-tts`;
 
 function splitIntoChunks(text: string, maxLen = 250): string[] {
   const sentences = text.match(/[^.!?;\n]+[.!?;\n]?/g) ?? [text];
@@ -29,28 +30,21 @@ function splitIntoChunks(text: string, maxLen = 250): string[] {
   return chunks.length ? chunks : [text.trim()];
 }
 
-async function fetchChunkBlob(text: string, apiKey: string, signal: AbortSignal): Promise<Blob> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TTS_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal,
-      body: JSON.stringify({
-        contents: [{ parts: [{ text }] }],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: GEMINI_TTS_VOICE } } },
-        },
-      }),
+async function fetchChunkBlob(text: string, signal: AbortSignal): Promise<Blob> {
+  const res = await fetch(TTS_FUNCTION_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'apikey': SUPABASE_ANON_KEY,
     },
-  );
-  if (!res.ok) throw new Error(`Gemini TTS HTTP ${res.status}`);
-  const data = await res.json() as unknown;
-  const b64 = (data as { candidates?: { content?: { parts?: { inlineData?: { data?: string } }[] } }[] })
-    ?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-  if (!b64) throw new Error('Pas de données audio');
-  return base64PcmToWavBlob(b64);
+    signal,
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error(`gemini-tts HTTP ${res.status}`);
+  const data = await res.json() as { audio?: string; error?: string };
+  if (!data.audio) throw new Error(data.error ?? 'Pas de données audio');
+  return base64PcmToWavBlob(data.audio);
 }
 
 function base64PcmToWavBlob(base64: string, sampleRate = 24000): Blob {
@@ -95,8 +89,7 @@ export const useWebSpeech = (options: UseWebSpeechOptions = {}) => {
   const abortTTSRef   = useRef<AbortController | null>(null);
   const utteranceRef  = useRef<SpeechSynthesisUtterance | null>(null);
 
-  const apiKey    = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-  const useGemini = !!apiKey;
+  const useGemini = true; // toujours actif via Edge Function
 
   // Mettre à jour les options sans recréer le hook
   useEffect(() => { optionsRef.current = options; }, [options]);
@@ -242,13 +235,13 @@ export const useWebSpeech = (options: UseWebSpeechOptions = {}) => {
       }
       stopSpeaking();
 
-      if (useGemini && apiKey) {
+      if (useGemini) {
         // ── Gemini TTS avec chunking parallèle ──────────────────────────────
         setIsSpeaking(true);
         const controller = new AbortController();
         abortTTSRef.current = controller;
         const chunks = splitIntoChunks(text);
-        const blobs  = chunks.map(c => fetchChunkBlob(c, apiKey, controller.signal));
+        const blobs  = chunks.map(c => fetchChunkBlob(c, controller.signal));
         playInOrder(blobs, 0, controller);
       } else {
         // ── Web Speech API ──────────────────────────────────────────────────
@@ -273,16 +266,16 @@ export const useWebSpeech = (options: UseWebSpeechOptions = {}) => {
         speechSynthesis.speak(utter);
       }
     },
-    [useGemini, apiKey, stopSpeaking, cleanupAudio],
+    [useGemini, stopSpeaking, cleanupAudio, playInOrder],
   );
 
   // ── isSupported ───────────────────────────────────────────────────────────
   const isSupported = useCallback(() => {
     return (
       ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) &&
-      ('speechSynthesis' in window || !!apiKey)
+      'speechSynthesis' in window
     );
-  }, [apiKey]);
+  }, []);
 
   return {
     isListening,

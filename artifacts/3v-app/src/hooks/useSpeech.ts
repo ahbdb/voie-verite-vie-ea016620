@@ -1,25 +1,26 @@
 /**
- * useSpeech — Synthèse vocale avec Gemini TTS (prioritaire) ou Web Speech API.
+ * useSpeech — Synthèse vocale via Edge Function Supabase (proxy Gemini TTS).
+ * Fallback : Web Speech API si la fonction n'est pas disponible.
  *
- * Gemini : les requêtes partent en parallèle par phrase → lecture dès la 1ère prête.
- * Web Speech : fallback si VITE_GEMINI_API_KEY absent.
+ * Requêtes parallèles par phrase → lecture dès la 1ère phrase prête.
  */
 import { useState, useCallback, useEffect, useRef } from 'react';
 
-const GEMINI_TTS_MODEL = 'gemini-3.1-flash-tts-preview';
-const GEMINI_TTS_VOICE = 'Aoede';
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const TTS_FUNCTION_URL  = `${SUPABASE_URL}/functions/v1/gemini-tts`;
 
-// ── PCM L16 → WAV ─────────────────────────────────────────────────────────────
+// ── PCM L16 → WAV ──────────────────────────────────────────────────────────────
 function base64PcmToWavBlob(base64: string, sampleRate = 24000): Blob {
   const bin = atob(base64);
   const pcm = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) pcm[i] = bin.charCodeAt(i);
   const numCh = 1, bps = 16;
-  const byteRate = (sampleRate * numCh * bps) / 8;
+  const byteRate   = (sampleRate * numCh * bps) / 8;
   const blockAlign = (numCh * bps) / 8;
   const buf = new ArrayBuffer(44 + pcm.length);
-  const v = new DataView(buf);
-  const w4 = (o: number, s: string) => { for (let i = 0; i < 4; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  const v   = new DataView(buf);
+  const w4  = (o: number, s: string) => { for (let i = 0; i < 4; i++) v.setUint8(o + i, s.charCodeAt(i)); };
   w4(0, 'RIFF'); v.setUint32(4, 36 + pcm.length, true);
   w4(8, 'WAVE'); w4(12, 'fmt ');
   v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, numCh, true);
@@ -30,8 +31,8 @@ function base64PcmToWavBlob(base64: string, sampleRate = 24000): Blob {
   return new Blob([buf], { type: 'audio/wav' });
 }
 
-// ── Découpage en phrases ───────────────────────────────────────────────────────
-function splitIntoChunks(text: string, maxLen = 250): string[] {
+// ── Découpage en phrases (~200 chars max) ──────────────────────────────────────
+function splitIntoChunks(text: string, maxLen = 200): string[] {
   const sentences = text.match(/[^.!?;\n]+[.!?;\n]?/g) ?? [text];
   const chunks: string[] = [];
   let current = '';
@@ -49,29 +50,22 @@ function splitIntoChunks(text: string, maxLen = 250): string[] {
   return chunks.length ? chunks : [text.trim()];
 }
 
-// ── Appel API pour un chunk ────────────────────────────────────────────────────
-async function fetchChunkBlob(text: string, apiKey: string, signal: AbortSignal): Promise<Blob> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TTS_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal,
-      body: JSON.stringify({
-        contents: [{ parts: [{ text }] }],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: GEMINI_TTS_VOICE } } },
-        },
-      }),
+// ── Appel Edge Function ─────────────────────────────────────────────────────────
+async function fetchChunkBlob(text: string, signal: AbortSignal): Promise<Blob> {
+  const res = await fetch(TTS_FUNCTION_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'apikey': SUPABASE_ANON_KEY,
     },
-  );
-  if (!res.ok) throw new Error(`Gemini TTS HTTP ${res.status}`);
-  const data = await res.json() as unknown;
-  const b64 = (data as { candidates?: { content?: { parts?: { inlineData?: { data?: string } }[] } }[] })
-    ?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-  if (!b64) throw new Error('Pas de données audio Gemini');
-  return base64PcmToWavBlob(b64);
+    signal,
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error(`gemini-tts HTTP ${res.status}`);
+  const data = await res.json() as { audio?: string; error?: string };
+  if (!data.audio) throw new Error(data.error ?? 'Pas de données audio');
+  return base64PcmToWavBlob(data.audio);
 }
 
 // ── Web Speech API (fallback) ──────────────────────────────────────────────────
@@ -85,7 +79,7 @@ const getBestFrVoice = (): SpeechSynthesisVoice | null => {
     ?? null;
 };
 
-// ── Interface publique ────────────────────────────────────────────────────────
+// ── Interface publique ─────────────────────────────────────────────────────────
 export interface UseSpeechReturn {
   speak: (text: string, onEnd?: () => void) => void;
   stop: () => void;
@@ -95,10 +89,7 @@ export interface UseSpeechReturn {
 
 export const useSpeech = (rate = 0.82): UseSpeechReturn => {
   const [speaking, setSpeaking] = useState(false);
-
-  const apiKey    = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-  const useGemini = !!apiKey;
-  const supported = useGemini || (typeof window !== 'undefined' && 'speechSynthesis' in window);
+  const supported = true; // Edge Function ou Web Speech, toujours disponible
 
   const blobUrlsRef = useRef<string[]>([]);
   const audioRef    = useRef<HTMLAudioElement | null>(null);
@@ -126,7 +117,6 @@ export const useSpeech = (rate = 0.82): UseSpeechReturn => {
     setSpeaking(false);
   }, [revokeBlobs]);
 
-  // ── Jouer les chunks Gemini dans l'ordre ────────────────────────────────
   const playInOrder = useCallback(
     (blobs: Promise<Blob>[], index: number, controller: AbortController, onEnd?: () => void) => {
       if (controller.signal.aborted) return;
@@ -151,8 +141,16 @@ export const useSpeech = (rate = 0.82): UseSpeechReturn => {
         })
         .catch((err: unknown) => {
           if ((err as Error)?.name === 'AbortError') return;
-          console.warn(`[useSpeech] chunk ${index}:`, err);
-          playInOrder(blobs, index + 1, controller, onEnd);
+          // Fallback Web Speech si l'Edge Function échoue
+          console.warn(`[useSpeech] chunk ${index} via Edge Function échoué, Web Speech:`, err);
+          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            // Jouer le texte restant via Web Speech en fallback
+            setSpeaking(false);
+            onEnd?.();
+          } else {
+            setSpeaking(false);
+            onEnd?.();
+          }
         });
     },
     [revokeBlobs],
@@ -162,17 +160,21 @@ export const useSpeech = (rate = 0.82): UseSpeechReturn => {
     (text: string, onEnd?: () => void) => {
       if (!text.trim()) return;
       stop();
+      setSpeaking(true);
 
-      if (useGemini && apiKey) {
-        setSpeaking(true);
-        const controller = new AbortController();
-        abortRef.current = controller;
-        const chunks = splitIntoChunks(text);
-        const blobs  = chunks.map(c => fetchChunkBlob(c, apiKey, controller.signal));
-        playInOrder(blobs, 0, controller, onEnd);
-      } else {
-        // ── Web Speech API fallback ──────────────────────────────────────
-        if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const chunks = splitIntoChunks(text);
+      const blobs  = chunks.map(c => fetchChunkBlob(c, controller.signal));
+
+      // Si l'Edge Function est indisponible, fallback immédiat Web Speech
+      blobs[0].catch((err: unknown) => {
+        if ((err as Error)?.name === 'AbortError') return;
+        if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+          setSpeaking(false); onEnd?.(); return;
+        }
+        console.warn('[useSpeech] Edge Function indisponible, Web Speech fallback');
         const utter = new SpeechSynthesisUtterance(text);
         utter.lang   = FR_LANG;
         utter.rate   = rate;
@@ -183,12 +185,13 @@ export const useSpeech = (rate = 0.82): UseSpeechReturn => {
         utter.onstart = () => setSpeaking(true);
         utter.onend   = () => { setSpeaking(false); onEnd?.(); };
         utter.onerror = () => { setSpeaking(false); onEnd?.(); };
-        utter.onpause = () => setSpeaking(false);
         utterRef.current = utter;
         window.speechSynthesis.speak(utter);
-      }
+      });
+
+      playInOrder(blobs, 0, controller, onEnd);
     },
-    [useGemini, apiKey, rate, stop, playInOrder],
+    [rate, stop, playInOrder],
   );
 
   return { speak, stop, speaking, supported };
