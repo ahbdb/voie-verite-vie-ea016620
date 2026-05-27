@@ -2,12 +2,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useMatch } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useMatch, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { toast } from "sonner";
 import { SettingsProvider } from "@/hooks/useSettings";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { CallSessionProvider } from "@/contexts/CallSessionContext";
 import { useCallSession } from "@/contexts/CallSessionContext";
 import { FloatingCallBanner } from "@/components/FloatingCallBanner";
@@ -74,10 +74,33 @@ import Chapelet from "./pages/Chapelet";
 import PriereQuotidienne from "./pages/PriereQuotidienne";
 import Dons from "./pages/Dons";
 import NotFound from "./pages/NotFound";
+import ProfileCompletion from "./pages/ProfileCompletion";
 import NotificationInitializer from "@/components/NotificationInitializer";
 import FloatingSupportButton from "@/components/FloatingSupportButton";
 
 const queryClient = new QueryClient();
+
+// ── Guard: redirect to profile completion when gender not set ─────────────────
+// Placed inside BrowserRouter + AuthProvider so both useLocation and useAuth work.
+const EXEMPT_PATHS = ['/auth', '/profile-completion', '/install'];
+
+const ProfileCompletionGuard = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  // While auth is resolving, render as-is (avoids flash-redirect)
+  if (loading) return <>{children}</>;
+
+  // Exempt pages (auth page, the completion page itself, install guide)
+  if (EXEMPT_PATHS.some((p) => location.pathname.startsWith(p))) return <>{children}</>;
+
+  // If authenticated but gender not filled → profile completion required
+  if (user && !user.profileComplete) {
+    return <Navigate to="/profile-completion" replace />;
+  }
+
+  return <>{children}</>;
+};
 
 // ── Always-on call engine ─────────────────────────────────────────────────────
 // Keeps AdminVideoRoom mounted for the entire duration of a call, even when the
@@ -157,7 +180,9 @@ const App = () => {
                     <FloatingSupportButton />
                     {/* Always-on: keeps the call alive during in-app navigation */}
                     <AlwaysOnCallPage />
+                    <ProfileCompletionGuard>
                     <Routes>
+                      <Route path="/profile-completion" element={<ProfileCompletion />} />
                       <Route path="/" element={<Index />} />
                       <Route path="/about" element={<About />} />
                       <Route path="/faq" element={<FAQ />} />
@@ -222,6 +247,7 @@ const App = () => {
                       <Route path="/documents-3v" element={<Documents3V />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
+                    </ProfileCompletionGuard>
                   </AppNotificationInitializer>
                   </CallSessionProvider>
                 </BrowserRouter>

@@ -4,9 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface AuthUser {
   id: string;
-  name: string | null;
+  name: string | null;       // firstName + lastName (ou full_name en fallback)
+  firstName: string | null;
+  lastName: string | null;
   email: string | null;
   profileImage: string | null;
+  gender: 'homme' | 'femme' | null;
+  profileComplete: boolean;  // false tant que gender est null
   roles?: string[];
 }
 
@@ -18,17 +22,25 @@ interface AuthContextType {
   refetch: () => Promise<void>;
   signOut: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, firstName: string, lastName: string, gender: 'homme' | 'femme') => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 function sessionToUser(session: Session): AuthUser {
+  const fullName: string | null = session.user.user_metadata?.full_name || null;
+  const parts = fullName?.trim().split(' ') ?? [];
+  const firstName = session.user.user_metadata?.first_name || (parts[0] ?? null);
+  const lastName  = session.user.user_metadata?.last_name  || (parts.slice(1).join(' ') || null);
   return {
     id: session.user.id,
-    name: session.user.user_metadata?.full_name || null,
+    name: fullName,
+    firstName,
+    lastName,
     email: session.user.email || null,
     profileImage: session.user.user_metadata?.avatar_url || null,
+    gender: (session.user.user_metadata?.gender as 'homme' | 'femme') || null,
+    profileComplete: !!session.user.user_metadata?.gender,
     roles: [],
   };
 }
@@ -53,15 +65,29 @@ function enrichFromProfile(session: Session, setUser: (u: AuthUser) => void) {
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('full_name, avatar_url')
+        .select('full_name, first_name, last_name, avatar_url, gender')
         .eq('id', session.user.id)
         .single();
       if (!data) return;
+      const d = data as {
+        full_name: string | null;
+        first_name: string | null;
+        last_name: string | null;
+        avatar_url: string | null;
+        gender: string | null;
+      };
+      const firstName = d.first_name || d.full_name?.trim().split(' ')[0] || null;
+      const lastName  = d.last_name  || (d.full_name?.trim().split(' ').slice(1).join(' ') || null);
+      const displayName = [firstName, lastName].filter(Boolean).join(' ') || d.full_name;
       setUser({
         id: session.user.id,
-        name: data.full_name || session.user.user_metadata?.full_name || null,
+        name: displayName || null,
+        firstName,
+        lastName,
         email: session.user.email || null,
-        profileImage: data.avatar_url || session.user.user_metadata?.avatar_url || null,
+        profileImage: d.avatar_url || session.user.user_metadata?.avatar_url || null,
+        gender: (d.gender as 'homme' | 'femme') || null,
+        profileComplete: !!d.gender,
         roles: [],
       });
     } catch {
@@ -124,12 +150,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, firstName: string, lastName: string, gender: 'homme' | 'femme') => {
+    const fullName = [firstName, lastName].filter(Boolean).join(' ');
     const { error, data } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: { data: { full_name: fullName, first_name: firstName, last_name: lastName, gender } },
     });
+    if (!error && data.user) {
+      // Upsert profile with all identity fields
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        email,
+        full_name: fullName,
+        first_name: firstName,
+        last_name: lastName || null,
+        gender,
+      }, { onConflict: 'id' });
+    }
     if (!error && !data.session) {
       await supabase.auth.signInWithPassword({ email, password });
     }
