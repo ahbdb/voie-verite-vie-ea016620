@@ -26,7 +26,12 @@ interface PushPayload {
   image?: string;
   requireInteraction?: boolean;
   vibrate?: number[];
+  // Ciblage : si absent → tous les utilisateurs
   user_ids?: string[];
+  // Si 'user' ou 'admin', filtre par rôle
+  role?: "user" | "admin";
+  // Si true, insère aussi dans la table notifications (déclenche Supabase Realtime)
+  insert_notifications?: boolean;
 }
 
 function b64url(data: Uint8Array): string {
@@ -192,14 +197,61 @@ Deno.serve(async (req) => {
     const payload: PushPayload = await req.json();
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    let query = supabase.from("fcm_tokens").select("token, user_id");
+    // ── 1. Déterminer les user IDs ciblés ──────────────────────────────────────
+    let targetUserIds: string[] | null = null;
+
     if (payload.user_ids && payload.user_ids.length > 0) {
-      query = query.in("user_id", payload.user_ids);
+      // Ciblage explicite par ID
+      targetUserIds = payload.user_ids;
+    } else if (payload.role) {
+      // Ciblage par rôle
+      const roleFilter = payload.role === "admin" ? ["admin", "admin_principal"] : ["user"];
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .in("role", roleFilter);
+      targetUserIds = [...new Set((roleRows || []).map((r: any) => r.user_id as string))];
+    }
+    // Si targetUserIds === null → tous les utilisateurs
+
+    // ── 2. Insérer dans la table notifications (Realtime in-app) ──────────────
+    if (payload.insert_notifications) {
+      let notifUserIds: string[] = targetUserIds ?? [];
+      if (notifUserIds.length === 0) {
+        // Tous les profils
+        const { data: allProfiles } = await supabase.from("profiles").select("id");
+        notifUserIds = (allProfiles || []).map((p: any) => p.id as string);
+      }
+      if (notifUserIds.length > 0) {
+        const link = payload.url && payload.url !== "/" ? payload.url : null;
+        const rows = notifUserIds.map((uid) => ({
+          user_id: uid,
+          title: payload.title,
+          message: payload.body,
+          type: payload.action || "announcement",
+          link,
+          is_read: false,
+        }));
+        // Insérer par lots de 100 pour éviter les timeouts
+        for (let i = 0; i < rows.length; i += 100) {
+          await supabase.from("notifications").insert(rows.slice(i, i + 100));
+        }
+        console.log(`Notifications insérées : ${rows.length}`);
+      }
     }
 
-    const { data: tokens, error } = await query;
+    // ── 3. Envoyer les Web Push aux appareils enregistrés ─────────────────────
+    let tokenQuery = supabase.from("fcm_tokens").select("token, user_id");
+    if (targetUserIds && targetUserIds.length > 0) {
+      tokenQuery = tokenQuery.in("user_id", targetUserIds);
+    }
+
+    const { data: tokens, error } = await tokenQuery;
     if (error) throw error;
-    if (!tokens?.length) return Response.json({ sent: 0, message: "No subscriptions" }, { headers: corsHeaders });
+
+    if (!tokens?.length) {
+      return Response.json({ sent: 0, message: "No push subscriptions" }, { headers: corsHeaders });
+    }
 
     let sent = 0, failed = 0;
     const expired: string[] = [];

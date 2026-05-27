@@ -269,35 +269,37 @@ const HeroSection = () => {
           </motion.div>
         )}
 
-        {/* CTA Buttons */}
-        <motion.div
-          className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full mb-8"
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.9 }}
-        >
-          <Button
-            size="lg"
-            asChild
-            className="w-full sm:w-auto px-8 py-5 bg-cathedral-gold text-secondary font-semibold hover:bg-cathedral-gold/90 shadow-xl shadow-cathedral-gold/20 rounded-full font-cinzel tracking-wider"
+        {/* CTA Buttons — visible aux visiteurs non connectés uniquement */}
+        {!user && (
+          <motion.div
+            className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full mb-8"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.9 }}
           >
-            <Link to="/auth">
-              <Users className="mr-2 w-5 h-5" />
-              {t('common.joinUs')}
-            </Link>
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            asChild
-            className="w-full sm:w-auto px-8 py-5 border-white/30 text-white bg-white/5 hover:bg-white/10 rounded-full backdrop-blur-sm"
-          >
-            <Link to="/about">
-              {t('common.learnMore')}
-              <ArrowRight className="ml-2 w-4 h-4" />
-            </Link>
-          </Button>
-        </motion.div>
+            <Button
+              size="lg"
+              asChild
+              className="w-full sm:w-auto px-8 py-5 bg-cathedral-gold text-secondary font-semibold hover:bg-cathedral-gold/90 shadow-xl shadow-cathedral-gold/20 rounded-full font-cinzel tracking-wider"
+            >
+              <Link to="/auth">
+                <Users className="mr-2 w-5 h-5" />
+                {t('common.joinUs')}
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              asChild
+              className="w-full sm:w-auto px-8 py-5 border-white/30 text-white bg-white/5 hover:bg-white/10 rounded-full backdrop-blur-sm"
+            >
+              <Link to="/about">
+                {t('common.learnMore')}
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Link>
+            </Button>
+          </motion.div>
+        )}
 
         {/* Rotating verses */}
         <motion.div
@@ -324,16 +326,7 @@ const HeroSection = () => {
         </motion.div>
       </div>
 
-      {/* Bottom scroll indicator */}
-      <motion.div
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10"
-        animate={{ y: [0, 8, 0] }}
-        transition={{ duration: 2, repeat: Infinity }}
-      >
-        <div className="w-5 h-8 rounded-full border border-white/20 flex items-start justify-center pt-1.5">
-          <div className="w-1 h-2 rounded-full bg-cathedral-gold/60" />
-        </div>
-      </motion.div>
+
     </section>
   );
 };

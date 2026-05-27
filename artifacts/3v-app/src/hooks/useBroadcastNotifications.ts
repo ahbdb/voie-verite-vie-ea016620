@@ -181,6 +181,11 @@ export const useBroadcastNotifications = () => {
 };
 
 export const broadcastNotificationService = {
+  /**
+   * Envoie une notification à TOUS les utilisateurs.
+   * — Web Push (téléphone verrouillé, arrière-plan) via Edge Function VAPID
+   * — Insère en DB → déclenche Supabase Realtime → toast in-app pour les connectés
+   */
   async sendToAll(
     title: string,
     message: string,
@@ -189,10 +194,7 @@ export const broadcastNotificationService = {
     link: string | null = null
   ) {
     const isCall = type === 'call';
-
-    // 1. Web Push via Edge Function — fonctionne en production (Netlify) même téléphone éteint.
-    //    L'Edge Function utilise VAPID + service-role Supabase → atteint tous les appareils inscrits.
-    supabase.functions.invoke('send-push-notification', {
+    await supabase.functions.invoke('send-push-notification', {
       body: {
         title,
         body: message,
@@ -201,25 +203,16 @@ export const broadcastNotificationService = {
         requireInteraction: isCall,
         vibrate: isCall ? [400, 200, 400, 200, 600, 200, 600] : [200, 100, 200],
         tag: isCall ? `call-${Date.now()}` : undefined,
+        insert_notifications: true,
       },
     }).catch((e) => console.warn('send-push-notification:', e));
-
-    // 2. API server (dev/Replit) — insère les lignes en DB pour le pickup Supabase Realtime.
-    //    Sur Netlify cette route n'existe pas : on ignore l'erreur proprement.
-    try {
-      const res = await fetch('/api/notifications/broadcast', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, message, type, link }),
-      });
-      const ct = res.headers.get('content-type') || '';
-      if (res.ok && ct.includes('application/json')) return { error: null };
-    } catch { /* API server absent — normal en production */ }
-
     return { error: null };
   },
 
+  /**
+   * Envoie une notification aux utilisateurs d'un rôle donné ('user' ou 'admin').
+   * L'Edge Function filtre par rôle côté serveur (service-role, pas de RLS).
+   */
   async sendToRole(
     title: string,
     message: string,
@@ -229,9 +222,7 @@ export const broadcastNotificationService = {
     link: string | null = null
   ) {
     const isCall = type === 'call';
-
-    // Web Push — envoie à tous (l'Edge Function ne filtre pas par rôle côté client)
-    supabase.functions.invoke('send-push-notification', {
+    await supabase.functions.invoke('send-push-notification', {
       body: {
         title,
         body: message,
@@ -239,20 +230,10 @@ export const broadcastNotificationService = {
         url: link || '/',
         requireInteraction: isCall,
         vibrate: isCall ? [400, 200, 400, 200, 600, 200, 600] : [200, 100, 200],
+        role,
+        insert_notifications: true,
       },
-    }).catch((e) => console.warn('send-push-notification:', e));
-
-    try {
-      const res = await fetch('/api/notifications/broadcast-role', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, message, role, type, link }),
-      });
-      const ct = res.headers.get('content-type') || '';
-      if (res.ok && ct.includes('application/json')) return { error: null };
-    } catch { /* API server absent */ }
-
+    }).catch((e) => console.warn('send-push-notification (role):', e));
     return { error: null };
   },
 
