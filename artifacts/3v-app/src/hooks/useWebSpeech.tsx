@@ -11,6 +11,48 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 const GEMINI_TTS_MODEL = 'gemini-3.1-flash-tts-preview';
 const GEMINI_TTS_VOICE = 'Aoede';
 
+function splitIntoChunks(text: string, maxLen = 250): string[] {
+  const sentences = text.match(/[^.!?;\n]+[.!?;\n]?/g) ?? [text];
+  const chunks: string[] = [];
+  let current = '';
+  for (const s of sentences) {
+    const trimmed = s.trim();
+    if (!trimmed) continue;
+    if (current.length + trimmed.length + 1 <= maxLen) {
+      current = current ? `${current} ${trimmed}` : trimmed;
+    } else {
+      if (current) chunks.push(current);
+      current = trimmed;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks.length ? chunks : [text.trim()];
+}
+
+async function fetchChunkBlob(text: string, apiKey: string, signal: AbortSignal): Promise<Blob> {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TTS_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify({
+        contents: [{ parts: [{ text }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: GEMINI_TTS_VOICE } } },
+        },
+      }),
+    },
+  );
+  if (!res.ok) throw new Error(`Gemini TTS HTTP ${res.status}`);
+  const data = await res.json() as unknown;
+  const b64 = (data as { candidates?: { content?: { parts?: { inlineData?: { data?: string } }[] } }[] })
+    ?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  if (!b64) throw new Error('Pas de données audio');
+  return base64PcmToWavBlob(b64);
+}
+
 function base64PcmToWavBlob(base64: string, sampleRate = 24000): Blob {
   const bin = atob(base64);
   const pcm = new Uint8Array(bin.length);
@@ -166,6 +208,31 @@ export const useWebSpeech = (options: UseWebSpeechOptions = {}) => {
     setIsSpeaking(false);
   }, [cleanupAudio]);
 
+  // ── TTS : jouer les chunks dans l'ordre ──────────────────────────────────
+  const playInOrder = useCallback(
+    (blobs: Promise<Blob>[], index: number, controller: AbortController) => {
+      if (controller.signal.aborted) return;
+      if (index >= blobs.length) { cleanupAudio(); setIsSpeaking(false); return; }
+      blobs[index]
+        .then((blob) => {
+          if (controller.signal.aborted) return;
+          const url = URL.createObjectURL(blob);
+          blobUrlRef.current = url;
+          const audio = new Audio(url);
+          audioRef.current = audio;
+          audio.onplay  = () => setIsSpeaking(true);
+          audio.onended = () => playInOrder(blobs, index + 1, controller);
+          audio.onerror = () => playInOrder(blobs, index + 1, controller);
+          audio.play().catch(() => playInOrder(blobs, index + 1, controller));
+        })
+        .catch((err: unknown) => {
+          if ((err as Error)?.name === 'AbortError') return;
+          playInOrder(blobs, index + 1, controller);
+        });
+    },
+    [cleanupAudio],
+  );
+
   // ── TTS : speak ───────────────────────────────────────────────────────────
   const speak = useCallback(
     (text: string) => {
@@ -176,67 +243,13 @@ export const useWebSpeech = (options: UseWebSpeechOptions = {}) => {
       stopSpeaking();
 
       if (useGemini && apiKey) {
-        // ── Gemini TTS ──────────────────────────────────────────────────────
+        // ── Gemini TTS avec chunking parallèle ──────────────────────────────
         setIsSpeaking(true);
         const controller = new AbortController();
         abortTTSRef.current = controller;
-
-        void (async () => {
-          try {
-            const res = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TTS_MODEL}:generateContent?key=${apiKey}`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                signal: controller.signal,
-                body: JSON.stringify({
-                  contents: [{ parts: [{ text }] }],
-                  generationConfig: {
-                    responseModalities: ['AUDIO'],
-                    speechConfig: {
-                      voiceConfig: { prebuiltVoiceConfig: { voiceName: GEMINI_TTS_VOICE } },
-                    },
-                  },
-                }),
-              },
-            );
-            if (!res.ok) throw new Error(`Gemini TTS HTTP ${res.status}`);
-            const data = await res.json() as unknown;
-            const b64 = (data as { candidates?: { content?: { parts?: { inlineData?: { data?: string } }[] } }[] })
-              ?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-            if (!b64) throw new Error('Pas de données audio Gemini');
-
-            const blob = base64PcmToWavBlob(b64);
-            const url  = URL.createObjectURL(blob);
-            blobUrlRef.current = url;
-
-            const audio = new Audio(url);
-            audioRef.current = audio;
-            audio.onended = () => { cleanupAudio(); setIsSpeaking(false); };
-            audio.onerror = () => { cleanupAudio(); setIsSpeaking(false); optionsRef.current.onError?.('Erreur lecture audio'); };
-            await audio.play();
-          } catch (err: unknown) {
-            if ((err as Error)?.name === 'AbortError') return;
-            console.warn('[useWebSpeech] Gemini TTS échoué, fallback:', err);
-            // Fallback Web Speech
-            if ('speechSynthesis' in window) {
-              const utter = new SpeechSynthesisUtterance(text);
-              utter.lang = optionsRef.current.language || 'fr-FR';
-              utter.rate = 0.95;
-              utter.onstart = () => setIsSpeaking(true);
-              utter.onend   = () => { setIsSpeaking(false); utteranceRef.current = null; };
-              utter.onerror = (e: any) => {
-                optionsRef.current.onError?.(`Erreur synthèse vocale: ${e.error}`);
-                setIsSpeaking(false); utteranceRef.current = null;
-              };
-              utteranceRef.current = utter;
-              speechSynthesis.speak(utter);
-            } else {
-              setIsSpeaking(false);
-              optionsRef.current.onError?.('Synthèse vocale non supportée');
-            }
-          }
-        })();
+        const chunks = splitIntoChunks(text);
+        const blobs  = chunks.map(c => fetchChunkBlob(c, apiKey, controller.signal));
+        playInOrder(blobs, 0, controller);
       } else {
         // ── Web Speech API ──────────────────────────────────────────────────
         if (!('speechSynthesis' in window)) {
