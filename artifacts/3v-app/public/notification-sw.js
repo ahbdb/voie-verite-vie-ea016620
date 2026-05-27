@@ -1,7 +1,54 @@
-/* ── Notification Service Worker — Voie Vérité Vie ─────────────────────── */
+/* ── Notification + PWA Service Worker — Voie Vérité Vie ────────────────── */
 
-self.addEventListener('install', () => { self.skipWaiting(); });
-self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
+const CANONICAL_ORIGIN = 'https://voieveritevie.org';
+const CACHE_NAME = 'vvv-shell-v1';
+const SHELL_URLS = ['/', '/manifest.json', '/icon-192x192.png', '/badge-72x72.png'];
+
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
+  // Pré-cache le shell de l'app pour le mode hors-ligne
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_URLS).catch(() => {}))
+  );
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      // Supprimer les anciens caches
+      caches.keys().then((keys) =>
+        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      ),
+    ])
+  );
+});
+
+/* ── Fetch : redirection si ancien domaine + support hors-ligne ────────── */
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Si l'utilisateur est sur l'ancien domaine → rediriger vers le nouveau
+  if (url.origin !== CANONICAL_ORIGIN && request.mode === 'navigate') {
+    event.respondWith(
+      Response.redirect(CANONICAL_ORIGIN + url.pathname + url.search, 301)
+    );
+    return;
+  }
+
+  // Navigation requests : réseau d'abord, cache shell en fallback (hors-ligne)
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(() =>
+        caches.match('/').then((r) => r || fetch(request))
+      )
+    );
+    return;
+  }
+
+  // Tous les autres assets : réseau normal (pas de cache agressif)
+});
 
 /* ── Classify notification payload ──────────────────────────────────────── */
 function classifyPayload(payload) {
