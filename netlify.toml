@@ -28,9 +28,10 @@
 
 # Service workers — no cache so updates are immediate
 [[headers]]
-  for = "/sw.js"
+  for = "/notification-sw.js"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
+    Service-Worker-Allowed = "/"
 
 [[headers]]
   for = "/firebase-messaging-sw.js"

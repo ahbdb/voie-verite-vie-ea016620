@@ -4,6 +4,15 @@ import { debugService } from './services/debug-service'
 
 debugService.log('Application starting...', 'info', 'main');
 
+// Enregistrer le service worker dès le démarrage (nécessaire pour l'installation PWA).
+// Le fait AVANT le rendu React pour que le navigateur détecte l'app comme installable
+// même pour les visiteurs non connectés.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/notification-sw.js', { scope: '/' }).catch(() => {
+    // Silencieux — le SW sera enregistré plus tard si nécessaire
+  });
+}
+
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
