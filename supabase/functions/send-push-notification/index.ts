@@ -144,9 +144,14 @@ async function vapidAuthHeader(endpoint: string): Promise<string> {
   return `vapid t=${unsigned}.${b64url(rawSig)}, k=${VAPID_PUBLIC_KEY}`;
 }
 
+interface PushSubscription {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
 async function sendOne(tokenJson: string, payload: PushPayload): Promise<{ status: number; ok: boolean }> {
-  let sub: { endpoint: string; keys: { p256dh: string; auth: string } };
-  try { sub = JSON.parse(tokenJson); } catch { return { status: 0, ok: false }; }
+  let sub: PushSubscription;
+  try { sub = JSON.parse(tokenJson) as PushSubscription; } catch { return { status: 0, ok: false }; }
   if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) return { status: 0, ok: false };
 
   const isCall = payload.action === "call" || payload.action === "live";
@@ -210,7 +215,7 @@ Deno.serve(async (req) => {
         .from("user_roles")
         .select("user_id")
         .in("role", roleFilter);
-      targetUserIds = [...new Set((roleRows || []).map((r: any) => r.user_id as string))];
+      targetUserIds = [...new Set((roleRows || []).map((r: { user_id: string }) => r.user_id))];
     }
     // Si targetUserIds === null → tous les utilisateurs
 
@@ -220,7 +225,7 @@ Deno.serve(async (req) => {
       if (notifUserIds.length === 0) {
         // Tous les profils
         const { data: allProfiles } = await supabase.from("profiles").select("id");
-        notifUserIds = (allProfiles || []).map((p: any) => p.id as string);
+        notifUserIds = (allProfiles || []).map((p: { id: string }) => p.id);
       }
       if (notifUserIds.length > 0) {
         const link = payload.url && payload.url !== "/" ? payload.url : null;
