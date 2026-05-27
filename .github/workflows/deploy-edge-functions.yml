@@ -1,10 +1,12 @@
 name: Deploy Supabase Edge Functions
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
       - 'supabase/functions/**'
+      - '.github/workflows/deploy-edge-functions.yml'
 
 jobs:
   deploy:
@@ -21,4 +23,19 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase functions deploy send-push-notification \
+            --project-ref kaddsojhnkyfavaulrfc
+
+      - name: Deploy gemini-tts
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy gemini-tts \
+            --project-ref kaddsojhnkyfavaulrfc \
+            --no-verify-jwt
+
+      - name: Set GEMINI_API_KEY secret
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase secrets set GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
             --project-ref kaddsojhnkyfavaulrfc
