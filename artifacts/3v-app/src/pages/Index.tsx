@@ -55,7 +55,42 @@ const RSS_BY_COUNTRY: Record<string, string> = {
   US: 'https://www.catholicnewsagency.com/feed',
   GB: 'https://catholicherald.co.uk/feed/',
   PL: 'https://www.vaticannews.va/pl.rss.xml',
+  // Afrique francophone → Agence I.MEDIA (actualités catholiques)
+  CM: 'https://www.imedias.eu/feed/',
+  SN: 'https://www.imedias.eu/feed/',
+  CI: 'https://www.imedias.eu/feed/',
+  TG: 'https://www.imedias.eu/feed/',
+  BJ: 'https://www.imedias.eu/feed/',
+  CD: 'https://www.imedias.eu/feed/',
+  MG: 'https://www.imedias.eu/feed/',
+  GA: 'https://www.imedias.eu/feed/',
+  CG: 'https://www.imedias.eu/feed/',
+  RW: 'https://www.imedias.eu/feed/',
+  BI: 'https://www.imedias.eu/feed/',
 };
+
+/** Convertit un nom de pays (stocké en profil) en code ISO-2. */
+function countryNameToCode(name: string): string {
+  const MAP: Record<string, string> = {
+    'cameroun': 'CM', 'cameroon': 'CM',
+    'france': 'FR', 'belgique': 'BE', 'belgium': 'BE',
+    'suisse': 'CH', 'switzerland': 'CH',
+    'italie': 'IT', 'italy': 'IT',
+    'allemagne': 'DE', 'germany': 'DE',
+    'espagne': 'ES', 'spain': 'ES',
+    'portugal': 'PT',
+    'états-unis': 'US', 'usa': 'US', 'etats-unis': 'US',
+    'royaume-uni': 'GB', 'uk': 'GB',
+    'pologne': 'PL', 'poland': 'PL',
+    'sénégal': 'SN', 'senegal': 'SN',
+    "côte d'ivoire": 'CI', 'ivory coast': 'CI',
+    'togo': 'TG', 'bénin': 'BJ', 'benin': 'BJ',
+    'congo': 'CG', 'rdc': 'CD', 'congo-kinshasa': 'CD',
+    'gabon': 'GA', 'madagascar': 'MG',
+    'rwanda': 'RW', 'burundi': 'BI',
+  };
+  return MAP[name.trim().toLowerCase()] ?? '';
+}
 
 async function fetchRss(url: string, count = 6): Promise<RssItem[]> {
   try {
@@ -262,7 +297,13 @@ const NewsCard = ({ post, variant }: { post: NewsPost; variant: 'featured' | 'gr
 
 // ── External Catholic News ─────────────────────────────────────────────────────
 
-const ExternalNewsSection = () => {
+const ExternalNewsSection = ({
+  profileCountry,
+  profileCity,
+}: {
+  profileCountry?: string;
+  profileCity?: string;
+}) => {
   const [country, setCountry] = useState<{ code: string; name: string; city: string } | null>(null);
   const [worldNews, setWorldNews] = useState<RssItem[]>([]);
   const [localNews, setLocalNews] = useState<RssItem[]>([]);
@@ -274,7 +315,14 @@ const ExternalNewsSection = () => {
     fetchedRef.current = true;
 
     const load = async () => {
-      const geo = await detectCountry();
+      // Priorité : pays stocké en profil → sinon géolocalisation IP
+      let geo: { code: string; name: string; city: string };
+      if (profileCountry) {
+        const code = countryNameToCode(profileCountry);
+        geo = { code: code || 'FR', name: profileCountry, city: profileCity || '' };
+      } else {
+        geo = await detectCountry();
+      }
       setCountry(geo);
       const localUrl = RSS_BY_COUNTRY[geo.code];
       const [world, local] = await Promise.all([
@@ -286,7 +334,7 @@ const ExternalNewsSection = () => {
       setLoading(false);
     };
     void load();
-  }, []);
+  }, [profileCountry, profileCity]);
 
   if (loading) {
     return (
@@ -442,12 +490,20 @@ const Index = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [postSignupOpen, setPostSignupOpen] = useState(false);
   const [postSignupName, setPostSignupName] = useState<string | null>(null);
+  const [profileCountry, setProfileCountry] = useState<string | undefined>(undefined);
+  const [profileCity, setProfileCity]       = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!user) return;
     db.from('user_roles').select('role').eq('user_id', user.id).then(({ data }: any) => {
       setIsAdmin((data || []).some((r: any) => r.role === 'admin' || r.role === 'superadmin'));
     });
+    // Charger pays/ville du profil pour les actualités locales
+    db.from('profiles').select('country, city').eq('id', user.id).single()
+      .then(({ data }: any) => {
+        if (data?.country) setProfileCountry(data.country as string);
+        if (data?.city)    setProfileCity(data.city as string);
+      });
   }, [user]);
 
   useEffect(() => {
@@ -475,7 +531,7 @@ const Index = () => {
         <HeroSection />
         <QuickLinksBar />
         <AssociationNewsSection isAdmin={isAdmin} />
-        <ExternalNewsSection />
+        <ExternalNewsSection profileCountry={profileCountry} profileCity={profileCity} />
         <VersetDuJour />
         <MissionSection />
         <CTASection />
