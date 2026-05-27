@@ -1,0 +1,9 @@
+{
+  // Active le language server Deno uniquement pour les Edge Functions Supabase.
+  // Le reste du projet (React/Vite) continue d'utiliser le TS standard.
+  "deno.enablePaths": ["supabase/functions"],
+  "deno.unstable": false,
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  }
+}
