@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BookOpen, Play, Pause, Square, ChevronDown } from 'lucide-react';
+import { ArrowLeft, BookOpen, Play, Pause, Square, Loader2 } from 'lucide-react';
 import BibleChapterViewer from '@/components/BibleChapterViewer';
 import { preloadBibleChapters, clearBibleCache } from '@/lib/bible-content-loader';
 import bibleBooks from '@/data/bible-books.json';
@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useSettings } from '@/hooks/useSettings';
+import { useGeminiTTS } from '@/hooks/useGeminiTTS';
 import { useToast } from '@/components/ui/use-toast';
 
 interface BookData {
@@ -35,23 +35,18 @@ const BibleBookDetail = () => {
   const { bookId } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { settings } = useSettings();
 
   const [book, setBook] = useState<BookData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedChapter, setSelectedChapter] = useState<number>(1);
   const [chapterText, setChapterText] = useState('');
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const chapterButtonsRef = useRef<Map<number, HTMLButtonElement>>(new Map());
 
-  // Refs for pause/resume functionality
-  const fullTextRef = useRef<string>('');
-  const startOffsetRef = useRef<number>(0);
-  const charOffsetRef = useRef<number>(0);
-  const pauseRequestedRef = useRef<boolean>(false);
-
-  const langCode = i18n.language?.split('-')[0] === 'en' ? 'en-US' : i18n.language?.split('-')[0] === 'it' ? 'it-IT' : 'fr-FR';
+  // Gemini TTS
+  const {
+    speak, stop, pause, resume,
+    speaking: isSpeaking, paused: isPaused, loading: ttsLoading, supported: ttsSupported,
+  } = useGeminiTTS();
 
   useEffect(() => {
     if (bookId) {
@@ -65,75 +60,22 @@ const BibleBookDetail = () => {
     }
   }, [bookId]);
 
-  // Stop speaking on chapter change + scroll navbar
+  // Arrêter la lecture quand le chapitre change
   useEffect(() => {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-      setIsPaused(false);
-    }
-    // Scroll the chapter button into view in the navbar
+    stop();
     setTimeout(() => {
       chapterButtonsRef.current.get(selectedChapter)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }, 50);
-  }, [selectedChapter]);
-
-  const speakFrom = useCallback((offset: number) => {
-    const text = fullTextRef.current.slice(offset);
-    if (!text.trim()) return;
-
-    startOffsetRef.current = offset;
-    charOffsetRef.current = 0;
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = langCode;
-
-    // Use selected voice from settings (real system voices)
-    const voices = window.speechSynthesis.getVoices();
-    if (settings.selectedVoice) {
-      const voice = voices.find(v => v.voiceURI === settings.selectedVoice);
-      if (voice) utterance.voice = voice;
-    }
-
-    utterance.onboundary = (e) => {
-      if (e.name === 'word') {
-        charOffsetRef.current = e.charIndex;
-      }
-    };
-
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setIsPaused(false);
-      pauseRequestedRef.current = false;
-    };
-
-    utterance.onend = () => {
-      if (pauseRequestedRef.current) return;
-      setIsSpeaking(false);
-      setIsPaused(false);
-    };
-
-    utterance.onerror = (e) => {
-      if (pauseRequestedRef.current) return;
-      if (e.error !== 'canceled' && e.error !== 'interrupted') {
-        setIsSpeaking(false);
-        setIsPaused(false);
-      }
-    };
-
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-  }, [langCode, settings.selectedVoice]);
+  }, [selectedChapter, stop]);
 
   const handlePlayVoice = useCallback(() => {
-    if (!('speechSynthesis' in window)) {
+    if (!ttsSupported) {
       toast({
         title: t('common.error'),
         description: t('bibleBook.voiceUnsupported'),
       });
       return;
     }
-
     if (!chapterText.trim()) {
       toast({
         title: t('bibleBook.voiceNoTextTitle'),
@@ -141,43 +83,13 @@ const BibleBookDetail = () => {
       });
       return;
     }
-
-    // Build text: "Chapitre X" then verse texts only (no verse numbers)
     const chapterIntro = `${t('bibleBook.chaptersTitle')} ${selectedChapter}. `;
-    const cleanText = chapterText.replace(/\d+\.\s*/g, ' ').trim();
-    const fullText = chapterIntro + cleanText;
+    const cleanText    = chapterText.replace(/\d+\.\s*/g, ' ').trim();
+    speak(chapterIntro + cleanText);
+  }, [chapterText, selectedChapter, t, speak, ttsSupported, toast]);
 
-    fullTextRef.current = fullText;
-    startOffsetRef.current = 0;
-    charOffsetRef.current = 0;
-
-    speakFrom(0);
-  }, [chapterText, selectedChapter, t, speakFrom, toast]);
-
-  const handleStopVoice = useCallback(() => {
-    window.speechSynthesis?.cancel();
-    setIsSpeaking(false);
-    setIsPaused(false);
-    startOffsetRef.current = 0;
-    charOffsetRef.current = 0;
-  }, []);
-
-  const handlePauseResume = useCallback(() => {
-    if (!window.speechSynthesis) return;
-
-    if (isPaused) {
-      pauseRequestedRef.current = false;
-      // Resume from last known position
-      const absoluteOffset = startOffsetRef.current + charOffsetRef.current;
-      speakFrom(absoluteOffset);
-    } else {
-      // Pause: cancel and save position
-      pauseRequestedRef.current = true;
-      window.speechSynthesis.cancel();
-      setIsPaused(true);
-      setIsSpeaking(true);
-    }
-  }, [isPaused, speakFrom]);
+  const handleStopVoice    = useCallback(() => stop(), [stop]);
+  const handlePauseResume  = useCallback(() => { if (isPaused) resume(); else pause(); }, [isPaused, pause, resume]);
 
   if (loading) {
     return (
@@ -232,15 +144,20 @@ const BibleBookDetail = () => {
                 <ArrowLeft className="w-4 h-4" />
               </Button>
 
-              {!isSpeaking ? (
+              {!isSpeaking && !ttsLoading ? (
                 <Button
                   onClick={handlePlayVoice}
                   variant="outline"
                   size="sm"
-                  disabled={!chapterText.trim()}
+                  disabled={!chapterText.trim() || !ttsSupported}
                 >
                   <Play className="w-4 h-4 mr-1" />
                   {t('bibleBook.voiceRead')}
+                </Button>
+              ) : ttsLoading ? (
+                <Button variant="outline" size="sm" disabled>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  Génération…
                 </Button>
               ) : (
                 <>

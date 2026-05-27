@@ -365,10 +365,7 @@ const PriereQuotidienne = () => {
     } else {
       stop();
       setSpeakingId(prayer.id);
-      speak(`${prayer.title}. ${prayer.text}`);
-      const check = setInterval(() => {
-        if (!window.speechSynthesis.speaking) { setSpeakingId(null); clearInterval(check); }
-      }, 500);
+      speak(`${prayer.title}. ${prayer.text}`, () => setSpeakingId(null));
     }
   };
 
@@ -437,7 +434,7 @@ const PriereQuotidienne = () => {
                 <button
                   onClick={() => {
                     if (speakingId === 'gospel') { stop(); setSpeakingId(null); }
-                    else { stop(); setSpeakingId('gospel'); speak(stripHtml(gospel.contenu ?? '')); }
+                    else { stop(); setSpeakingId('gospel'); speak(stripHtml(gospel.contenu ?? ''), () => setSpeakingId(null)); }
                   }}
                   className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-all ${speakingId === 'gospel' ? 'text-cathedral-gold border-cathedral-gold/40 bg-cathedral-gold/10' : 'text-muted-foreground border-border hover:border-border/80'}`}
                 >

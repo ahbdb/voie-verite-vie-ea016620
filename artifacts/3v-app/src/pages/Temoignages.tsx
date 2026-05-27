@@ -99,11 +99,9 @@ const Temoignages = () => {
       stop();
       setSpeakingId(null);
     } else {
+      stop();
       setSpeakingId(t.id);
-      speak(`${t.titre}. ${t.recit}`);
-      const check = setInterval(() => {
-        if (!window.speechSynthesis.speaking) { setSpeakingId(null); clearInterval(check); }
-      }, 500);
+      speak(`${t.titre}. ${t.recit}`, () => setSpeakingId(null));
     }
   };
 
