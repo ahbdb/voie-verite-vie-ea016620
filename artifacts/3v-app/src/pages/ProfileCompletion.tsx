@@ -102,21 +102,29 @@ export default function ProfileCompletion() {
 
     setSaving(true);
     try {
-      const update: Record<string, string | null> = {
-        gender,
-        birth_date: birthDate,
-      };
+      // ── 1. Metadata Supabase Auth EN PREMIER ───────────────────────────────
+      // C'est la source de vérité du garde. On le fait avant tout le reste
+      // pour que profileComplete = true soit garanti même si la table profiles
+      // n'a pas encore les nouvelles colonnes (migration non appliquée).
+      const { error: authError } = await supabase.auth.updateUser({ data: { gender } });
+      if (authError) throw authError;
+
+      // ── 2. Table profiles (best-effort) ────────────────────────────────────
+      // Si la migration SQL n'a pas encore été appliquée, cet update peut échouer.
+      // On ne bloque pas le flux pour autant : le metadata Auth suffit pour
+      // débloquer l'application.
+      const update: Record<string, string | null> = { gender };
+      if (birthDate)     update.birth_date     = birthDate;
       if (baptismDate)   update.baptism_date   = baptismDate;
       if (maritalStatus) update.marital_status = maritalStatus;
       if (maritalStatus === 'marie' && weddingDate) update.wedding_date = weddingDate;
       if (country.trim()) update.country = country.trim();
       if (city.trim())    update.city    = city.trim();
 
-      const { error } = await supabase.from('profiles').update(update).eq('id', user.id);
-      if (error) throw error;
+      // Erreur silencieuse : ne pas bloquer si la colonne n'existe pas encore
+      await supabase.from('profiles').update(update).eq('id', user.id).then(() => {}).catch(() => {});
 
-      // Crucial : mettre à jour les métadonnées Auth → profileComplete = true immédiatement
-      await supabase.auth.updateUser({ data: { gender } });
+      // ── 3. Rafraîchir le contexte ───────────────────────────────────────────
       await refetch();
 
       setStep(3);

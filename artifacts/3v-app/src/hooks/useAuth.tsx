@@ -88,6 +88,13 @@ function enrichFromProfile(
       const firstName   = d.first_name || d.full_name?.trim().split(' ')[0] || null;
       const lastName    = d.last_name  || (d.full_name?.trim().split(' ').slice(1).join(' ') || null);
       const displayName = [firstName, lastName].filter(Boolean).join(' ') || d.full_name;
+
+      // Genre : table profiles EN PRIORITÉ, sinon user_metadata Auth (fallback
+      // si la migration SQL n'a pas encore été appliquée mais que updateUser a réussi)
+      const genderFromProfile  = d.gender as 'homme' | 'femme' | null;
+      const genderFromMetadata = session.user.user_metadata?.gender as 'homme' | 'femme' | null;
+      const resolvedGender     = genderFromProfile || genderFromMetadata || null;
+
       setUser({
         id: session.user.id,
         name: displayName || null,
@@ -95,8 +102,8 @@ function enrichFromProfile(
         lastName,
         email: session.user.email || null,
         profileImage: d.avatar_url || session.user.user_metadata?.avatar_url || null,
-        gender: (d.gender as 'homme' | 'femme') || null,
-        profileComplete: !!d.gender, // ← vérité définitive
+        gender: resolvedGender,
+        profileComplete: !!resolvedGender, // vrai dès que l'une des deux sources a le genre
         roles: [],
       });
     } catch {
