@@ -4,13 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface AuthUser {
   id: string;
-  name: string | null;       // firstName + lastName (ou full_name en fallback)
+  name: string | null;
   firstName: string | null;
   lastName: string | null;
   email: string | null;
   profileImage: string | null;
   gender: 'homme' | 'femme' | null;
-  profileComplete: boolean;  // false tant que gender est null
+  /** true uniquement après que enrichFromProfile a confirmé le genre depuis la DB */
+  profileComplete: boolean;
   roles?: string[];
 }
 
@@ -19,6 +20,11 @@ interface AuthContextType {
   supabaseUser: User | null;
   session: Session | null;
   loading: boolean;
+  /**
+   * Devient true une fois que enrichFromProfile a résolu (succès ou échec).
+   * Le garde de complétion de profil DOIT attendre ce flag avant de rediriger.
+   */
+  profileEnriched: boolean;
   refetch: () => Promise<void>;
   signOut: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -27,6 +33,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// ── sessionToUser : lecture rapide depuis user_metadata (peut être incomplet) ──
 function sessionToUser(session: Session): AuthUser {
   const fullName: string | null = session.user.user_metadata?.full_name || null;
   const parts = fullName?.trim().split(' ') ?? [];
@@ -40,14 +47,13 @@ function sessionToUser(session: Session): AuthUser {
     email: session.user.email || null,
     profileImage: session.user.user_metadata?.avatar_url || null,
     gender: (session.user.user_metadata?.gender as 'homme' | 'femme') || null,
+    // Optimiste : si le metadata a le genre → complet. Sinon enrichFromProfile tranchera.
     profileComplete: !!session.user.user_metadata?.gender,
     roles: [],
   };
 }
 
-// Read the current Supabase session synchronously from localStorage.
-// Supabase stores the session under this key — reading it avoids the async
-// round-trip that causes a "flash of logged-out" on slow mobile networks.
+// ── Lecture synchrone depuis localStorage ───────────────────────────────────
 const SUPABASE_AUTH_KEY = 'sb-kaddsojhnkyfavaulrfc-auth-token';
 function readStoredSession(): Session | null {
   try {
@@ -59,8 +65,13 @@ function readStoredSession(): Session | null {
   } catch { return null; }
 }
 
-// Fetch profile in the background and enrich the user object — never blocks loading.
-function enrichFromProfile(session: Session, setUser: (u: AuthUser) => void) {
+// ── enrichFromProfile : lecture réelle depuis la table profiles ──────────────
+// onDone() est appelé en finally → le garde sait que la vraie valeur est disponible.
+function enrichFromProfile(
+  session: Session,
+  setUser: (u: AuthUser) => void,
+  onDone?: () => void,
+) {
   void (async () => {
     try {
       const { data } = await supabase
@@ -70,14 +81,12 @@ function enrichFromProfile(session: Session, setUser: (u: AuthUser) => void) {
         .single();
       if (!data) return;
       const d = data as {
-        full_name: string | null;
-        first_name: string | null;
-        last_name: string | null;
-        avatar_url: string | null;
+        full_name: string | null; first_name: string | null;
+        last_name: string | null; avatar_url: string | null;
         gender: string | null;
       };
-      const firstName = d.first_name || d.full_name?.trim().split(' ')[0] || null;
-      const lastName  = d.last_name  || (d.full_name?.trim().split(' ').slice(1).join(' ') || null);
+      const firstName   = d.first_name || d.full_name?.trim().split(' ')[0] || null;
+      const lastName    = d.last_name  || (d.full_name?.trim().split(' ').slice(1).join(' ') || null);
       const displayName = [firstName, lastName].filter(Boolean).join(' ') || d.full_name;
       setUser({
         id: session.user.id,
@@ -87,57 +96,72 @@ function enrichFromProfile(session: Session, setUser: (u: AuthUser) => void) {
         email: session.user.email || null,
         profileImage: d.avatar_url || session.user.user_metadata?.avatar_url || null,
         gender: (d.gender as 'homme' | 'femme') || null,
-        profileComplete: !!d.gender,
+        profileComplete: !!d.gender, // ← vérité définitive
         roles: [],
       });
     } catch {
-      // ignore — profile enrichment is best-effort
+      // Enrichissement best-effort — en cas d'erreur on signale quand même onDone
+      // pour ne pas bloquer le garde indéfiniment.
+    } finally {
+      onDone?.();
     }
   })();
 }
 
+// ── Provider ─────────────────────────────────────────────────────────────────
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  // Initialise synchronously from localStorage so mobile users never see a
-  // "not logged in" flash while the async getSession() round-trip completes.
   const storedSess = readStoredSession();
-  const [user, setUser] = useState<AuthUser | null>(storedSess ? sessionToUser(storedSess) : null);
-  const [supabaseUser, setSupabaseUser] = useState<User | null>(storedSess?.user ?? null);
-  const [session, setSession] = useState<Session | null>(storedSess);
-  // If a session was already found in localStorage, skip the loading state entirely.
-  const [loading, setLoading] = useState(!storedSess);
+
+  const [user,            setUser]           = useState<AuthUser | null>(storedSess ? sessionToUser(storedSess) : null);
+  const [supabaseUser,    setSupabaseUser]   = useState<User | null>(storedSess?.user ?? null);
+  const [session,         setSession]        = useState<Session | null>(storedSess);
+  const [loading,         setLoading]        = useState(!storedSess);
+  // Si pas de session stockée → pas d'utilisateur connecté → pas besoin d'enrichissement → true
+  // Si session stockée → on doit lire la DB pour savoir si le profil est complet → false
+  const [profileEnriched, setProfileEnriched] = useState(!storedSess);
 
   useEffect(() => {
-    // 1. Subscribe to future auth changes (SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED …)
+    // markEnriched est idempotent : le premier appel passe, les suivants sont ignorés
+    let enriched = false;
+    const markEnriched = () => {
+      if (!enriched) {
+        enriched = true;
+        setProfileEnriched(true);
+      }
+    };
+
+    // 1. Écouter les futurs changements d'état auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
       setSupabaseUser(sess?.user ?? null);
       if (sess?.user) {
         setUser(sessionToUser(sess));
-        enrichFromProfile(sess, setUser);
+        enrichFromProfile(sess, setUser, markEnriched);
       } else {
         setUser(null);
+        markEnriched(); // déconnecté = pas d'enrichissement = prêt
       }
       setLoading(false);
     });
 
-    // 2. Trigger a token refresh in the background. On mobile this may be slow,
-    //    but because we already loaded from localStorage above the UI is unblocked.
+    // 2. Rafraîchir le token en arrière-plan
     supabase.auth.getSession()
       .then(({ data: { session: sess } }) => {
         setSession(sess);
         setSupabaseUser(sess?.user ?? null);
         if (sess?.user) {
           setUser(sessionToUser(sess));
-          enrichFromProfile(sess, setUser);
+          enrichFromProfile(sess, setUser, markEnriched);
         } else {
           setUser(null);
+          markEnriched();
         }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { setLoading(false); markEnriched(); });
 
-    // 3. Safety net: unblock after 8 s on extremely slow networks.
-    const safetyTimer = setTimeout(() => setLoading(false), 8000);
+    // 3. Filet de sécurité : débloquer après 8 s si le réseau est très lent
+    const safetyTimer = setTimeout(() => { setLoading(false); markEnriched(); }, 8000);
 
     return () => {
       subscription.unsubscribe();
@@ -150,22 +174,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, firstName: string, lastName: string, gender: 'homme' | 'femme') => {
+  const signUp = async (
+    email: string, password: string,
+    firstName: string, lastName: string,
+    gender: 'homme' | 'femme',
+  ) => {
     const fullName = [firstName, lastName].filter(Boolean).join(' ');
     const { error, data } = await supabase.auth.signUp({
-      email,
-      password,
+      email, password,
       options: { data: { full_name: fullName, first_name: firstName, last_name: lastName, gender } },
     });
     if (!error && data.user) {
-      // Upsert profile with all identity fields
       await supabase.from('profiles').upsert({
-        id: data.user.id,
-        email,
-        full_name: fullName,
-        first_name: firstName,
-        last_name: lastName || null,
-        gender,
+        id: data.user.id, email,
+        full_name: fullName, first_name: firstName,
+        last_name: lastName || null, gender,
       }, { onConflict: 'id' });
     }
     if (!error && !data.session) {
@@ -174,9 +197,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error };
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-  };
+  const signOut = async () => { await supabase.auth.signOut(); };
 
   const refetch = async () => {
     try {
@@ -185,17 +206,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSupabaseUser(sess?.user ?? null);
       if (sess?.user) {
         setUser(sessionToUser(sess));
+        // Pas besoin de rappeler markEnriched ici : profileEnriched est déjà true
         enrichFromProfile(sess, setUser);
       } else {
         setUser(null);
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
   };
 
   return (
-    <AuthContext.Provider value={{ user, supabaseUser, session, loading, refetch, signOut, signIn, signUp }}>
+    <AuthContext.Provider value={{
+      user, supabaseUser, session, loading, profileEnriched,
+      refetch, signOut, signIn, signUp,
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -203,8 +226,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

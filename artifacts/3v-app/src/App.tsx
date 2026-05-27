@@ -85,16 +85,18 @@ const queryClient = new QueryClient();
 const EXEMPT_PATHS = ['/auth', '/profile-completion', '/install'];
 
 const ProfileCompletionGuard = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, profileEnriched } = useAuth();
   const location = useLocation();
 
-  // While auth is resolving, render as-is (avoids flash-redirect)
-  if (loading) return <>{children}</>;
+  // Attendre que auth soit résolu ET que l'enrichissement depuis la DB soit terminé.
+  // Sans cette condition, le garde se déclencherait avant de connaître la vraie valeur
+  // de profileComplete (qui vient de la table profiles, pas du user_metadata).
+  if (loading || !profileEnriched) return <>{children}</>;
 
-  // Exempt pages (auth page, the completion page itself, install guide)
+  // Pages exemptées : page d'auth, la page de complétion elle-même, guide d'install
   if (EXEMPT_PATHS.some((p) => location.pathname.startsWith(p))) return <>{children}</>;
 
-  // If authenticated but gender not filled → profile completion required
+  // Seulement si le genre est CONFIRMÉ absent par la DB → redirection unique
   if (user && !user.profileComplete) {
     return <Navigate to="/profile-completion" replace />;
   }
