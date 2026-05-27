@@ -10,7 +10,7 @@
  */
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-const GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
+const GEMINI_TTS_MODEL = 'gemini-3.1-flash-tts-preview';
 const GEMINI_TTS_VOICE = 'Aoede'; // Voix naturelle, convient aux prières françaises
 
 // ── PCM brut (24 kHz, 16-bit, mono) → Blob WAV ───────────────────────────────

@@ -8,7 +8,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
 // ── Gemini TTS helpers ────────────────────────────────────────────────────────
-const GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
+const GEMINI_TTS_MODEL = 'gemini-3.1-flash-tts-preview';
 const GEMINI_TTS_VOICE = 'Aoede';
 
 function base64PcmToWavBlob(base64: string, sampleRate = 24000): Blob {

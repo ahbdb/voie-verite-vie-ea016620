@@ -7,7 +7,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 
 // ── Gemini TTS ────────────────────────────────────────────────────────────────
-const GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
+const GEMINI_TTS_MODEL = 'gemini-3.1-flash-tts-preview';
 const GEMINI_TTS_VOICE = 'Aoede';
 
 function base64PcmToWavBlob(base64: string, sampleRate = 24000): Blob {
@@ -95,6 +95,7 @@ export const useSpeech = (rate = 0.82): UseSpeechReturn => {
 
       if (useGemini && apiKey) {
         // ── Gemini TTS ──────────────────────────────────────────────────────
+        console.log('[3V TTS] → Gemini TTS (clé présente)');
         setSpeaking(true);
         const controller = new AbortController();
         abortRef.current = controller;
@@ -154,6 +155,7 @@ export const useSpeech = (rate = 0.82): UseSpeechReturn => {
         })();
       } else {
         // ── Web Speech API ──────────────────────────────────────────────────
+        console.log('[3V TTS] → Web Speech API (pas de clé Gemini)');
         if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
         const utter = new SpeechSynthesisUtterance(text);
