@@ -253,10 +253,10 @@ const Navigation = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border/50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center space-x-3">
+          <Link to="/" className="flex flex-col items-center gap-0">
             <AnimatedLogo size="sm" />
-            <span className="font-cinzel font-semibold text-foreground hidden sm:inline whitespace-nowrap" style={{ fontSize: 'clamp(0.75rem, 1.5vw, 1.25rem)' }}>
-              {t('brand.fullName')}
+            <span className="font-cinzel text-[8px] tracking-[0.2em] text-muted-foreground/70 uppercase leading-none -mt-0.5 whitespace-nowrap">
+              Voie · Vérité · Vie
             </span>
           </Link>
 

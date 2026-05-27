@@ -415,7 +415,7 @@ export default function ProfileCompletion() {
                 </div>
 
                 <p className="text-white/55 text-sm leading-relaxed max-w-xs mx-auto">
-                  C'est pourquoi le mouvement <span className="text-white/80 font-semibold">Voie Vérité Vie</span> fête
+                  C'est pour que le mouvement <span className="text-white/80 font-semibold">Voie Vérité Vie</span> fête
                   ces moments joyeux avec vous ❤️<br />
                   Anniversaire, baptême, mariage… l'application sera là.
                 </p>
