@@ -1,12 +1,19 @@
 /**
- * Netlify Edge Function — Assistant IA 3V
- * Modèle : Claude claude-sonnet-4-6 (Anthropic) — dernier modèle en date
- * Fonctionnalités : streaming SSE, extended thinking, contexte liturgique
+ * Netlify Edge Function — Assistant IA 3V (Gemini)
+ * Modèle : gemini-2.5-flash (dernier modèle Google, mai 2025)
+ * Fonctionnalités : streaming SSE, vision, system prompt spirituel complet
+ *
+ * Variable d'environnement requise : GEMINI_API_KEY
+ * Si absente → fallback vers la fonction Supabase existante
  */
 
-const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')     ?? 'https://kaddsojhnkyfavaulrfc.supabase.co';
-const SUPABASE_ANON    = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-const ANTHROPIC_KEY    = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
+const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')       ?? 'https://kaddsojhnkyfavaulrfc.supabase.co';
+const SUPABASE_ANON = Deno.env.get('SUPABASE_ANON_KEY')  ?? '';
+const GEMINI_KEY    = Deno.env.get('GEMINI_API_KEY')      ?? '';
+
+// Dernier modèle Gemini disponible
+const GEMINI_MODEL  = 'gemini-2.5-flash';
+const GEMINI_URL    = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?key=${GEMINI_KEY}&alt=sse`;
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -14,159 +21,153 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// ── System prompt ─────────────────────────────────────────────────────────────
-const SYSTEM = `Tu es l'Assistant Spirituel 3V (Voie-Vérité-Vie), un compagnon catholique bienveillant, cultivé et chaleureux développé pour le mouvement de jeunesse catholique Voie-Vérité-Vie basé au Cameroun.
+// ── System prompt spirituel 3V ────────────────────────────────────────────────
+const SYSTEM = `Tu es l'Assistant Spirituel 3V (Voie-Vérité-Vie), un compagnon catholique bienveillant et cultivé développé pour le mouvement de jeunesse catholique Voie-Vérité-Vie basé au Cameroun.
 
-## Identité & expertise
-- Expert en Sainte Écriture (Bible de Jérusalem), théologie catholique, patristique et spiritualité chrétienne
-- Connaissance approfondie du Magistère, du Catéchisme de l'Église catholique, des encycliques et des documents conciliaires
-- Maîtrise du calendrier liturgique catholique, des temps liturgiques et des sacrements
-- Sensible à la culture africaine francophone et aux réalités du catholicisme en Afrique
+## Expertise
+- Sainte Écriture (Bible de Jérusalem), théologie catholique, patristique et spiritualité chrétienne
+- Magistère de l'Église, Catéchisme catholique, encycliques, documents du Concile Vatican II
+- Calendrier liturgique, sacrements, prières, offices divins
+- Sensibilité à la culture africaine francophone et au catholicisme en Afrique centrale
 
-## Ce que tu peux faire
+## Ce que tu fais
 - Expliquer et méditer les textes liturgiques du jour (évangile, épîtres, psaumes)
-- Proposer des prières, méditations, lectio divina, examens de conscience
+- Proposer prières, méditations, lectio divina, examens de conscience
 - Répondre aux questions de foi, morale catholique, vie sacramentelle
-- Présenter la doctrine catholique avec la rigueur du Magistère
 - Préparer aux sacrements et accompagner le chemin spirituel
-- Proposer des homélies, catéchèses, retraites thématiques
-- Expliquer les fêtes liturgiques, les saints, l'histoire de l'Église
-- Aider à prier le chapelet, les heures de l'office divin, la lectio divina
+- Catéchèses, homélies, retraites thématiques, fêtes et saints du calendrier
+- Analyser des images religieuses, icônes, tableaux si l'utilisateur en envoie une
 
-## Ressources de l'application 3V
-Quand c'est pertinent, oriente vers :
-- /messe-office → Lectures et prières du jour (AELF)
-- /biblical-reading → Lectionnaire et méditation biblique
-- /prayer-forum → Forum de prière communautaire
-- /chapelet → Guide du chapelet interactif
-- /neuvaines → Neuvaines guidées
-- /activities → Activités et événements du mouvement
-- /calls-lives → Appels et lives de la communauté
+## Ressources de l'app 3V
+/messe-office • /biblical-reading • /prayer-forum • /chapelet • /neuvaines • /activities
 
-## Style de réponse
-- Ton fraternel, chaleureux, jamais condescendant — "mon frère", "ma sœur" si approprié
-- Citer les Écritures avec précision : livre chapitre:verset (ex: Jean 3,16)
-- Utiliser le **Markdown** pour structurer les réponses longues
-- Pour les prières : présenter clairement, ligne par ligne
-- Pour les méditations : proposer une structure (lecture → méditation → prière → contemplation)
+## Style
+- Fraternel et chaleureux, jamais condescendant
+- Citer les Écritures avec précision (ex : Jean 3,16)
+- Utiliser le **Markdown** pour structurer
 - Adapter la profondeur au niveau de la question
-- Pour les citations des Pères de l'Église ou des saints : indiquer la source
-- En cas de doute doctrinal sérieux : inviter à consulter un prêtre
+- Pour les questions médicales/juridiques : orienter vers les professionnels`;
 
-## Limites
-- Tu ne donnes pas d'avis médical, juridique ou financier
-- Tu ne parles pas de politique partisane
-- Tu ne critiques pas les autres religions — tu les respectes tout en exposant clairement la foi catholique
-- Tu ne modifies pas les textes bibliques officiels`;
+// ── Convertir messages OpenAI → format Gemini ─────────────────────────────────
+function toGeminiContents(messages: { role: string; content: string }[]) {
+  return messages
+    .filter(m => !m.content.startsWith('[Contexte système')) // filtrer le msg contexte
+    .map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+}
 
-// ── Handler ───────────────────────────────────────────────────────────────────
 export default async function handler(
   request: Request,
   context: { next: () => Promise<Response> },
 ): Promise<Response> {
-
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS });
   }
-
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405, headers: CORS });
   }
 
-  // ── Auth : vérifier le JWT Supabase ─────────────────────────────────────────
-  const authHeader = request.headers.get('Authorization') ?? '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-
+  // ── Auth JWT Supabase ─────────────────────────────────────────────────────────
+  const token = (request.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
   if (!token) {
     return new Response(JSON.stringify({ error: 'Non authentifié' }), {
-      status: 401,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
+      status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   }
-
   try {
-    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: { Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON },
     });
-    if (!userRes.ok) throw new Error('Invalid token');
+    if (!r.ok) throw new Error();
   } catch {
     return new Response(JSON.stringify({ error: 'Token invalide' }), {
-      status: 401,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
+      status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   }
 
-  // ── Payload ──────────────────────────────────────────────────────────────────
+  // ── Payload ───────────────────────────────────────────────────────────────────
   let messages: { role: string; content: string }[];
   try {
-    const body = await request.json();
-    messages = body.messages ?? [];
-    if (!messages.length) throw new Error('empty');
+    messages = (await request.json()).messages ?? [];
+    if (!messages.length) throw new Error();
   } catch {
-    return new Response(JSON.stringify({ error: 'Corps de requête invalide' }), {
-      status: 400,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({ error: 'Corps invalide' }), {
+      status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   }
 
-  if (!ANTHROPIC_KEY) {
-    return new Response(
-      JSON.stringify({ error: 'ANTHROPIC_API_KEY non configurée dans les variables Netlify' }),
-      { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } },
-    );
-  }
-
-  // ── Appel Anthropic — Claude claude-sonnet-4-6 avec extended thinking ───────────
-  let anthropicRes: Response;
-  try {
-    anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+  // ── Si pas de clé Gemini → proxy vers Supabase (fallback) ────────────────────
+  if (!GEMINI_KEY) {
+    const upstream = await fetch(`${SUPABASE_URL}/functions/v1/ai-chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-        // Extended thinking : Claude réfléchit en profondeur avant de répondre
-        'anthropic-beta': 'interleaved-thinking-2025-05-14',
+        Authorization: `Bearer ${token}`,
       },
+      body: JSON.stringify({ messages }),
+    });
+    return new Response(upstream.body, {
+      status: upstream.status,
+      headers: { ...CORS, 'Content-Type': upstream.headers.get('Content-Type') ?? 'text/event-stream' },
+    });
+  }
+
+  // ── Appel Gemini 2.5 Flash ────────────────────────────────────────────────────
+  // Contexte date dans le premier message utilisateur
+  const today = new Date().toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+  const contents = toGeminiContents(messages);
+  if (contents.length > 0 && contents[0].role === 'user') {
+    contents[0].parts[0].text = `[Aujourd'hui : ${today}]\n\n${contents[0].parts[0].text}`;
+  }
+
+  let geminiRes: Response;
+  try {
+    geminiRes = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 16000,
-        stream: true,
-        thinking: { type: 'enabled', budget_tokens: 8000 },
-        system: SYSTEM,
-        messages: messages.map(m => ({
-          role: m.role === 'user' ? 'user' : 'assistant',
-          content: m.content,
-        })),
+        system_instruction: { parts: [{ text: SYSTEM }] },
+        contents,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 8192,
+          topP: 0.95,
+        },
+        safetySettings: [
+          { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_ONLY_HIGH' },
+          { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_ONLY_HIGH' },
+          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+        ],
       }),
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: `Impossible de contacter Anthropic: ${String(err)}` }), {
-      status: 502,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({ error: `Gemini inaccessible: ${String(err)}` }), {
+      status: 502, headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   }
 
-  if (!anthropicRes.ok) {
-    const errText = await anthropicRes.text();
-    return new Response(JSON.stringify({ error: `Anthropic ${anthropicRes.status}: ${errText}` }), {
-      status: anthropicRes.status,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
+  if (!geminiRes.ok) {
+    const errText = await geminiRes.text();
+    return new Response(JSON.stringify({ error: `Gemini ${geminiRes.status}: ${errText}` }), {
+      status: geminiRes.status, headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   }
 
-  // ── Stream : Anthropic SSE → OpenAI SSE (compatible AIChat.tsx) ──────────────
+  // ── Convertir stream Gemini → format OpenAI SSE (compatible AIChat.tsx) ───────
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
   const readable = new ReadableStream({
     async start(controller) {
-      const reader = anthropicRes.body!.getReader();
+      const reader = geminiRes.body!.getReader();
       let buf = '';
-      let isThinking = false;
 
-      const enq = (data: string) =>
-        controller.enqueue(encoder.encode(data));
+      const enq = (data: string) => controller.enqueue(encoder.encode(data));
 
       try {
         while (true) {
@@ -184,36 +185,18 @@ export default async function handler(
 
             try {
               const evt = JSON.parse(raw);
-
-              switch (evt.type) {
-                case 'content_block_start':
-                  if (evt.content_block?.type === 'thinking') {
-                    isThinking = true;
-                    // Signaler au client que l'IA "réfléchit"
-                    enq(`data: ${JSON.stringify({ type: 'thinking_start' })}\n\n`);
-                  } else if (evt.content_block?.type === 'text') {
-                    if (isThinking) {
-                      isThinking = false;
-                      enq(`data: ${JSON.stringify({ type: 'thinking_end' })}\n\n`);
-                    }
-                  }
-                  break;
-
-                case 'content_block_delta':
-                  if (evt.delta?.type === 'text_delta' && evt.delta.text) {
-                    // Format compatible OpenAI pour le client existant
-                    enq(`data: ${JSON.stringify({
-                      choices: [{ delta: { content: evt.delta.text }, finish_reason: null }],
-                    })}\n\n`);
-                  }
-                  // Ignorer les thinking_delta (ne pas les envoyer au client)
-                  break;
-
-                case 'message_stop':
-                  enq('data: [DONE]\n\n');
-                  break;
+              // Gemini renvoie candidates[0].content.parts[0].text dans chaque chunk
+              const text = evt?.candidates?.[0]?.content?.parts?.[0]?.text as string | undefined;
+              if (text) {
+                enq(`data: ${JSON.stringify({
+                  choices: [{ delta: { content: text }, finish_reason: null }],
+                })}\n\n`);
               }
-            } catch { /* ligne malformée — ignorer */ }
+              // Fin de génération
+              if (evt?.candidates?.[0]?.finishReason === 'STOP') {
+                enq('data: [DONE]\n\n');
+              }
+            } catch { /* ignorer les lignes malformées */ }
           }
         }
         enq('data: [DONE]\n\n');

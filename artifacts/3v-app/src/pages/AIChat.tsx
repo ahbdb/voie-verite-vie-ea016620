@@ -258,7 +258,9 @@ const AIChat = () => {
         ? [contextMsg, userMessage]
         : [...messages, userMessage];
 
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
+      // /api/ai-chat = Netlify Edge Function (Gemini 2.5 Flash)
+      // Si pas de clé Gemini configurée dans Netlify → proxy automatique vers Supabase
+      const res = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ messages: historyWithContext }),
