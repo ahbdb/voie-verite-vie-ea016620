@@ -1,12 +1,12 @@
 /* ── Notification + PWA Service Worker — Voie Vérité Vie ────────────────── */
 
 const CANONICAL_ORIGIN = 'https://voieveritevie.org';
-const CACHE_NAME = 'vvv-shell-v1';
+const CACHE_NAME = 'vvv-shell-v3';
 const SHELL_URLS = ['/', '/manifest.json', '/icon-192x192.png', '/badge-72x72.png'];
 
 self.addEventListener('install', (e) => {
-  self.skipWaiting();
-  // Pré-cache le shell de l'app pour le mode hors-ligne
+  // Ne PAS appeler skipWaiting() ici — on attend que l'app le demande via SKIP_WAITING
+  // pour éviter qu'un rechargement surprise interrompe l'utilisateur.
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_URLS).catch(() => {}))
   );

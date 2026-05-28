@@ -20,6 +20,17 @@
     X-XSS-Protection = "1; mode=block"
     Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://firebase.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://firebasestorage.googleapis.com https://wsrv.nl https://*.aleteia.org https://aleteia.org https://*.zenit.org https://*.vaticannews.va https://*.la-croix.com https://*.famillechretienne.fr https://*.imedias.eu https://*.ktotv.com; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://firebase.googleapis.com https://fcm.googleapis.com https://api.aelf.org https://calendar.google.com https://api.rss2json.com https://ipapi.co https://*.vaticannews.va https://eglise.catholique.fr https://www.cathobel.be https://www.kath.ch https://www.catholicnewsagency.com https://catholicherald.co.uk https://wsrv.nl; media-src 'self' blob: https://*.supabase.co; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none';"
 
+# HTML jamais mis en cache — l'app doit toujours récupérer le dernier index.html
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
 # Long-term caching for hashed static assets
 [[headers]]
   for = "/assets/*"

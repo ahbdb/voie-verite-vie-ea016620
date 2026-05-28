@@ -4,13 +4,51 @@ import { debugService } from './services/debug-service'
 
 debugService.log('Application starting...', 'info', 'main');
 
-// Enregistrer le service worker dès le démarrage (nécessaire pour l'installation PWA).
-// Le fait AVANT le rendu React pour que le navigateur détecte l'app comme installable
-// même pour les visiteurs non connectés.
+// Enregistrer le service worker + gérer les mises à jour PWA proprement.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/notification-sw.js', { scope: '/' }).catch(() => {
-    // Silencieux — le SW sera enregistré plus tard si nécessaire
+  // Globals attendus par PWAUpdatePrompt
+  window.__pwaUpdateAvailable = false;
+  window.__pwaUpdateListeners = new Set();
+
+  const notifyUpdate = () => {
+    (window as any).__pwaUpdateAvailable = true;
+    (window as any).__pwaUpdateListeners?.forEach((fn: () => void) => fn());
+  };
+
+  // Rechargement automatique quand le nouveau SW prend le contrôle
+  // (skipWaiting() dans le SW → controllerchange → reload)
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!reloading) { reloading = true; window.location.reload(); }
   });
+
+  navigator.serviceWorker.register('/notification-sw.js', { scope: '/' })
+    .then(reg => {
+      // Vérifier une mise à jour immédiatement au démarrage
+      reg.update().catch(() => {});
+
+      // Écouter les nouveaux SW en cours d'installation
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        if (!newSW) return;
+        newSW.addEventListener('statechange', () => {
+          // Nouveau SW installé ET un ancien SW contrôlait déjà la page
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            notifyUpdate();
+          }
+        });
+      });
+
+      // Exposer la fonction de mise à jour manuelle pour PWAUpdatePrompt
+      (window as any).__pwaUpdateSW = async (reloadPage = false) => {
+        const waiting = reg.waiting;
+        if (waiting) {
+          waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+        if (reloadPage) window.location.reload();
+      };
+    })
+    .catch(() => {});
 }
 
 import { createRoot } from 'react-dom/client'
