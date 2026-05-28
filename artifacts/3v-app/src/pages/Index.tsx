@@ -173,6 +173,13 @@ const ActiveCallBanner = () => {
 
 // ── Association News ───────────────────────────────────────────────────────────
 
+const CATEGORY_BADGE: Record<string, string> = {
+  association: '🏛️ Association',
+  event: '📅 Événement',
+  announcement: '📢 Annonce',
+  church: '⛪ Église',
+};
+
 const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
   const [posts, setPosts] = useState<NewsPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,7 +195,7 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
     return (
       <section className="py-10 bg-background border-y border-border/40">
         <div className="container mx-auto px-4 max-w-5xl">
-          <SectionHeader icon={<Newspaper className="h-4 w-4" />} title="Vie de l'Association" href="/admin/news" linkLabel="Gérer" />
+          <SectionHeader icon={<Newspaper className="h-4 w-4" />} title="Actualités" href="/admin/news" linkLabel="Gérer" />
           <div className="mt-6 rounded-2xl border border-dashed border-border/60 bg-muted/20 p-10 text-center">
             <Newspaper className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-sm text-muted-foreground mb-4">Aucune actualité publiée.</p>
@@ -199,9 +206,6 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
     );
   }
 
-  const featured = posts.find(p => p.featured) || posts[0];
-  const rest = posts.filter(p => p.id !== featured?.id).slice(0, 6);
-
   return (
     <section className="py-10 bg-background border-y border-border/40">
       <div className="container mx-auto px-4 max-w-5xl">
@@ -209,27 +213,18 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
           href="/admin/news" linkLabel={isAdmin ? 'Gérer' : undefined} />
 
         {loading ? (
-          <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1,2,3].map(i => <div key={i} className="h-52 rounded-2xl bg-muted/30 animate-pulse" />)}
+          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {[1,2,3].map(i => <div key={i} className="rounded-2xl bg-muted/30 animate-pulse h-64" />)}
           </div>
         ) : (
-          <div className="mt-6 space-y-4">
-            {/* Featured article */}
-            {featured && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                <NewsCard post={featured} variant="featured" />
+          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {posts.map((post, i) => (
+              <motion.div key={post.id}
+                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04 }}>
+                <NewsCard post={post} />
               </motion.div>
-            )}
-            {/* Grid */}
-            {rest.length > 0 && (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {rest.map((post, i) => (
-                  <motion.div key={post.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                    <NewsCard post={post} variant="grid" />
-                  </motion.div>
-                ))}
-              </div>
-            )}
+            ))}
           </div>
         )}
       </div>
@@ -237,65 +232,56 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
   );
 };
 
-const CATEGORY_BADGE: Record<string, string> = {
-  association: '🏛️ Association',
-  event: '📅 Événement',
-  announcement: '📢 Annonce',
-  church: '⛪ Église',
-};
-
-const NewsCard = ({ post, variant }: { post: NewsPost; variant: 'featured' | 'grid' }) => {
-  const isFeatured = variant === 'featured';
+const NewsCard = ({ post }: { post: NewsPost }) => {
   const isExternal = !!post.external_url;
   const href = post.external_url || `/actualites/${post.id}`;
 
   const inner = (
-    <div className={cn(
-      'group rounded-2xl border border-border/60 bg-card overflow-hidden hover:border-primary/30 hover:shadow-[0_8px_30px_-10px_hsl(var(--primary)/0.2)] transition-all',
-      isFeatured ? 'flex flex-col sm:flex-row' : ''
-    )}>
-      {/* Image */}
-      <div className={cn(
-        'relative overflow-hidden bg-zinc-900',
-        isFeatured ? 'sm:w-2/5 min-h-[180px] sm:min-h-0' : 'min-h-[180px]'
-      )}>
-        {post.image_url ? (
-          <>
-            {/* Fond flouté pour les images portrait */}
-            <img src={post.image_url} alt=""
-              className="absolute inset-0 w-full h-full object-cover blur-xl scale-110 opacity-30 pointer-events-none select-none"
-              aria-hidden
-            />
-            {/* Image principale — contenue sans coupure */}
-            <img src={post.image_url} alt={post.title}
-              className="relative w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-700"
-              style={{ maxHeight: isFeatured ? '280px' : '240px' }}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-          </>
-        ) : post.video_url ? (
-          <div className="w-full h-full flex items-center justify-center min-h-[180px]">
-            <Play className="h-10 w-10 text-white/60" />
+    <div className="group rounded-2xl border border-border/60 bg-card overflow-hidden hover:border-primary/30 hover:shadow-[0_8px_30px_-10px_hsl(var(--primary)/0.2)] transition-all h-full flex flex-col">
+
+      {/* Image à dimensions naturelles */}
+      {post.image_url ? (
+        <div className="relative overflow-hidden w-full">
+          <img
+            src={post.image_url}
+            alt={post.title}
+            className="w-full h-auto block group-hover:scale-[1.02] transition-transform duration-700"
+            onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }}
+          />
+          <div className="absolute top-2 left-2 z-10">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide shadow">
+              {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
+            </span>
           </div>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center min-h-[180px]">
-            <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
-          </div>
-        )}
-        <div className="absolute top-2 left-2 z-10">
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
-            {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
-          </span>
         </div>
-      </div>
-      {/* Content */}
-      <div className={cn('p-4 flex flex-col justify-between', isFeatured ? 'sm:flex-1' : '')}>
+      ) : post.video_url ? (
+        <div className="relative aspect-video bg-zinc-900 flex items-center justify-center">
+          <Play className="h-10 w-10 text-white/60" />
+          <div className="absolute top-2 left-2">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
+              {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="aspect-video bg-muted flex items-center justify-center relative">
+          <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+          <div className="absolute top-2 left-2">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
+              {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Texte */}
+      <div className="p-4 flex flex-col flex-1 justify-between">
         <div>
-          <h3 className={cn('font-cinzel font-bold text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2', isFeatured ? 'text-lg' : 'text-sm')}>
+          <h3 className="font-cinzel font-bold text-sm text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2">
             {post.title}
           </h3>
           {post.excerpt && (
-            <p className={cn('text-muted-foreground mt-1.5 leading-relaxed line-clamp-2', isFeatured ? 'text-sm' : 'text-xs')}>
+            <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed line-clamp-2">
               {post.excerpt}
             </p>
           )}
@@ -314,13 +300,9 @@ const NewsCard = ({ post, variant }: { post: NewsPost; variant: 'featured' | 'gr
   );
 
   if (isExternal) {
-    return (
-      <a href={href} target="_blank" rel="noopener noreferrer">
-        {inner}
-      </a>
-    );
+    return <a href={href} target="_blank" rel="noopener noreferrer" className="block h-full">{inner}</a>;
   }
-  return <Link to={href}>{inner}</Link>;
+  return <Link to={href} className="block h-full">{inner}</Link>;
 };
 
 // ── External Catholic News ─────────────────────────────────────────────────────

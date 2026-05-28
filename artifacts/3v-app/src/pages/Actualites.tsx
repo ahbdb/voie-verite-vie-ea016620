@@ -90,14 +90,14 @@ const Actualites = () => {
           <ArrowLeft className="h-4 w-4 mr-2" /> Retour
         </Button>
 
-        {/* Image principale */}
+        {/* Image principale — dimensions naturelles, sans recadrage */}
         {post.image_url && (
-          <div className="rounded-2xl overflow-hidden aspect-video mb-6 bg-muted">
+          <div className="rounded-2xl overflow-hidden mb-6 bg-muted/10">
             <img
               src={post.image_url}
               alt={post.title}
-              className="w-full h-full object-cover"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              className="w-full h-auto block"
+              onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }}
             />
           </div>
         )}
