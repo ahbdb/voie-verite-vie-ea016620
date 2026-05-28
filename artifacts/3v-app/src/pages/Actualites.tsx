@@ -94,9 +94,12 @@ const Actualites = () => {
         {post.image_url && (
           <div className="rounded-2xl overflow-hidden mb-6 bg-muted/10">
             <img
-              src={post.image_url.includes('supabase') || post.image_url.includes('localhost')
-                ? post.image_url
-                : `https://wsrv.nl/?url=${encodeURIComponent(post.image_url)}&w=900&output=webp&q=85`}
+              src={(() => {
+                const clean = post.image_url.replace(/&amp;/g, '&');
+                return clean.includes('supabase') || clean.includes('localhost')
+                  ? clean
+                  : `https://wsrv.nl/?url=${encodeURIComponent(clean)}&w=900&output=webp&q=85`;
+              })()}
               alt={post.title}
               className="w-full h-auto block"
               onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }}

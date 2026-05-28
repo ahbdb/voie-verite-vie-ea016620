@@ -114,11 +114,12 @@ function stripHtml(html: string) {
   return html.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').trim();
 }
 
-/** Proxy les images externes via wsrv.nl pour contourner la protection hotlink. */
+/** Proxy les images externes via wsrv.nl (hotlink + &amp; fix). */
 function proxyImg(url: string | null): string | null {
   if (!url) return null;
-  if (url.includes('supabase') || url.includes('localhost')) return url;
-  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=600&output=webp&q=80`;
+  const clean = url.replace(/&amp;/g, '&');
+  if (clean.includes('supabase') || clean.includes('localhost')) return clean;
+  return `https://wsrv.nl/?url=${encodeURIComponent(clean)}&w=600&output=webp&q=80`;
 }
 
 function rssThumb(item: RssItem) {

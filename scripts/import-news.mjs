@@ -73,7 +73,8 @@ async function fetchOgImage(url) {
     const m = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
            || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)
            || html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
-    return m ? m[1].trim() : null;
+    // Decode HTML entities in the URL (&amp; → &)
+    return m ? m[1].trim().replace(/&amp;/g, '&') : null;
   } catch { return null; }
 }
 
