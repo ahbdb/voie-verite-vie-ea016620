@@ -8,9 +8,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
 // ── Edge Function TTS ─────────────────────────────────────────────────────────
-const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-const TTS_FUNCTION_URL  = `${SUPABASE_URL}/functions/v1/gemini-tts`;
+const SUPABASE_URL        = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY   = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const TTS_FUNCTION_URL    = `${SUPABASE_URL}/functions/v1/gemini-tts`;
+const GEMINI_API_KEY_DEV  = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+const GEMINI_TTS_MODEL    = 'gemini-3.1-flash-tts-preview';
+const GEMINI_TTS_VOICE    = 'Aoede';
 
 function splitIntoChunks(text: string, maxLen = 250): string[] {
   const sentences = text.match(/[^.!?;\n]+[.!?;\n]?/g) ?? [text];
@@ -31,6 +34,28 @@ function splitIntoChunks(text: string, maxLen = 250): string[] {
 }
 
 async function fetchChunkBlob(text: string, signal: AbortSignal): Promise<Blob> {
+  if (GEMINI_API_KEY_DEV) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TTS_MODEL}:generateContent?key=${GEMINI_API_KEY_DEV}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal,
+        body: JSON.stringify({
+          contents: [{ parts: [{ text }] }],
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: GEMINI_TTS_VOICE } } },
+          },
+        }),
+      }
+    );
+    if (!res.ok) throw new Error(`Gemini API HTTP ${res.status}`);
+    const data = await res.json() as { candidates?: { content?: { parts?: { inlineData?: { data?: string } }[] } }[] };
+    const audio = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!audio) throw new Error('Pas de données audio Gemini');
+    return base64PcmToWavBlob(audio);
+  }
   const res = await fetch(TTS_FUNCTION_URL, {
     method: 'POST',
     headers: {
