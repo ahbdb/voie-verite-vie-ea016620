@@ -158,6 +158,7 @@ const AIChat = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [isThinking, setIsThinking] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -257,7 +258,8 @@ const AIChat = () => {
         ? [contextMsg, userMessage]
         : [...messages, userMessage];
 
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
+      // Utilise la Netlify Edge Function (Claude claude-sonnet-4-6 avec extended thinking)
+      const res = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ messages: historyWithContext }),
@@ -265,9 +267,16 @@ const AIChat = () => {
       });
 
       if (!res.ok || !res.body) {
-        if (res.status === 429) toast({ title: 'Limite atteinte', description: 'Réessaie dans quelques secondes.', variant: 'destructive' });
-        else if (res.status === 402) toast({ title: 'Crédits insuffisants', variant: 'destructive' });
-        else toast({ title: t('common.error'), variant: 'destructive' });
+        let errMsg = 'Erreur de connexion à l\'assistant.';
+        try {
+          const errBody = await res.json();
+          errMsg = errBody.error ?? errMsg;
+        } catch {}
+        if (res.status === 401) errMsg = 'Session expirée. Reconnecte-toi.';
+        else if (res.status === 500 && errMsg.includes('ANTHROPIC_API_KEY')) {
+          errMsg = 'Clé API manquante. Ajoute ANTHROPIC_API_KEY dans les variables Netlify.';
+        }
+        toast({ title: 'Assistant indisponible', description: errMsg, variant: 'destructive' });
         return;
       }
 
@@ -286,13 +295,19 @@ const AIChat = () => {
           let line = buf.slice(0, nl);
           buf = buf.slice(nl + 1);
           if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith(':') || !line.startsWith('data: ')) continue;
+          if (!line.startsWith('data: ')) continue;
           const json = line.slice(6).trim();
           if (json === '[DONE]') { done = true; break; }
           try {
-            const chunk = JSON.parse(json)?.choices?.[0]?.delta?.content as string | undefined;
+            const evt = JSON.parse(json);
+            // Indicateurs de réflexion (extended thinking)
+            if (evt.type === 'thinking_start') { setIsThinking(true); continue; }
+            if (evt.type === 'thinking_end')   { setIsThinking(false); continue; }
+            // Chunk texte (format OpenAI-compatible)
+            const chunk = evt?.choices?.[0]?.delta?.content as string | undefined;
             if (chunk) {
               reply += chunk;
+              setIsThinking(false);
               setMessages(prev => {
                 const last = prev[prev.length - 1];
                 if (last?.role === 'assistant') return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: reply } : m);
@@ -302,6 +317,7 @@ const AIChat = () => {
           } catch { buf = `${line}\n${buf}`; break; }
         }
       }
+      setIsThinking(false);
       if (reply) await saveMessage(convId, 'assistant', reply);
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') { toast({ title: 'Réponse interrompue' }); return; }
@@ -386,6 +402,7 @@ const AIChat = () => {
     abortRef.current?.abort();
     abortRef.current = null;
     setIsLoading(false);
+    setIsThinking(false);
   }, []);
 
   const newChat = useCallback(() => {
@@ -522,16 +539,31 @@ const AIChat = () => {
                 </div>
               ))}
 
-              {/* Typing indicator */}
-              {isLoading && (
+              {/* Indicateur thinking / typing */}
+              {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
                 <div className="flex gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center p-1">
+                  <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center p-1 flex-shrink-0">
                     <img src={logo3v} alt="" className="w-full h-full object-contain" />
                   </div>
-                  <div className="bg-white/[0.06] border border-white/[0.08] rounded-2xl rounded-tl-sm px-4 py-3 flex gap-1.5 items-center">
-                    <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" />
-                    <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
-                    <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+                  <div className="bg-white/[0.06] border border-white/[0.08] rounded-2xl rounded-tl-sm px-4 py-3">
+                    {isThinking ? (
+                      <div className="flex items-center gap-2 text-[11px] text-white/40">
+                        <Sparkles className="w-3 h-3 text-primary/60 animate-pulse" />
+                        <span className="italic">En train de réfléchir…</span>
+                        <span className="flex gap-1">
+                          {[0, 0.2, 0.4].map((d, i) => (
+                            <span key={i} className="w-1 h-1 bg-primary/40 rounded-full animate-bounce inline-block"
+                              style={{ animationDelay: `${d}s` }} />
+                          ))}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex gap-1.5 items-center">
+                        <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" />
+                        <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+                        <div className="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

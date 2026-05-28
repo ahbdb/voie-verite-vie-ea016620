@@ -56,6 +56,11 @@
   function = "og-calls"
   path = "/calls-lives"
 
+# Assistant IA 3V — Claude claude-sonnet-4-6 avec extended thinking
+[[edge_functions]]
+  function = "ai-chat"
+  path = "/api/ai-chat"
+
 # ── Redirects ─────────────────────────────────────────────────────────────────
 [[redirects]]
   from = "/neuvaines/*.pdf"
