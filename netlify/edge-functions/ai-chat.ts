@@ -7,12 +7,12 @@
  * Si absente → fallback vers la fonction Supabase existante
  */
 
-const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')       ?? 'https://kaddsojhnkyfavaulrfc.supabase.co';
-const SUPABASE_ANON = Deno.env.get('SUPABASE_ANON_KEY')  ?? '';
-const GEMINI_KEY    = Deno.env.get('GEMINI_API_KEY')      ?? 'AIzaSyB6OgmRIKNEcHowAQ30eB4ZSGN0t0pAMB8';
+const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')      ?? 'https://kaddsojhnkyfavaulrfc.supabase.co';
+const SUPABASE_ANON = Deno.env.get('SUPABASE_ANON_KEY') ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZGRzb2pobmt5ZmF2YXVscmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Njg1MjcsImV4cCI6MjA3NzM0NDUyN30.hFAbVxHmfDY1Xqkij62R8dTBfHw6ff5mSb3faq_4CPs';
+const GEMINI_KEY    = Deno.env.get('GEMINI_API_KEY')     ?? 'AIzaSyB6OgmRIKNEcHowAQ30eB4ZSGN0t0pAMB8';
 
-// Dernier modèle Gemini disponible
-const GEMINI_MODEL  = 'gemini-2.5-flash';
+// gemini-2.0-flash : modèle stable, rapide, très capable
+const GEMINI_MODEL  = 'gemini-2.0-flash';
 const GEMINI_URL    = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?key=${GEMINI_KEY}&alt=sse`;
 
 const CORS = {
@@ -130,7 +130,7 @@ export default async function handler(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM }] },
+        systemInstruction: { parts: [{ text: SYSTEM }] },
         contents,
         generationConfig: {
           temperature: 0.7,
