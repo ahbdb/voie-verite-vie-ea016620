@@ -258,14 +258,23 @@ const AIChat = () => {
         ? [contextMsg, userMessage]
         : [...messages, userMessage];
 
-      // /api/ai-chat = Netlify Edge Function (Gemini 2.5 Flash)
-      // Si pas de clé Gemini configurée dans Netlify → proxy automatique vers Supabase
-      const res = await fetch('/api/ai-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ messages: historyWithContext }),
-        signal: ctrl.signal,
-      });
+      const SUPABASE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL ?? 'https://kaddsojhnkyfavaulrfc.supabase.co'}/functions/v1/ai-chat`;
+      const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` };
+      const body = JSON.stringify({ messages: historyWithContext });
+
+      // Essayer la Netlify Edge Function (Gemini 2.0 Flash amélioré)
+      // Si elle n'est pas déployée ou retourne 404/500 → basculer automatiquement sur Supabase
+      let res: Response;
+      try {
+        res = await fetch('/api/ai-chat', { method: 'POST', headers, body, signal: ctrl.signal });
+        if (res.status === 404 || res.status === 502 || res.status === 503) {
+          throw new Error(`Edge function returned ${res.status}`);
+        }
+      } catch (fetchErr) {
+        if (fetchErr instanceof DOMException && fetchErr.name === 'AbortError') throw fetchErr;
+        // Fallback : fonction Supabase Gemini originale
+        res = await fetch(SUPABASE_AI_URL, { method: 'POST', headers, body, signal: ctrl.signal });
+      }
 
       if (!res.ok || !res.body) {
         let errMsg = 'Erreur de connexion à l\'assistant.';
@@ -274,9 +283,6 @@ const AIChat = () => {
           errMsg = errBody.error ?? errMsg;
         } catch {}
         if (res.status === 401) errMsg = 'Session expirée. Reconnecte-toi.';
-        else if (res.status === 500 && errMsg.includes('ANTHROPIC_API_KEY')) {
-          errMsg = 'Clé API manquante. Ajoute ANTHROPIC_API_KEY dans les variables Netlify.';
-        }
         toast({ title: 'Assistant indisponible', description: errMsg, variant: 'destructive' });
         return;
       }
