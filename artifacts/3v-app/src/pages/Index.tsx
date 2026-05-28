@@ -261,17 +261,27 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
     return all.sort((a, b) => priority(a.category) - priority(b.category));
   }, [dbPosts, rssPosts]);
 
-  // ── Auto-scroll (pause on hover/touch) ────────────────────────────────────
+  // ── Auto-scroll fluide (requestAnimationFrame pixel par pixel) ───────────
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || allPosts.length === 0) return;
-    const CARD_W = 296; // ~280px card + 16px gap
-    const id = setInterval(() => {
-      if (pausedRef.current || !el) return;
-      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - CARD_W;
-      el.scrollTo({ left: atEnd ? 0 : el.scrollLeft + CARD_W, behavior: 'smooth' });
-    }, 3500);
-    return () => clearInterval(id);
+    const SPEED = 0.6; // px/frame — doux et continu
+    let rafId: number;
+
+    const tick = () => {
+      if (!pausedRef.current && el) {
+        const maxScroll = el.scrollWidth - el.clientWidth;
+        if (el.scrollLeft >= maxScroll - 1) {
+          el.scrollLeft = 0;
+        } else {
+          el.scrollLeft += SPEED;
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
   }, [allPosts.length]);
 
   return (
