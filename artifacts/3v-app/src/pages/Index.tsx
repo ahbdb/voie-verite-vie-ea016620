@@ -196,106 +196,94 @@ function rssItemToPost(item: RssItem, sourceName: string): NewsPost {
   };
 }
 
-const AssociationNewsSection = ({
-  isAdmin,
-  profileCountry,
-  profileCity,
-}: {
-  isAdmin: boolean;
-  profileCountry?: string;
-  profileCity?: string;
-}) => {
-  const [posts, setPosts] = useState<NewsPost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const fetchedRef = useRef(false);
+const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
+  const [dbPosts, setDbPosts]   = useState<NewsPost[]>([]);
+  const [rssPosts, setRssPosts] = useState<NewsPost[]>([]);
+  const [loadingDb, setLoadingDb] = useState(true);
 
+  // ── 1. Articles DB ─────────────────────────────────────────────────────────
   useEffect(() => {
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
+    db.from('news_posts')
+      .select('*')
+      .eq('is_published', true)
+      .order('published_at', { ascending: false })
+      .limit(6)
+      .then(({ data }: any) => {
+        setDbPosts(data || []);
+        setLoadingDb(false);
+      })
+      .catch(() => setLoadingDb(false));
+  }, []);
 
-    const load = async () => {
-      // 1. Articles DB (rapide)
-      const { data: dbData } = await db.from('news_posts').select('*')
-        .eq('is_published', true)
-        .order('published_at', { ascending: false })
-        .limit(6);
-      const dbPosts: NewsPost[] = dbData || [];
-      setPosts(dbPosts);
-      setLoading(false);
+  // ── 2. RSS catholiques (s'ajoutent après le chargement DB) ─────────────────
+  useEffect(() => {
+    let cancelled = false;
+    const rssSources = [
+      { url: RSS_WORLD,                          name: 'Aleteia' },
+      { url: 'https://www.imedias.eu/feed/',     name: 'iMédia Afrique' },
+      { url: 'https://www.famillechretienne.fr/feed/', name: 'Famille Chrétienne' },
+    ];
 
-      // 2. RSS catholiques en parallèle (progressif — s'ajoutent sans bloquer)
-      let geo: { code: string; name: string; city: string };
-      if (profileCountry) {
-        const code = countryNameToCode(profileCountry);
-        geo = { code: code || 'FR', name: profileCountry, city: profileCity || '' };
-      } else {
-        geo = await detectCountry();
-      }
-      const localUrl = RSS_BY_COUNTRY[geo.code];
-      const rssSources = [
-        { url: RSS_WORLD,    name: 'Aleteia' },
-        { url: 'https://www.imedias.eu/feed/', name: 'iMédia Afrique' },
-        ...(localUrl && localUrl !== RSS_WORLD ? [{ url: localUrl, name: `Église ${geo.name}` }] : []),
-      ];
-
-      const rssResults = await Promise.allSettled(
-        rssSources.map(s => fetchRss(s.url, 6).then(items => ({ items, name: s.name })))
-      );
-
-      const knownLinks = new Set([
-        ...dbPosts.map(p => p.external_url).filter(Boolean) as string[],
-        ...dbPosts.map(p => p.id),
-      ]);
-      const rssAsPosts: NewsPost[] = [];
-      for (const r of rssResults) {
+    Promise.allSettled(
+      rssSources.map(s => fetchRss(s.url, 5).then(items => ({ items, name: s.name })))
+    ).then(results => {
+      if (cancelled) return;
+      const posts: NewsPost[] = [];
+      for (const r of results) {
         if (r.status !== 'fulfilled') continue;
         for (const item of r.value.items) {
-          if (!item.link || knownLinks.has(item.link)) continue;
-          knownLinks.add(item.link);
-          rssAsPosts.push(rssItemToPost(item, r.value.name));
+          if (!item.link) continue;
+          posts.push(rssItemToPost(item, r.value.name));
         }
       }
+      setRssPosts(posts);
+    }).catch(() => {});
 
-      if (rssAsPosts.length > 0) {
-        setPosts(prev => [...prev, ...rssAsPosts]);
-      }
-    };
+    return () => { cancelled = true; };
+  }, []);
 
-    void load();
-  }, [profileCountry, profileCity]);
-
-  if (!loading && posts.length === 0) {
-    if (!isAdmin) return null;
-    return (
-      <section className="py-10 bg-background border-y border-border/40">
-        <div className="container mx-auto px-4 max-w-5xl">
-          <SectionHeader icon={<Newspaper className="h-4 w-4" />} title="Actualités" href="/admin/news" linkLabel="Gérer" />
-          <div className="mt-6 rounded-2xl border border-dashed border-border/60 bg-muted/20 p-10 text-center">
-            <Newspaper className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground mb-4">Aucune actualité publiée.</p>
-            <Button asChild size="sm" className="rounded-xl"><Link to="/admin/news"><Plus className="h-3.5 w-3.5 mr-1.5" /> Créer la première</Link></Button>
-          </div>
-        </div>
-      </section>
-    );
-  }
+  // ── Fusion DB + RSS (deduplique par external_url) ──────────────────────────
+  const allPosts = React.useMemo(() => {
+    const knownLinks = new Set(dbPosts.map(p => p.external_url ?? p.id).filter(Boolean));
+    const filtered = rssPosts.filter(p => p.external_url && !knownLinks.has(p.external_url));
+    return [...dbPosts, ...filtered];
+  }, [dbPosts, rssPosts]);
 
   return (
     <section className="py-10 bg-background border-y border-border/40">
       <div className="container mx-auto px-4 max-w-5xl">
-        <SectionHeader icon={<Newspaper className="h-4 w-4" />} title="Actualités"
-          href="/admin/news" linkLabel={isAdmin ? 'Gérer' : undefined} />
+        <SectionHeader
+          icon={<Newspaper className="h-4 w-4" />}
+          title="Actualités"
+          href="/admin/news"
+          linkLabel={isAdmin ? 'Gérer' : undefined}
+        />
 
-        {loading ? (
+        {loadingDb ? (
           <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {[1,2,3].map(i => <div key={i} className="rounded-2xl bg-muted/30 animate-pulse h-64" />)}
+            {[1, 2, 3].map(i => (
+              <div key={i} className="rounded-2xl bg-muted/30 animate-pulse h-64" />
+            ))}
           </div>
+        ) : allPosts.length === 0 ? (
+          isAdmin ? (
+            <div className="mt-6 rounded-2xl border border-dashed border-border/60 bg-muted/20 p-10 text-center">
+              <Newspaper className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground mb-4">Aucune actualité disponible.</p>
+              <Button asChild size="sm" className="rounded-xl">
+                <Link to="/admin/news"><Plus className="h-3.5 w-3.5 mr-1.5" /> Créer la première</Link>
+              </Button>
+            </div>
+          ) : null
         ) : (
           <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {posts.map((post, i) => (
-              <motion.div key={post.id}
-                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}>
+            {allPosts.map((post, i) => (
+              <motion.div
+                key={post.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i, 6) * 0.04 }}
+              >
                 <NewsCard post={post} />
               </motion.div>
             ))}
@@ -442,20 +430,11 @@ const Index = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [postSignupOpen, setPostSignupOpen] = useState(false);
   const [postSignupName, setPostSignupName] = useState<string | null>(null);
-  const [profileCountry, setProfileCountry] = useState<string | undefined>(undefined);
-  const [profileCity, setProfileCity]       = useState<string | undefined>(undefined);
-
   useEffect(() => {
     if (!user) return;
     db.from('user_roles').select('role').eq('user_id', user.id).then(({ data }: any) => {
       setIsAdmin((data || []).some((r: any) => ['admin', 'admin_principal', 'superadmin'].includes(r.role)));
     });
-    // Charger pays/ville du profil pour les actualités locales
-    db.from('profiles').select('country, city').eq('id', user.id).single()
-      .then(({ data }: any) => {
-        if (data?.country) setProfileCountry(data.country as string);
-        if (data?.city)    setProfileCity(data.city as string);
-      });
   }, [user]);
 
   useEffect(() => {
@@ -482,7 +461,7 @@ const Index = () => {
       <main>
         <HeroSection />
         <QuickLinksBar />
-        <AssociationNewsSection isAdmin={isAdmin} profileCountry={profileCountry} profileCity={profileCity} />
+        <AssociationNewsSection isAdmin={isAdmin} />
         <VersetDuJour />
         <MissionSection />
         <CTASection />
