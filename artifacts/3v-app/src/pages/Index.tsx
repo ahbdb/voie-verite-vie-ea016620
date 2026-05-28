@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -200,6 +200,8 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
   const [dbPosts, setDbPosts]   = useState<NewsPost[]>([]);
   const [rssPosts, setRssPosts] = useState<NewsPost[]>([]);
   const [loadingDb, setLoadingDb] = useState(true);
+  const scrollRef  = useRef<HTMLDivElement>(null);
+  const pausedRef  = useRef(false);
 
   // ── 1. Articles DB ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -207,7 +209,7 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
       .select('*')
       .eq('is_published', true)
       .order('published_at', { ascending: false })
-      .limit(6)
+      .limit(30)
       .then(({ data }: any) => {
         setDbPosts(data || []);
         setLoadingDb(false);
@@ -249,6 +251,19 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
     return [...dbPosts, ...filtered];
   }, [dbPosts, rssPosts]);
 
+  // ── Auto-scroll (pause on hover/touch) ────────────────────────────────────
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || allPosts.length === 0) return;
+    const CARD_W = 296; // ~280px card + 16px gap
+    const id = setInterval(() => {
+      if (pausedRef.current || !el) return;
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - CARD_W;
+      el.scrollTo({ left: atEnd ? 0 : el.scrollLeft + CARD_W, behavior: 'smooth' });
+    }, 3500);
+    return () => clearInterval(id);
+  }, [allPosts.length]);
+
   return (
     <section className="py-10 bg-background border-y border-border/40">
       <div className="container mx-auto px-4 max-w-5xl">
@@ -260,7 +275,7 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
         />
 
         {loadingDb ? (
-          <div className="mt-6 flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 snap-x snap-mandatory">
+          <div className="mt-6 flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 snap-x snap-mandatory scrollbar-hide">
             {[1, 2, 3].map(i => (
               <div key={i} className="rounded-2xl bg-muted/30 animate-pulse h-64 shrink-0 w-[280px] sm:w-[320px] snap-start" />
             ))}
@@ -276,7 +291,14 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
             </div>
           ) : null
         ) : (
-          <div className="mt-6 flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 snap-x snap-mandatory">
+          <div
+            ref={scrollRef}
+            className="mt-6 flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 snap-x snap-mandatory scrollbar-hide"
+            onMouseEnter={() => { pausedRef.current = true; }}
+            onMouseLeave={() => { pausedRef.current = false; }}
+            onTouchStart={() => { pausedRef.current = true; }}
+            onTouchEnd={() => { setTimeout(() => { pausedRef.current = false; }, 2000); }}
+          >
             {allPosts.map((post, i) => (
               <motion.div
                 key={post.id}
