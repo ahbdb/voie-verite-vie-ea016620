@@ -42,19 +42,19 @@ interface RssItem {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-// RSS sources indexed by ISO country code (fallback: fr Vatican)
-const RSS_WORLD = 'https://www.vaticannews.va/fr.rss.xml';
+// RSS sources indexed by ISO country code (fallback: Aleteia FR)
+const RSS_WORLD = 'https://fr.aleteia.org/feed/';
 const RSS_BY_COUNTRY: Record<string, string> = {
-  FR: 'https://eglise.catholique.fr/feed/',
+  FR: 'https://fr.aleteia.org/feed/',
   BE: 'https://www.cathobel.be/feed/',
   CH: 'https://www.kath.ch/feed/',
-  IT: 'https://www.vaticannews.va/it.rss.xml',
-  DE: 'https://www.vaticannews.va/de.rss.xml',
-  ES: 'https://www.vaticannews.va/es.rss.xml',
-  PT: 'https://www.vaticannews.va/pt.rss.xml',
+  IT: 'https://it.aleteia.org/feed/',
+  DE: 'https://de.aleteia.org/feed/',
+  ES: 'https://es.aleteia.org/feed/',
+  PT: 'https://pt.aleteia.org/feed/',
   US: 'https://www.catholicnewsagency.com/feed',
   GB: 'https://catholicherald.co.uk/feed/',
-  PL: 'https://www.vaticannews.va/pl.rss.xml',
+  PL: 'https://pl.aleteia.org/feed/',
   // Afrique francophone → Agence I.MEDIA (actualités catholiques)
   CM: 'https://www.imedias.eu/feed/',
   SN: 'https://www.imedias.eu/feed/',
@@ -96,6 +96,7 @@ async function fetchRss(url: string, count = 6): Promise<RssItem[]> {
   try {
     const api = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&count=${count}`;
     const res = await fetch(api, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return [];
     const data = await res.json();
     return data.status === 'ok' ? (data.items as RssItem[]) : [];
   } catch { return []; }
@@ -360,7 +361,7 @@ const ExternalNewsSection = ({
         {/* World Catholic News */}
         {worldNews.length > 0 && (
           <div>
-            <SectionHeader icon={<Globe className="h-4 w-4" />} title="Église dans le Monde" href="https://www.vaticannews.va/fr.html" linkLabel="Vatican News" external />
+            <SectionHeader icon={<Globe className="h-4 w-4" />} title="Église dans le Monde" href="https://fr.aleteia.org" linkLabel="Aleteia" external />
             <div className="mt-4 flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x -mx-4 px-4">
               {worldNews.map((item, i) => (
                 <motion.div key={i} className="min-w-[220px] max-w-[240px] snap-center shrink-0"

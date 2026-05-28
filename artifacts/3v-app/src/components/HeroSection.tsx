@@ -69,12 +69,12 @@ interface CarouselItem {
 }
 
 // ── RSS helpers ───────────────────────────────────────────────────────────────
-const RSS_WORLD = 'https://www.vaticannews.va/fr.rss.xml';
+const RSS_WORLD = 'https://fr.aleteia.org/feed/';
 const RSS_BY_COUNTRY: Record<string, string> = {
-  CM: 'https://www.imedias.eu/feed/',
-  SN: 'https://www.imedias.eu/feed/',
-  CI: 'https://www.imedias.eu/feed/',
-  FR: 'https://eglise.catholique.fr/feed/',
+  CM: 'https://fr.aleteia.org/feed/',
+  SN: 'https://fr.aleteia.org/feed/',
+  CI: 'https://fr.aleteia.org/feed/',
+  FR: 'https://fr.aleteia.org/feed/',
   BE: 'https://www.cathobel.be/feed/',
   US: 'https://www.catholicnewsagency.com/feed',
 };
@@ -83,6 +83,7 @@ async function fetchRssItems(url: string, count = 3): Promise<{ title: string; d
   try {
     const api = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&count=${count}`;
     const res = await fetch(api, { signal: AbortSignal.timeout(7000) });
+    if (!res.ok) return [];
     const data = await res.json();
     return data.status === 'ok' ? data.items : [];
   } catch { return []; }
