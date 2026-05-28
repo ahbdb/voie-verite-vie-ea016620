@@ -255,22 +255,34 @@ const NewsCard = ({ post, variant }: { post: NewsPost; variant: 'featured' | 'gr
       isFeatured ? 'flex flex-col sm:flex-row' : ''
     )}>
       {/* Image */}
-      <div className={cn('relative overflow-hidden bg-muted', isFeatured ? 'sm:w-2/5 aspect-video sm:aspect-auto' : 'aspect-video')}>
+      <div className={cn(
+        'relative overflow-hidden bg-zinc-900',
+        isFeatured ? 'sm:w-2/5 min-h-[180px] sm:min-h-0' : 'min-h-[180px]'
+      )}>
         {post.image_url ? (
-          <img src={post.image_url} alt={post.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
+          <>
+            {/* Fond flouté pour les images portrait */}
+            <img src={post.image_url} alt=""
+              className="absolute inset-0 w-full h-full object-cover blur-xl scale-110 opacity-30 pointer-events-none select-none"
+              aria-hidden
+            />
+            {/* Image principale — contenue sans coupure */}
+            <img src={post.image_url} alt={post.title}
+              className="relative w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-700"
+              style={{ maxHeight: isFeatured ? '280px' : '240px' }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          </>
         ) : post.video_url ? (
-          <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+          <div className="w-full h-full flex items-center justify-center min-h-[180px]">
             <Play className="h-10 w-10 text-white/60" />
           </div>
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
+          <div className="w-full h-full flex items-center justify-center min-h-[180px]">
             <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
           </div>
         )}
-        <div className="absolute top-2 left-2">
+        <div className="absolute top-2 left-2 z-10">
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
             {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
           </span>
