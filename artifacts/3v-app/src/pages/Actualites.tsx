@@ -90,11 +90,13 @@ const Actualites = () => {
           <ArrowLeft className="h-4 w-4 mr-2" /> Retour
         </Button>
 
-        {/* Image principale — dimensions naturelles, sans recadrage */}
+        {/* Image principale */}
         {post.image_url && (
           <div className="rounded-2xl overflow-hidden mb-6 bg-muted/10">
             <img
-              src={post.image_url}
+              src={post.image_url.includes('supabase') || post.image_url.includes('localhost')
+                ? post.image_url
+                : `https://wsrv.nl/?url=${encodeURIComponent(post.image_url)}&w=900&output=webp&q=85`}
               alt={post.title}
               className="w-full h-auto block"
               onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }}

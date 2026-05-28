@@ -114,6 +114,13 @@ function stripHtml(html: string) {
   return html.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').trim();
 }
 
+/** Proxy les images externes via wsrv.nl pour contourner la protection hotlink. */
+function proxyImg(url: string | null): string | null {
+  if (!url) return null;
+  if (url.includes('supabase') || url.includes('localhost')) return url;
+  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=600&output=webp&q=80`;
+}
+
 function rssThumb(item: RssItem) {
   return item.thumbnail || item.enclosure?.link || null;
 }
@@ -244,11 +251,13 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
     return () => { cancelled = true; };
   }, []);
 
-  // ── Fusion DB + RSS (deduplique par external_url) ──────────────────────────
+  // ── Fusion DB + RSS — activités asso en premier, église après ────────────
   const allPosts = React.useMemo(() => {
     const knownLinks = new Set(dbPosts.map(p => p.external_url ?? p.id).filter(Boolean));
     const filtered = rssPosts.filter(p => p.external_url && !knownLinks.has(p.external_url));
-    return [...dbPosts, ...filtered];
+    const all = [...dbPosts, ...filtered];
+    const priority = (c: string) => c === 'church' ? 1 : 0; // asso/event/announcement = 0, church = 1
+    return all.sort((a, b) => priority(a.category) - priority(b.category));
   }, [dbPosts, rssPosts]);
 
   // ── Auto-scroll (pause on hover/touch) ────────────────────────────────────
@@ -324,13 +333,14 @@ const NewsCard = ({ post }: { post: NewsPost }) => {
   const inner = (
     <div className="group rounded-2xl border border-border/60 bg-card overflow-hidden hover:border-primary/30 hover:shadow-[0_8px_30px_-10px_hsl(var(--primary)/0.2)] transition-all h-full flex flex-col">
 
-      {/* Image à dimensions naturelles */}
+      {/* Image — proxifiée via wsrv.nl pour contourner le hotlink */}
       {post.image_url ? (
-        <div className="relative overflow-hidden w-full">
+        <div className="relative overflow-hidden w-full aspect-video bg-muted/20">
           <img
-            src={post.image_url}
+            src={proxyImg(post.image_url)!}
             alt={post.title}
-            className="w-full h-auto block group-hover:scale-[1.02] transition-transform duration-700"
+            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+            loading="lazy"
             onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }}
           />
           <div className="absolute top-2 left-2 z-10">
