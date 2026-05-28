@@ -10,12 +10,14 @@ interface RssSource { name: string; url: string }
 
 // Sources RSS catholiques francophones
 const RSS_SOURCES: RssSource[] = [
-  { name: 'Aleteia',           url: 'https://fr.aleteia.org/feed/' },
-  { name: 'Vatican News',      url: 'https://www.vaticannews.va/fr.rss.xml' },
-  { name: 'La Croix',          url: 'https://www.la-croix.com/RSS/UNIVERS-RELIGION' },
-  { name: 'Famille Chrétienne',url: 'https://www.famillechretienne.fr/feed/' },
-  { name: 'iMédia',            url: 'https://www.imedias.eu/feed/' },
-  { name: 'KTO',               url: 'https://www.ktotv.com/rss.xml' },
+  { name: 'Aleteia',            url: 'https://fr.aleteia.org/feed/' },
+  { name: 'Vatican News',       url: 'https://www.vaticannews.va/fr.rss.xml' },
+  { name: 'La Croix',           url: 'https://www.la-croix.com/RSS/UNIVERS-RELIGION' },
+  { name: 'Famille Chrétienne', url: 'https://www.famillechretienne.fr/feed/' },
+  { name: 'iMédia',             url: 'https://www.imedias.eu/feed/' },
+  { name: 'KTO',                url: 'https://www.ktotv.com/rss.xml' },
+  { name: 'Zenit',              url: 'https://fr.zenit.org/feed/' },
+  { name: 'Radio Vatican',      url: 'https://www.vaticannews.va/fr/podcast/rss-news-fr.xml' },
 ]
 
 // ── XML helpers (no external dependency) ──────────────────────────────────────
@@ -91,20 +93,20 @@ serve(async (req) => {
   let totalInserted = 0
   const errors: string[] = []
 
-  for (const src of RSS_SOURCES) {
+  await Promise.allSettled(RSS_SOURCES.map(async (src) => {
     try {
       const res = await fetch(src.url, {
-        signal: AbortSignal.timeout(12000),
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; VoieVeriteVie/1.0)' },
+        signal: AbortSignal.timeout(15000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; VoieVeriteVie/1.0; +https://voieveritevie.com)' },
       })
-      if (!res.ok) { errors.push(`${src.name}: HTTP ${res.status}`); continue }
+      if (!res.ok) { errors.push(`${src.name}: HTTP ${res.status}`); return }
 
       const xml = await res.text()
       const items = parseItems(xml)
 
       const rows = items
         .filter(i => !knownUrls.has(i.link))
-        .slice(0, 8)
+        .slice(0, 10)
         .map(i => ({
           title:        i.title.slice(0, 255),
           excerpt:      i.excerpt || null,
@@ -126,7 +128,7 @@ serve(async (req) => {
     } catch (e) {
       errors.push(`${src.name}: ${e instanceof Error ? e.message : String(e)}`)
     }
-  }
+  }))
 
   // Nettoyage : supprimer les articles 'church' de plus de 30 jours
   const cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()

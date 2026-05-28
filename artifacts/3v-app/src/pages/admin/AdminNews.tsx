@@ -153,57 +153,117 @@ const AdminNews = () => {
     void loadPosts();
   };
 
+  // ── Helpers XML (fallback client-side) ────────────────────────────────────
+  const parseRssXml = (xml: string, sourceName: string, existingUrls: Set<string>): object[] => {
+    const items: object[] = [];
+    const blocks = xml.match(/<item>([\s\S]*?)<\/item>/gi) || [];
+    for (const block of blocks) {
+      const getTag = (tag: string) => {
+        const cd = block.match(new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, 'i'));
+        if (cd) return cd[1].trim();
+        const pl = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+        return pl ? pl[1].replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#\d+;/g, '').trim() : '';
+      };
+      const getAttr = (tag: string, attr: string) => {
+        const m = block.match(new RegExp(`<${tag}[^>]*\\s${attr}=["']([^"']+)["'][^>]*>`, 'i'));
+        return m ? m[1] : '';
+      };
+      const title = getTag('title');
+      const link  = getTag('link') || getAttr('link', 'href');
+      if (!title || !link || existingUrls.has(link)) continue;
+      const desc  = getTag('description');
+      const pub   = getTag('pubDate') || getTag('published');
+      const img   = getAttr('enclosure', 'url') || getAttr('media:content', 'url') || getAttr('media:thumbnail', 'url') || null;
+      items.push({
+        title: title.slice(0, 255),
+        excerpt: desc ? desc.replace(/\s+/g, ' ').slice(0, 300) : null,
+        image_url: img,
+        category: 'church',
+        author_name: sourceName,
+        is_published: true,
+        featured: false,
+        external_url: link,
+        published_at: pub ? new Date(pub).toISOString() : new Date().toISOString(),
+      });
+      if (items.length >= 10) break;
+    }
+    return items;
+  };
+
+  // ── Fetch via CORS proxies (fallback) ──────────────────────────────────────
+  const fetchRssWithProxy = async (url: string, sourceName: string, existingUrls: Set<string>): Promise<object[]> => {
+    const proxies = [
+      (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+      (u: string) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    ];
+    for (const makeUrl of proxies) {
+      try {
+        const res = await fetch(makeUrl(url), { signal: AbortSignal.timeout(12000) });
+        if (!res.ok) continue;
+        const xml = await res.text();
+        const parsed = parseRssXml(xml, sourceName, existingUrls);
+        if (parsed.length > 0) return parsed;
+      } catch { /* try next proxy */ }
+    }
+    return [];
+  };
+
   const handleImportRss = async () => {
     setImporting(true);
+    toast.info('Import en cours, patience…');
+
+    // ── Étape 1 : tenter l'Edge Function (serveur, aucun CORS) ──────────────
+    try {
+      const res = await fetch(
+        'https://kaddsojhnkyfavaulrfc.supabase.co/functions/v1/fetch-news',
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', signal: AbortSignal.timeout(60000) },
+      );
+      if (res.ok) {
+        const json = await res.json() as { success: boolean; inserted: number; errors: string[] };
+        if (json.inserted > 0) {
+          toast.success(`${json.inserted} article(s) importé(s)`);
+          void loadPosts();
+          setImporting(false);
+          return;
+        }
+        if (json.errors?.length) console.warn('Edge fn errors:', json.errors);
+        // inserted === 0 → tomber sur le fallback client pour être sûr
+      }
+    } catch { /* Edge Function non déployée → fallback */ }
+
+    // ── Étape 2 : fallback client-side (proxy CORS + parsing XML) ───────────
     const { data: existing } = await db.from('news_posts').select('external_url').not('external_url', 'is', null);
     const existingUrls = new Set((existing || []).map((p: any) => p.external_url as string));
 
     const RSS_SOURCES = [
-      { url: 'https://fr.aleteia.org/feed/', name: 'Aleteia' },
-      { url: 'https://www.imedias.eu/feed/', name: 'iMédia' },
-      { url: 'https://www.famillechretienne.fr/feed/', name: 'Famille Chrétienne' },
-      { url: 'https://www.vaticannews.va/fr/rss.xml', name: 'Vatican News' },
+      { url: 'https://fr.aleteia.org/feed/',           name: 'Aleteia' },
+      { url: 'https://www.imedias.eu/feed/',            name: 'iMédia' },
+      { url: 'https://www.famillechretienne.fr/feed/',  name: 'Famille Chrétienne' },
+      { url: 'https://www.vaticannews.va/fr.rss.xml',   name: 'Vatican News' },
       { url: 'https://www.la-croix.com/RSS/UNIVERS-RELIGION', name: 'La Croix' },
+      { url: 'https://www.ktotv.com/rss.xml',           name: 'KTO' },
     ];
 
+    const results = await Promise.allSettled(
+      RSS_SOURCES.map(s => fetchRssWithProxy(s.url, s.name, existingUrls))
+    );
+
     const toInsert: object[] = [];
-    for (const source of RSS_SOURCES) {
-      try {
-        const api = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(source.url)}&count=6`;
-        const res = await fetch(api, { signal: AbortSignal.timeout(8000) });
-        if (!res.ok) continue;
-        const json = await res.json();
-        if (json.status !== 'ok') continue;
-        for (const item of json.items as any[]) {
-          if (!item.link || !item.title || existingUrls.has(item.link)) continue;
-          const thumb = item.thumbnail || item.enclosure?.link || null;
-          const raw = (item.description || '') as string;
-          const excerpt = raw.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').trim().slice(0, 300) || null;
-          toInsert.push({
-            title: item.title,
-            excerpt,
-            image_url: thumb,
-            category: 'church',
-            author_name: source.name,
-            is_published: true,
-            featured: false,
-            external_url: item.link,
-            published_at: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(),
-          });
-        }
-      } catch { /* skip this source */ }
+    for (const r of results) {
+      if (r.status === 'fulfilled') toInsert.push(...r.value);
     }
 
     if (toInsert.length === 0) {
-      toast.info('Aucun nouvel article trouvé dans les flux RSS');
+      toast.warning('Aucun nouvel article trouvé (flux peut-être déjà à jour)');
       setImporting(false);
       return;
     }
+
     const { error } = await db.from('news_posts').insert(toInsert);
     if (error) {
-      toast.error('Erreur import : ' + error.message);
+      toast.error('Erreur insertion : ' + error.message);
     } else {
-      toast.success(`${toInsert.length} article(s) importé(s) depuis les flux RSS`);
+      toast.success(`${toInsert.length} article(s) importé(s)`);
       void loadPosts();
     }
     setImporting(false);
