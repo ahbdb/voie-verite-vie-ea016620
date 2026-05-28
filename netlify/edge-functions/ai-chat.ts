@@ -9,7 +9,7 @@
 
 const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')       ?? 'https://kaddsojhnkyfavaulrfc.supabase.co';
 const SUPABASE_ANON = Deno.env.get('SUPABASE_ANON_KEY')  ?? '';
-const GEMINI_KEY    = Deno.env.get('GEMINI_API_KEY')      ?? '';
+const GEMINI_KEY    = Deno.env.get('GEMINI_API_KEY')      ?? 'AIzaSyB6OgmRIKNEcHowAQ30eB4ZSGN0t0pAMB8';
 
 // Dernier modèle Gemini disponible
 const GEMINI_MODEL  = 'gemini-2.5-flash';
