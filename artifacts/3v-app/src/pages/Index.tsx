@@ -14,8 +14,8 @@ import { useCallSession } from '@/contexts/CallSessionContext';
 import { Button } from '@/components/ui/button';
 import {
   Phone, Video, Mic, Radio, ChevronRight, Heart, MessageCircle,
-  Clock, BookOpen, MapPin, Globe, Newspaper, Plus, Play,
-  ExternalLink, Image as ImageIcon, Loader2,
+  Clock, BookOpen, Newspaper, Plus, Play,
+  ExternalLink, Image as ImageIcon,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -171,7 +171,7 @@ const ActiveCallBanner = () => {
   );
 };
 
-// ── Association News ───────────────────────────────────────────────────────────
+// ── News (DB + RSS fusionnés) ──────────────────────────────────────────────────
 
 const CATEGORY_BADGE: Record<string, string> = {
   association: '🏛️ Association',
@@ -180,15 +180,89 @@ const CATEGORY_BADGE: Record<string, string> = {
   church: '⛪ Église',
 };
 
-const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
+/** Convertit un RssItem en NewsPost pour l'afficher dans NewsCard */
+function rssItemToPost(item: RssItem, sourceName: string): NewsPost {
+  return {
+    id: item.link,
+    title: item.title,
+    excerpt: stripHtml(item.description || '').slice(0, 220) || null,
+    image_url: rssThumb(item) || null,
+    video_url: null,
+    category: 'church',
+    author_name: sourceName,
+    featured: false,
+    published_at: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(),
+    external_url: item.link,
+  };
+}
+
+const AssociationNewsSection = ({
+  isAdmin,
+  profileCountry,
+  profileCity,
+}: {
+  isAdmin: boolean;
+  profileCountry?: string;
+  profileCity?: string;
+}) => {
   const [posts, setPosts] = useState<NewsPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
-    db.from('news_posts').select('*').eq('is_published', true)
-      .order('published_at', { ascending: false }).limit(12)
-      .then(({ data }: any) => { setPosts(data || []); setLoading(false); });
-  }, []);
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+
+    const load = async () => {
+      // 1. Articles DB (rapide)
+      const { data: dbData } = await db.from('news_posts').select('*')
+        .eq('is_published', true)
+        .order('published_at', { ascending: false })
+        .limit(6);
+      const dbPosts: NewsPost[] = dbData || [];
+      setPosts(dbPosts);
+      setLoading(false);
+
+      // 2. RSS catholiques en parallèle (progressif — s'ajoutent sans bloquer)
+      let geo: { code: string; name: string; city: string };
+      if (profileCountry) {
+        const code = countryNameToCode(profileCountry);
+        geo = { code: code || 'FR', name: profileCountry, city: profileCity || '' };
+      } else {
+        geo = await detectCountry();
+      }
+      const localUrl = RSS_BY_COUNTRY[geo.code];
+      const rssSources = [
+        { url: RSS_WORLD,    name: 'Aleteia' },
+        { url: 'https://www.imedias.eu/feed/', name: 'iMédia Afrique' },
+        ...(localUrl && localUrl !== RSS_WORLD ? [{ url: localUrl, name: `Église ${geo.name}` }] : []),
+      ];
+
+      const rssResults = await Promise.allSettled(
+        rssSources.map(s => fetchRss(s.url, 6).then(items => ({ items, name: s.name })))
+      );
+
+      const knownLinks = new Set([
+        ...dbPosts.map(p => p.external_url).filter(Boolean) as string[],
+        ...dbPosts.map(p => p.id),
+      ]);
+      const rssAsPosts: NewsPost[] = [];
+      for (const r of rssResults) {
+        if (r.status !== 'fulfilled') continue;
+        for (const item of r.value.items) {
+          if (!item.link || knownLinks.has(item.link)) continue;
+          knownLinks.add(item.link);
+          rssAsPosts.push(rssItemToPost(item, r.value.name));
+        }
+      }
+
+      if (rssAsPosts.length > 0) {
+        setPosts(prev => [...prev, ...rssAsPosts]);
+      }
+    };
+
+    void load();
+  }, [profileCountry, profileCity]);
 
   if (!loading && posts.length === 0) {
     if (!isAdmin) return null;
@@ -305,138 +379,6 @@ const NewsCard = ({ post }: { post: NewsPost }) => {
   return <Link to={href} className="block h-full">{inner}</Link>;
 };
 
-// ── External Catholic News ─────────────────────────────────────────────────────
-
-const ExternalNewsSection = ({
-  profileCountry,
-  profileCity,
-}: {
-  profileCountry?: string;
-  profileCity?: string;
-}) => {
-  const [country, setCountry] = useState<{ code: string; name: string; city: string } | null>(null);
-  const [worldNews, setWorldNews] = useState<RssItem[]>([]);
-  const [localNews, setLocalNews] = useState<RssItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const fetchedRef = useRef(false);
-
-  useEffect(() => {
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
-
-    const load = async () => {
-      // Priorité : pays stocké en profil → sinon géolocalisation IP
-      let geo: { code: string; name: string; city: string };
-      if (profileCountry) {
-        const code = countryNameToCode(profileCountry);
-        geo = { code: code || 'FR', name: profileCountry, city: profileCity || '' };
-      } else {
-        geo = await detectCountry();
-      }
-      setCountry(geo);
-      const localUrl = RSS_BY_COUNTRY[geo.code];
-      const [world, local] = await Promise.all([
-        fetchRss(RSS_WORLD, 5),
-        localUrl && localUrl !== RSS_WORLD ? fetchRss(localUrl, 4) : Promise.resolve([]),
-      ]);
-      setWorldNews(world);
-      setLocalNews(local);
-      setLoading(false);
-    };
-    void load();
-  }, [profileCountry, profileCity]);
-
-  if (loading) {
-    return (
-      <section className="py-10 border-y border-border/40">
-        <div className="container mx-auto px-4 max-w-5xl">
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-6">
-            <Loader2 className="h-4 w-4 animate-spin" /> Chargement des actualités…
-          </div>
-          <div className="flex gap-3 overflow-hidden">
-            {[1,2,3,4].map(i => <div key={i} className="min-w-[200px] h-44 rounded-2xl bg-muted/30 animate-pulse shrink-0" />)}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (worldNews.length === 0 && localNews.length === 0) return null;
-
-  return (
-    <section className="py-10 border-y border-border/40 bg-muted/10">
-      <div className="container mx-auto px-4 max-w-5xl space-y-10">
-
-        {/* World Catholic News */}
-        {worldNews.length > 0 && (
-          <div>
-            <SectionHeader icon={<Globe className="h-4 w-4" />} title="Église dans le Monde" href="https://fr.aleteia.org" linkLabel="Aleteia" external />
-            <div className="mt-4 flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x -mx-4 px-4">
-              {worldNews.map((item, i) => (
-                <motion.div key={i} className="min-w-[220px] max-w-[240px] snap-center shrink-0"
-                  initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}>
-                  <RssCard item={item} />
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Local Catholic News */}
-        {localNews.length > 0 && country && (
-          <div>
-            <SectionHeader
-              icon={<MapPin className="h-4 w-4" />}
-              title={`Église en ${country.name}`}
-              subtitle={country.city ? `Actualités catholiques locales · ${country.city}` : 'Actualités catholiques locales'}
-            />
-            <div className="mt-4 flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x -mx-4 px-4">
-              {localNews.map((item, i) => (
-                <motion.div key={i} className="min-w-[220px] max-w-[240px] snap-center shrink-0"
-                  initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}>
-                  <RssCard item={item} />
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </section>
-  );
-};
-
-const RssCard = ({ item }: { item: RssItem }) => {
-  const thumb = rssThumb(item);
-  const excerpt = stripHtml(item.description || '').slice(0, 100);
-
-  return (
-    <a href={item.link} target="_blank" rel="noopener noreferrer" className="block h-full">
-      <div className="group h-full rounded-2xl border border-border/60 bg-card overflow-hidden hover:border-primary/30 hover:shadow-[0_4px_20px_-5px_hsl(var(--primary)/0.15)] transition-all cursor-pointer">
-        <div className="aspect-video relative overflow-hidden bg-muted">
-          {thumb ? (
-            <img src={thumb} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Globe className="h-8 w-8 text-muted-foreground/20" />
-            </div>
-          )}
-        </div>
-        <div className="p-3 flex flex-col gap-1.5">
-          <p className="text-xs font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-            {item.title}
-          </p>
-          {excerpt && <p className="text-[10px] text-muted-foreground line-clamp-2">{excerpt}</p>}
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-[10px] text-muted-foreground/60">
-              {item.pubDate ? formatDistanceToNow(new Date(item.pubDate), { addSuffix: true, locale: fr }) : ''}
-            </span>
-            <ExternalLink className="h-3 w-3 text-muted-foreground/40 group-hover:text-primary transition-colors" />
-          </div>
-        </div>
-      </div>
-    </a>
-  );
-};
 
 // ── Quick links bar ────────────────────────────────────────────────────────────
 
@@ -540,8 +482,7 @@ const Index = () => {
       <main>
         <HeroSection />
         <QuickLinksBar />
-        <AssociationNewsSection isAdmin={isAdmin} />
-        <ExternalNewsSection profileCountry={profileCountry} profileCity={profileCity} />
+        <AssociationNewsSection isAdmin={isAdmin} profileCountry={profileCountry} profileCity={profileCity} />
         <VersetDuJour />
         <MissionSection />
         <CTASection />
