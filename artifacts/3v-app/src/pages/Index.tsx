@@ -449,32 +449,48 @@ const NewsCard = ({ post }: { post: NewsPost }) => {
   const href = post.external_url || `/actualites/${post.id}`;
   const _isNew = isNew(post.published_at);
   const mins = readingTime((post.content || post.excerpt) ?? null);
+  const [imgError, setImgError] = useState(false);
+
+  // Quand l'image échoue OU qu'il n'y a pas d'image → afficher le titre sur fond
+  const showFallback = !post.image_url || imgError;
+
+  // Badges partagés
+  const badges = (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide shadow-sm">
+        {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
+      </span>
+      {_isNew && (
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/90 text-white uppercase tracking-wide animate-pulse">
+          Nouveau
+        </span>
+      )}
+    </div>
+  );
 
   const inner = (
     <div className="group rounded-2xl border border-border/60 bg-card overflow-hidden hover:border-primary/40 hover:shadow-[0_12px_40px_-12px_hsl(var(--primary)/0.25)] transition-all duration-300 h-full flex flex-col">
 
-      {/* Media — dimensions naturelles */}
-      {post.image_url ? (
+      {/* ── Media ── */}
+      {post.video_url && !showFallback ? (
+        <div className="relative w-full aspect-video bg-zinc-900 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 transition-colors">
+            <Play className="h-5 w-5 text-white ml-0.5" />
+          </div>
+          <div className="absolute top-2 left-2">{badges}</div>
+        </div>
+      ) : !showFallback ? (
+        /* Image OK */
         <div className="relative overflow-hidden w-full bg-muted/10">
           <img
             src={proxyImg(post.image_url)!}
             alt={post.title}
             className="w-full h-auto block group-hover:scale-[1.03] transition-transform duration-500 ease-out"
             loading="lazy"
-            onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }}
+            onError={() => setImgError(true)}
           />
-          <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/40 to-transparent" />
-          <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide shadow-md backdrop-blur-sm">
-              {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
-            </span>
-            {_isNew && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/90 text-white uppercase tracking-wide shadow-md backdrop-blur-sm animate-pulse">
-                Nouveau
-              </span>
-            )}
-          </div>
-          {/* Bouton partage */}
+          <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/50 to-transparent" />
+          <div className="absolute top-2 left-2 z-10">{badges}</div>
           <button
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); void sharePost(post); }}
             className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60"
@@ -483,36 +499,20 @@ const NewsCard = ({ post }: { post: NewsPost }) => {
             <Share2 className="h-3 w-3 text-white" />
           </button>
         </div>
-      ) : post.video_url ? (
-        <div className="relative w-full aspect-video bg-zinc-900 flex items-center justify-center">
-          <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 transition-colors">
-            <Play className="h-5 w-5 text-white ml-0.5" />
-          </div>
-          <div className="absolute top-2 left-2 flex items-center gap-1.5">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
-              {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
-            </span>
-            {_isNew && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/90 text-white uppercase tracking-wide animate-pulse">Nouveau</span>}
-          </div>
-        </div>
       ) : (
-        /* Pas d'image → remplir avec le titre sur fond dégradé */
-        <div className="relative w-full overflow-hidden bg-gradient-to-br from-primary/20 via-primary/10 to-muted/30"
-          style={{ minHeight: '140px' }}>
-          {/* Motif de fond décoratif */}
-          <div className="absolute inset-0 opacity-[0.07]"
-            style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, hsl(var(--primary)) 0%, transparent 50%), radial-gradient(circle at 80% 20%, hsl(var(--primary)) 0%, transparent 40%)' }} />
-          <div className="relative z-10 p-4 flex flex-col justify-between h-full" style={{ minHeight: '140px' }}>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
-                {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
-              </span>
-              {_isNew && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/90 text-white uppercase tracking-wide animate-pulse">Nouveau</span>}
-            </div>
-            <p className="font-cinzel font-bold text-foreground/80 text-base leading-snug line-clamp-3 mt-3">
-              {post.title}
-            </p>
-          </div>
+        /* Fallback : pas d'image / image cassée → titre sur fond dégradé */
+        <div className="relative w-full flex flex-col justify-between p-4 overflow-hidden"
+          style={{
+            minHeight: '160px',
+            background: 'linear-gradient(135deg, hsl(var(--primary)/0.22) 0%, hsl(var(--primary)/0.10) 50%, hsl(var(--muted)/0.35) 100%)',
+          }}>
+          {/* Halo décoratif */}
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-[0.12] -translate-y-8 translate-x-8"
+            style={{ background: 'radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)' }} />
+          <div className="relative z-10">{badges}</div>
+          <p className="relative z-10 font-cinzel font-bold text-foreground text-sm leading-snug line-clamp-3 mt-auto pt-3">
+            {post.title}
+          </p>
         </div>
       )}
 

@@ -63,11 +63,121 @@ const GOSPEL_IMAGES_BY_SEASON: Record<string, string[]> = {
   ],
 };
 
-function getDailyGospelImage(season: string): string {
+function seasonalImage(season: string): string {
   const pool = GOSPEL_IMAGES_BY_SEASON[season] ?? GOSPEL_IMAGES_BY_SEASON['default'];
   const dayIndex = Math.floor(Date.now() / 86_400_000) % pool.length;
-  const raw = pool[dayIndex];
-  return `https://wsrv.nl/?url=${encodeURIComponent(raw)}&w=1920&output=webp&q=85`;
+  return pool[dayIndex];
+}
+
+// ── Scènes évangéliques spécifiques — art catholique domaine public ───────────
+const SCENE: Record<string, string> = {
+  baptism:           'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Baptism-of-Christ-Verrocchio-Leonardo.jpg/1280px-Baptism-of-Christ-Verrocchio-Leonardo.jpg',
+  temptation:        'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/ChristInTheWilderness-IvanKramskoy1872.jpg/1280px-ChristInTheWilderness-IvanKramskoy1872.jpg',
+  calling:           'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Tissot_The_Calling_of_Saint_Matthew.jpg/1280px-Tissot_The_Calling_of_Saint_Matthew.jpg',
+  sermon:            'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Carl_Heinrich_Bloch_-_The_Sermon_on_the_Mount.jpg/1280px-Carl_Heinrich_Bloch_-_The_Sermon_on_the_Mount.jpg',
+  healing:           'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Tissot_The_Healing_of_the_Paralytic.jpg/1280px-Tissot_The_Healing_of_the_Paralytic.jpg',
+  storm:             'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Rembrandt_Christ_in_the_Storm_on_the_Lake_of_Galilee.jpg/1280px-Rembrandt_Christ_in_the_Storm_on_the_Lake_of_Galilee.jpg',
+  multiplication:    'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Tissot_The_Feeding_of_the_Five_Thousand.jpg/1280px-Tissot_The_Feeding_of_the_Five_Thousand.jpg',
+  walking_water:     'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Tissot_Jesus_Walking_on_the_Water.jpg/1280px-Tissot_Jesus_Walking_on_the_Water.jpg',
+  transfiguration:   'https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Transfiguration_Raphael.jpg/1280px-Transfiguration_Raphael.jpg',
+  bartimaeus:        'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Brooklyn_Museum_-_The_Blind_Bartimaeus_-_James_Tissot_-_overall.jpg/960px-Brooklyn_Museum_-_The_Blind_Bartimaeus_-_James_Tissot_-_overall.jpg',
+  good_samaritan:    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Good_Samaritan_Rembrandt.jpg/1280px-Good_Samaritan_Rembrandt.jpg',
+  prodigal_son:      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rembrandt_-_The_Return_of_the_Prodigal_Son.jpg/1024px-Rembrandt_-_The_Return_of_the_Prodigal_Son.jpg',
+  entry_jerusalem:   'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Tissot_The_Entry_into_Jerusalem.jpg/1280px-Tissot_The_Entry_into_Jerusalem.jpg',
+  washing_feet:      'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Tissot_The_Washing_of_the_Feet.jpg/1280px-Tissot_The_Washing_of_the_Feet.jpg',
+  last_supper:       'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/%22The_Last_Supper%22_-_Leonardo_Da_Vinci_-_High_Resolution_32x16.jpg/1280px-%22The_Last_Supper%22_-_Leonardo_Da_Vinci_-_High_Resolution_32x16.jpg',
+  gethsemane:        'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Bloch-Gethsemane.jpg/1280px-Bloch-Gethsemane.jpg',
+  crucifixion:       'https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Cristo_crucificado.jpg/800px-Cristo_crucificado.jpg',
+  resurrection:      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Carl_Bloch_-_The_Resurrection.jpg/1280px-Carl_Bloch_-_The_Resurrection.jpg',
+  emmaus:            'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Road_to_Emmaus_appearance.jpg/1280px-Road_to_Emmaus_appearance.jpg',
+  pentecost:         'https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/The_Descent_of_the_Holy_Spirit.jpg/960px-The_Descent_of_the_Holy_Spirit.jpg',
+  annunciation:      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Tissot_Annunciation.jpg/960px-Tissot_Annunciation.jpg',
+  nativity:          'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/The_nativity_Gerard_van_Honthorst_1622.jpg/1280px-The_nativity_Gerard_van_Honthorst_1622.jpg',
+  magi:              'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Adoration_of_the_Magi_-_Bartolom%C3%A9_Esteban_Murillo.jpg/1280px-Adoration_of_the_Magi_-_Bartolom%C3%A9_Esteban_Murillo.jpg',
+  wedding_cana:      'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Paolo_Veronese_-_Wedding_at_Cana.jpg/1280px-Paolo_Veronese_-_Wedding_at_Cana.jpg',
+  good_shepherd:     'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Carl_Bloch_-_The_Good_Shepherd.jpg/1280px-Carl_Bloch_-_The_Good_Shepherd.jpg',
+  lazarus:           'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Rembrandt_The_Raising_of_Lazarus.jpg/1024px-Rembrandt_The_Raising_of_Lazarus.jpg',
+  samaritan_woman:   'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Tissot_Jesus_and_the_Samaritan_Woman.jpg/1280px-Tissot_Jesus_and_the_Samaritan_Woman.jpg',
+};
+
+/** Renvoie l'image spécifique à la péricope évangélique, ou une image saisonnière en fallback */
+function getGospelImageFromReading(books: string, chapters: string, season: string): string {
+  const b = books.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  const ch = parseInt(chapters.split(/[,\-]/)[0].trim(), 10);
+
+  let scene: string | null = null;
+
+  // ── Marc ─────────────────────────────────────────────────────────────────────
+  if (/marc|mark|mc\.?$|mk/.test(b)) {
+    if (ch === 1)  scene = 'baptism';
+    else if (ch === 2) scene = 'healing';
+    else if (ch === 3) scene = 'calling';
+    else if (ch === 4) scene = 'storm';
+    else if (ch === 5) scene = 'healing';
+    else if (ch === 6) scene = 'multiplication';
+    else if (ch === 7) scene = 'healing';
+    else if (ch === 8) scene = 'healing';
+    else if (ch === 9) scene = 'transfiguration';
+    else if (ch === 10) scene = 'bartimaeus'; // Bartimée !
+    else if (ch === 11) scene = 'entry_jerusalem';
+    else if (ch === 12 || ch === 13) scene = 'sermon';
+    else if (ch === 14) scene = 'last_supper';
+    else if (ch === 15) scene = 'crucifixion';
+    else if (ch === 16) scene = 'resurrection';
+  }
+
+  // ── Matthieu ─────────────────────────────────────────────────────────────────
+  if (/matthieu|matthew|mt\.?$/.test(b)) {
+    if (ch === 1 || ch === 2) scene = 'nativity';
+    else if (ch === 3) scene = 'baptism';
+    else if (ch === 4) scene = 'temptation';
+    else if (ch >= 5 && ch <= 7) scene = 'sermon';
+    else if (ch === 8 || ch === 9) scene = 'healing';
+    else if (ch === 10 || ch === 11) scene = 'calling';
+    else if (ch === 14) scene = 'walking_water';
+    else if (ch === 15) scene = 'multiplication';
+    else if (ch === 17) scene = 'transfiguration';
+    else if (ch === 21) scene = 'entry_jerusalem';
+    else if (ch === 26) scene = 'gethsemane';
+    else if (ch === 27) scene = 'crucifixion';
+    else if (ch === 28) scene = 'resurrection';
+  }
+
+  // ── Luc ───────────────────────────────────────────────────────────────────────
+  if (/\bluc\b|luke|lc\.?$/.test(b)) {
+    if (ch === 1) scene = 'annunciation';
+    else if (ch === 2) scene = 'nativity';
+    else if (ch === 3) scene = 'baptism';
+    else if (ch === 4) scene = 'temptation';
+    else if (ch === 5 || ch === 6) scene = 'calling';
+    else if (ch === 9) scene = 'transfiguration';
+    else if (ch === 10) scene = 'good_samaritan';
+    else if (ch === 15) scene = 'prodigal_son';
+    else if (ch === 19) scene = 'entry_jerusalem';
+    else if (ch === 22) scene = 'last_supper';
+    else if (ch === 23) scene = 'crucifixion';
+    else if (ch === 24) scene = 'emmaus';
+  }
+
+  // ── Jean ─────────────────────────────────────────────────────────────────────
+  if (/\bjean\b|john|jn\.?$/.test(b)) {
+    if (ch === 1) scene = 'baptism';
+    else if (ch === 2) scene = 'wedding_cana';
+    else if (ch === 4) scene = 'samaritan_woman';
+    else if (ch === 6) scene = 'multiplication';
+    else if (ch === 10) scene = 'good_shepherd';
+    else if (ch === 11) scene = 'lazarus';
+    else if (ch === 12) scene = 'entry_jerusalem';
+    else if (ch === 13) scene = 'washing_feet';
+    else if (ch === 18 || ch === 19) scene = 'crucifixion';
+    else if (ch === 20 || ch === 21) scene = 'resurrection';
+  }
+
+  // ── Actes ────────────────────────────────────────────────────────────────────
+  if (/actes|acts|ac\.?$/.test(b)) scene = 'pentecost';
+
+  const rawUrl = scene && SCENE[scene] ? SCENE[scene] : seasonalImage(season);
+  return `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=1920&output=webp&q=85`;
 }
 
 // ── Couleur liturgique du jour (calculée une seule fois) ──────────────────────
@@ -473,6 +583,10 @@ const HeroSection = () => {
   const [verses, setVerses]             = useState<DisplayVerse[]>(FALLBACK_VERSES);
   const [todayReading, setTodayReading] = useState<TodayReading | null>(null);
   const [todayFeast, setTodayFeast]     = useState<{ name: string; message: string; color: string } | null>(null);
+  // Image de fond : image saisonnière par défaut, remplacée par la scène de l'évangile du jour
+  const [bgImage, setBgImage] = useState(() =>
+    `https://wsrv.nl/?url=${encodeURIComponent(seasonalImage(lit.season))}&w=1920&output=webp&q=85`
+  );
 
   const firstName = user?.firstName || user?.name?.split(' ')[0] || '';
 
@@ -501,6 +615,8 @@ const HeroSection = () => {
         .single();
       if (!data) return;
       setTodayReading(data);
+      // Mise à jour de l'image de fond avec la scène évangélique du jour
+      setBgImage(getGospelImageFromReading(data.books, data.chapters, lit.season));
       const fileName = bookNameToFileName(data.books);
       if (!fileName) return;
       const chNums = parseChapters(data.chapters);
@@ -539,10 +655,10 @@ const HeroSection = () => {
           src={heroCathedral} alt="" aria-hidden
           className="absolute inset-0 w-full h-full object-cover opacity-40"
         />
-        {/* Image quotidienne (art catholique) — s'affiche par-dessus quand chargée */}
+        {/* Image quotidienne (scène évangélique) — s'affiche quand chargée */}
         <motion.img
-          key={getDailyGospelImage(lit.season)}
-          src={getDailyGospelImage(lit.season)} alt="" aria-hidden
+          key={bgImage}
+          src={bgImage} alt="" aria-hidden
           className="absolute inset-0 w-full h-full object-cover"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           transition={{ duration: 2, ease: 'easeIn' }}
