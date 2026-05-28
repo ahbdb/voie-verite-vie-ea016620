@@ -142,6 +142,37 @@ const AdminVideo = () => {
 
       if (error) throw error;
 
+      // Créer une scheduled_session pour que le live apparaisse dans CallsAndLives
+      await db.from('scheduled_sessions').insert({
+        title: formData.title.trim(),
+        description: formData.description.trim() || null,
+        session_type: formData.roomType === 'audio' ? 'audio' : 'video',
+        scheduled_date: new Date().toISOString().slice(0, 10),
+        scheduled_time: new Date().toTimeString().slice(0, 8),
+        estimated_duration: 60,
+        access_type: 'open',
+        recurrence: 'once',
+        status: formData.scheduledAt ? 'scheduled' : 'live',
+        created_by: user.id,
+        video_room_id: data.id,
+        ...(flyerUrl ? { thumbnail_url: flyerUrl } : {}),
+        ...(formData.scheduledAt ? { scheduled_date: new Date(formData.scheduledAt).toISOString().slice(0, 10), scheduled_time: new Date(formData.scheduledAt).toTimeString().slice(0, 8) } : {}),
+      }).catch(() => {});
+
+      // Créer une actualité si un flyer est fourni
+      if (flyerUrl) {
+        await supabase.from('news_posts').insert({
+          title: formData.title.trim(),
+          excerpt: formData.description.trim() || `${formData.roomType === 'audio' ? 'Appel audio' : 'Appel vidéo'} en direct`,
+          image_url: flyerUrl,
+          category: 'event',
+          is_published: true,
+          featured: false,
+          published_at: new Date().toISOString(),
+          author_name: user?.email || 'Admin',
+        } as any).catch(() => {});
+      }
+
       const meetingPath = `/meeting/${data.id}`;
       const callLabel = formData.roomType === 'audio' ? 'audio' : 'vidéo';
       const notifTitle = `📞 ${formData.title.trim()}`;

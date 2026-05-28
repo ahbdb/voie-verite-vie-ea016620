@@ -463,6 +463,7 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
           status: 'live',
           created_by: user.id,
           video_room_id: room.id,
+          ...(quickFlyerUrl ? { thumbnail_url: quickFlyerUrl } : {}),
         } as any);
 
       if (sessionError) throw sessionError;
@@ -668,6 +669,16 @@ const LiveNowTab = ({ sessions, isAdmin, onJoin, t, dateLocale, onRefresh }: any
                 </span>
               </div>
             </div>
+
+            {/* Thumbnail/flyer image */}
+            {session.thumbnail_url && (
+              <img
+                src={session.thumbnail_url}
+                alt={session.title}
+                className="w-full max-h-56 object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            )}
 
             <div className="p-6 sm:p-8">
               {/* Session type badge */}
