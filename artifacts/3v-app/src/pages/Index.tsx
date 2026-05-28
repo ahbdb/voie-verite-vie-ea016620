@@ -260,9 +260,9 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
         />
 
         {loadingDb ? (
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 snap-x snap-mandatory">
             {[1, 2, 3].map(i => (
-              <div key={i} className="rounded-2xl bg-muted/30 animate-pulse h-64" />
+              <div key={i} className="rounded-2xl bg-muted/30 animate-pulse h-64 shrink-0 w-[280px] sm:w-[320px] snap-start" />
             ))}
           </div>
         ) : allPosts.length === 0 ? (
@@ -276,10 +276,11 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
             </div>
           ) : null
         ) : (
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 snap-x snap-mandatory">
             {allPosts.map((post, i) => (
               <motion.div
                 key={post.id}
+                className="snap-start shrink-0 w-[280px] sm:w-[320px]"
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(i, 6) * 0.04 }}

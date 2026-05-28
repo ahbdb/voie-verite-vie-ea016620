@@ -17,7 +17,7 @@ import { fr } from 'date-fns/locale';
 import {
   Plus, Pencil, Trash2, Loader2, Newspaper, Eye, EyeOff,
   Star, StarOff, Image as ImageIcon, Link2, Video, ArrowLeft,
-  Upload,
+  Upload, Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -70,15 +70,16 @@ const AdminNews = () => {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [uploading, setUploading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetch = async () => {
+  const loadPosts = async () => {
     const { data } = await db.from('news_posts').select('*').order('published_at', { ascending: false });
     setPosts(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { void fetch(); }, []);
+  useEffect(() => { void loadPosts(); }, []);
 
   const openCreate = () => {
     setEditingId(null);
@@ -132,24 +133,80 @@ const AdminNews = () => {
     }
     setSaving(false);
     setDialogOpen(false);
-    void fetch();
+    void loadPosts();
   };
 
   const togglePublish = async (post: NewsPost) => {
     await db.from('news_posts').update({ is_published: !post.is_published }).eq('id', post.id);
-    void fetch();
+    void loadPosts();
   };
 
   const toggleFeatured = async (post: NewsPost) => {
     await db.from('news_posts').update({ featured: !post.featured }).eq('id', post.id);
-    void fetch();
+    void loadPosts();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer cet article ?')) return;
     await db.from('news_posts').delete().eq('id', id);
     toast.success('Supprimé');
-    void fetch();
+    void loadPosts();
+  };
+
+  const handleImportRss = async () => {
+    setImporting(true);
+    const { data: existing } = await db.from('news_posts').select('external_url').not('external_url', 'is', null);
+    const existingUrls = new Set((existing || []).map((p: any) => p.external_url as string));
+
+    const RSS_SOURCES = [
+      { url: 'https://fr.aleteia.org/feed/', name: 'Aleteia' },
+      { url: 'https://www.imedias.eu/feed/', name: 'iMédia' },
+      { url: 'https://www.famillechretienne.fr/feed/', name: 'Famille Chrétienne' },
+      { url: 'https://www.vaticannews.va/fr/rss.xml', name: 'Vatican News' },
+      { url: 'https://www.la-croix.com/RSS/UNIVERS-RELIGION', name: 'La Croix' },
+    ];
+
+    const toInsert: object[] = [];
+    for (const source of RSS_SOURCES) {
+      try {
+        const api = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(source.url)}&count=6`;
+        const res = await fetch(api, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) continue;
+        const json = await res.json();
+        if (json.status !== 'ok') continue;
+        for (const item of json.items as any[]) {
+          if (!item.link || !item.title || existingUrls.has(item.link)) continue;
+          const thumb = item.thumbnail || item.enclosure?.link || null;
+          const raw = (item.description || '') as string;
+          const excerpt = raw.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').trim().slice(0, 300) || null;
+          toInsert.push({
+            title: item.title,
+            excerpt,
+            image_url: thumb,
+            category: 'church',
+            author_name: source.name,
+            is_published: true,
+            featured: false,
+            external_url: item.link,
+            published_at: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(),
+          });
+        }
+      } catch { /* skip this source */ }
+    }
+
+    if (toInsert.length === 0) {
+      toast.info('Aucun nouvel article trouvé dans les flux RSS');
+      setImporting(false);
+      return;
+    }
+    const { error } = await db.from('news_posts').insert(toInsert);
+    if (error) {
+      toast.error('Erreur import : ' + error.message);
+    } else {
+      toast.success(`${toInsert.length} article(s) importé(s) depuis les flux RSS`);
+      void loadPosts();
+    }
+    setImporting(false);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,9 +245,15 @@ const AdminNews = () => {
               <p className="text-sm text-muted-foreground mt-0.5">{posts.length} article{posts.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
-          <Button onClick={openCreate} className="rounded-xl gap-2">
-            <Plus className="h-4 w-4" /> Nouvel article
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleImportRss} disabled={importing} className="rounded-xl gap-2">
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              <span className="hidden sm:inline">Importer RSS</span>
+            </Button>
+            <Button onClick={openCreate} className="rounded-xl gap-2">
+              <Plus className="h-4 w-4" /> Nouvel article
+            </Button>
+          </div>
         </div>
 
         {/* List */}
