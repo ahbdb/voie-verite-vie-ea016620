@@ -210,7 +210,7 @@ const AdminNews = () => {
 
   const handleImportRss = async () => {
     setImporting(true);
-    toast.info('Import en cours, patience…');
+    toast.info('Scraping en cours…');
 
     // ── Étape 1 : tenter l'Edge Function (serveur, aucun CORS) ──────────────
     try {
@@ -227,21 +227,20 @@ const AdminNews = () => {
           return;
         }
         if (json.errors?.length) console.warn('Edge fn errors:', json.errors);
-        // inserted === 0 → tomber sur le fallback client pour être sûr
       }
     } catch { /* Edge Function non déployée → fallback */ }
 
-    // ── Étape 2 : fallback client-side (proxy CORS + parsing XML) ───────────
+    // ── Étape 2 : fetch client + RPC SECURITY DEFINER ───────────────────────
     const { data: existing } = await db.from('news_posts').select('external_url').not('external_url', 'is', null);
     const existingUrls = new Set((existing || []).map((p: any) => p.external_url as string));
 
     const RSS_SOURCES = [
-      { url: 'https://fr.aleteia.org/feed/',           name: 'Aleteia' },
-      { url: 'https://www.imedias.eu/feed/',            name: 'iMédia' },
-      { url: 'https://www.famillechretienne.fr/feed/',  name: 'Famille Chrétienne' },
-      { url: 'https://www.vaticannews.va/fr.rss.xml',   name: 'Vatican News' },
-      { url: 'https://www.la-croix.com/RSS/UNIVERS-RELIGION', name: 'La Croix' },
-      { url: 'https://www.ktotv.com/rss.xml',           name: 'KTO' },
+      { url: 'https://fr.aleteia.org/feed/',                    name: 'Aleteia'            },
+      { url: 'https://www.vaticannews.va/fr.rss.xml',           name: 'Vatican News'       },
+      { url: 'https://www.imedias.eu/feed/',                    name: 'iMédia'             },
+      { url: 'https://www.famillechretienne.fr/feed/',          name: 'Famille Chrétienne' },
+      { url: 'https://www.la-croix.com/RSS/UNIVERS-RELIGION',   name: 'La Croix'           },
+      { url: 'https://fr.zenit.org/feed/',                      name: 'Zenit'              },
     ];
 
     const results = await Promise.allSettled(
@@ -254,16 +253,17 @@ const AdminNews = () => {
     }
 
     if (toInsert.length === 0) {
-      toast.warning('Aucun nouvel article trouvé (flux peut-être déjà à jour)');
+      toast.warning('Aucun nouvel article trouvé via les proxies. Utilise le script Node.js.');
       setImporting(false);
       return;
     }
 
-    const { error } = await db.from('news_posts').insert(toInsert);
+    // Appel RPC SECURITY DEFINER (contourne RLS, ne nécessite que anon key)
+    const { data: count, error } = await db.rpc('insert_church_articles', { articles: toInsert });
     if (error) {
-      toast.error('Erreur insertion : ' + error.message);
+      toast.error('Erreur : ' + error.message + ' — Applique d\'abord la migration SQL dans le Dashboard.');
     } else {
-      toast.success(`${toInsert.length} article(s) importé(s)`);
+      toast.success(`${count ?? toInsert.length} article(s) importé(s)`);
       void loadPosts();
     }
     setImporting(false);
