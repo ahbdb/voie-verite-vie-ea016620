@@ -386,8 +386,6 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
         ) : (
           <>
             <div className="relative mt-4">
-              <div className="pointer-events-none absolute left-0 top-0 bottom-3 w-10 z-10 bg-gradient-to-r from-background to-transparent" />
-              <div className="pointer-events-none absolute right-0 top-0 bottom-3 w-10 z-10 bg-gradient-to-l from-background to-transparent" />
 
               <div
                 ref={scrollRef}
@@ -498,13 +496,22 @@ const NewsCard = ({ post }: { post: NewsPost }) => {
           </div>
         </div>
       ) : (
-        <div className="w-full h-[100px] bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center relative">
-          <ImageIcon className="h-8 w-8 text-primary/20" />
-          <div className="absolute top-2 left-2 flex items-center gap-1.5">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
-              {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
-            </span>
-            {_isNew && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/90 text-white uppercase tracking-wide animate-pulse">Nouveau</span>}
+        /* Pas d'image → remplir avec le titre sur fond dégradé */
+        <div className="relative w-full overflow-hidden bg-gradient-to-br from-primary/20 via-primary/10 to-muted/30"
+          style={{ minHeight: '140px' }}>
+          {/* Motif de fond décoratif */}
+          <div className="absolute inset-0 opacity-[0.07]"
+            style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, hsl(var(--primary)) 0%, transparent 50%), radial-gradient(circle at 80% 20%, hsl(var(--primary)) 0%, transparent 40%)' }} />
+          <div className="relative z-10 p-4 flex flex-col justify-between h-full" style={{ minHeight: '140px' }}>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
+                {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
+              </span>
+              {_isNew && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/90 text-white uppercase tracking-wide animate-pulse">Nouveau</span>}
+            </div>
+            <p className="font-cinzel font-bold text-foreground/80 text-base leading-snug line-clamp-3 mt-3">
+              {post.title}
+            </p>
           </div>
         </div>
       )}

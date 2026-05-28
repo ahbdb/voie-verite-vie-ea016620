@@ -23,6 +23,53 @@ import { getLiturgicalDay, liturgicalEmoji } from '@/lib/liturgicalCalendar';
 import { checkFeastToday, loadFeasts } from '@/lib/christian-feasts';
 import heroCathedral from '@/assets/hero-cathedral-interior.jpg';
 
+// ── Images quotidiennes liées à l'Évangile (art catholique domaine public) ──
+// Proxy via wsrv.nl pour contourner le hotlink + servir en WebP optimisé
+const GOSPEL_IMAGES_BY_SEASON: Record<string, string[]> = {
+  'Avent': [
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Tissot_Annunciation.jpg/1280px-Tissot_Annunciation.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/James_Tissot_-_The_Visitation.jpg/960px-James_Tissot_-_The_Visitation.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/CARAVAGGIO_-_Natividad_%28Museo_de_Bellas_Artes_de_Palermo%2C_1609%29.jpg/1280px-CARAVAGGIO_-_Natividad_%28Museo_de_Bellas_Artes_de_Palermo%2C_1609%29.jpg',
+  ],
+  'Noël': [
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/The_nativity_Gerard_van_Honthorst_1622.jpg/1280px-The_nativity_Gerard_van_Honthorst_1622.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Adoration_of_the_Magi_-_Bartolom%C3%A9_Esteban_Murillo.jpg/1280px-Adoration_of_the_Magi_-_Bartolom%C3%A9_Esteban_Murillo.jpg',
+  ],
+  'Carême': [
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/ChristInTheWilderness-IvanKramskoy1872.jpg/1280px-ChristInTheWilderness-IvanKramskoy1872.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Cristo_crucificado.jpg/800px-Cristo_crucificado.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Carl_Heinrich_Bloch_-_The_Sermon_on_the_Mount.jpg/1280px-Carl_Heinrich_Bloch_-_The_Sermon_on_the_Mount.jpg',
+  ],
+  'Semaine Sainte': [
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Tissot_The_Washing_of_the_Feet.jpg/1280px-Tissot_The_Washing_of_the_Feet.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Tissot_Jesus_Wept.jpg/960px-Tissot_Jesus_Wept.jpg',
+  ],
+  'Pâques': [
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Carl_Bloch_-_The_Resurrection.jpg/1280px-Carl_Bloch_-_The_Resurrection.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Road_to_Emmaus_appearance.jpg/1280px-Road_to_Emmaus_appearance.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Doubting_thomas_guercino.jpg/1280px-Doubting_thomas_guercino.jpg',
+  ],
+  'Pentecôte': [
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/The_Descent_of_the_Holy_Spirit.jpg/960px-The_Descent_of_the_Holy_Spirit.jpg',
+  ],
+  default: [
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Carl_Heinrich_Bloch_-_The_Sermon_on_the_Mount.jpg/1280px-Carl_Heinrich_Bloch_-_The_Sermon_on_the_Mount.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Tissot_The_Feeding_of_the_Five_Thousand.jpg/1280px-Tissot_The_Feeding_of_the_Five_Thousand.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Baptism-of-Christ-Verrocchio-Leonardo.jpg/1280px-Baptism-of-Christ-Verrocchio-Leonardo.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Tissot_The_Calling_of_Saint_Matthew.jpg/1280px-Tissot_The_Calling_of_Saint_Matthew.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Tissot_Jesus_Wept.jpg/960px-Tissot_Jesus_Wept.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Sermon_on_the_Mount.jpg/1280px-Sermon_on_the_Mount.jpg',
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Tissot_Jesus_Begins_to_Preach.jpg/1280px-Tissot_Jesus_Begins_to_Preach.jpg',
+  ],
+};
+
+function getDailyGospelImage(season: string): string {
+  const pool = GOSPEL_IMAGES_BY_SEASON[season] ?? GOSPEL_IMAGES_BY_SEASON['default'];
+  const dayIndex = Math.floor(Date.now() / 86_400_000) % pool.length;
+  const raw = pool[dayIndex];
+  return `https://wsrv.nl/?url=${encodeURIComponent(raw)}&w=1920&output=webp&q=85`;
+}
+
 // ── Couleur liturgique du jour (calculée une seule fois) ──────────────────────
 const lit = getLiturgicalDay(new Date());
 
@@ -119,16 +166,61 @@ const HeroNewsCarousel = () => {
     const load = async () => {
       const all: CarouselItem[] = [];
 
-      // 1. Actualités plateforme (Supabase)
+      // ── 1. Textes liturgiques du jour (toujours en tête) ─────────────────────
+      const today = new Date().toISOString().split('T')[0];
       try {
-        const { data } = await (supabase as any)
-          .from('news_posts')
-          .select('id, title, excerpt, category')
-          .eq('is_published', true)
-          .order('published_at', { ascending: false })
-          .limit(3);
+        const { data: reading } = await (supabase as any)
+          .from('biblical_readings')
+          .select('books, chapters, day_number')
+          .eq('date', today)
+          .limit(1)
+          .single();
+        if (reading) {
+          all.push({
+            key: 'liturgy-today',
+            type: 'platform',
+            badge: '📖 Texte du jour',
+            badgeIcon: '📖',
+            title: `Lecture du jour — ${reading.books} ${reading.chapters}`,
+            excerpt: `Méditez l'Évangile de ce ${lit.season.toLowerCase()} avec la communauté.`,
+            href: '/messe-office',
+            isExternal: false,
+          });
+        }
+      } catch {}
 
-        for (const p of (data || [])) {
+      // ── 2. Activités à venir ─────────────────────────────────────────────────
+      try {
+        const { data: acts } = await (supabase as any)
+          .from('activities')
+          .select('id, title, date, description')
+          .gte('date', today)
+          .order('date', { ascending: true })
+          .limit(2);
+        for (const a of (acts || [])) {
+          all.push({
+            key: `activity-${a.id}`,
+            type: 'platform',
+            badge: '📅 Activité à venir',
+            badgeIcon: '📅',
+            title: a.title,
+            excerpt: a.description ? stripHtml(a.description).slice(0, 140) : undefined,
+            href: '/activities',
+            isExternal: false,
+          });
+        }
+      } catch {}
+
+      // ── 3. Actualités association (Supabase, asso/event/announcement en premier) ─
+      try {
+        const { data: posts } = await (supabase as any)
+          .from('news_posts')
+          .select('id, title, excerpt, category, external_url')
+          .eq('is_published', true)
+          .in('category', ['association', 'event', 'announcement'])
+          .order('published_at', { ascending: false })
+          .limit(4);
+        for (const p of (posts || [])) {
           all.push({
             key: `platform-${p.id}`,
             type: 'platform',
@@ -136,8 +228,8 @@ const HeroNewsCarousel = () => {
             badgeIcon: '🏛️',
             title: p.title,
             excerpt: p.excerpt || undefined,
-            href: `/actualites/${p.id}`,
-            isExternal: false,
+            href: p.external_url || `/actualites/${p.id}`,
+            isExternal: !!p.external_url,
           });
         }
       } catch {}
@@ -145,7 +237,7 @@ const HeroNewsCarousel = () => {
       setItems([...all]);
       if (all.length > 0) setLoading(false);
 
-      // 2. Actualités monde (Vatican News)
+      // ── 4. Actualités monde catholique ───────────────────────────────────────
       const worldItems = await fetchRssItems(RSS_WORLD, 3);
       for (const w of worldItems) {
         all.push({
@@ -160,10 +252,10 @@ const HeroNewsCarousel = () => {
         });
       }
 
-      // 3. Actualités locales
+      // ── 5. Actualités locales ────────────────────────────────────────────────
       const geo = await detectCountryCode();
       const localUrl = RSS_BY_COUNTRY[geo.code];
-      if (localUrl) {
+      if (localUrl && localUrl !== RSS_WORLD) {
         const localItems = await fetchRssItems(localUrl, 2);
         for (const l of localItems) {
           all.push({
@@ -194,7 +286,8 @@ const HeroNewsCarousel = () => {
         });
       }
 
-      setItems([...all]);
+      // Limiter à 10 éléments
+      setItems(all.slice(0, 10));
       setLoading(false);
     };
 
@@ -439,20 +532,28 @@ const HeroSection = () => {
   return (
     <section className="relative min-h-[100vh] flex items-center justify-center overflow-hidden">
 
-      {/* Arrière-plan */}
-      <div className="absolute inset-0 z-0">
-        <motion.img
-          src={heroCathedral} alt=""
-          className="w-full h-full object-cover"
-          initial={{ scale: 1.12 }} animate={{ scale: 1 }}
-          transition={{ duration: 20, ease: 'easeOut' }}
+      {/* Arrière-plan — image quotidienne liée à l'Évangile */}
+      <div className="absolute inset-0 z-0 bg-[hsl(220,55%,6%)]">
+        {/* Image de secours (locale) — toujours visible en arrière-plan */}
+        <img
+          src={heroCathedral} alt="" aria-hidden
+          className="absolute inset-0 w-full h-full object-cover opacity-40"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[hsl(220,55%,5%,0.85)] via-[hsl(220,55%,8%,0.65)] to-[hsl(220,55%,8%,0.92)]" />
+        {/* Image quotidienne (art catholique) — s'affiche par-dessus quand chargée */}
+        <motion.img
+          key={getDailyGospelImage(lit.season)}
+          src={getDailyGospelImage(lit.season)} alt="" aria-hidden
+          className="absolute inset-0 w-full h-full object-cover"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          transition={{ duration: 2, ease: 'easeIn' }}
+          onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(10,16,30,0.80)] via-[rgba(10,16,30,0.55)] to-[rgba(10,16,30,0.90)]" />
         {/* Halo couleur liturgique */}
         <motion.div
           className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full blur-3xl"
-          style={{ backgroundColor: lit.colorHex + '12' }}
-          animate={{ opacity: [0.4, 0.8, 0.4], scale: [1, 1.1, 1] }}
+          style={{ backgroundColor: lit.colorHex + '18' }}
+          animate={{ opacity: [0.4, 0.9, 0.4], scale: [1, 1.15, 1] }}
           transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
         />
       </div>
