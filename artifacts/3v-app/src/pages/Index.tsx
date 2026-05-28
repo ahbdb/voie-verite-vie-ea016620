@@ -179,7 +179,7 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
 
   useEffect(() => {
     db.from('news_posts').select('*').eq('is_published', true)
-      .order('published_at', { ascending: false }).limit(7)
+      .order('published_at', { ascending: false }).limit(12)
       .then(({ data }: any) => { setPosts(data || []); setLoading(false); });
   }, []);
 
@@ -205,7 +205,7 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
   return (
     <section className="py-10 bg-background border-y border-border/40">
       <div className="container mx-auto px-4 max-w-5xl">
-        <SectionHeader icon={<Newspaper className="h-4 w-4" />} title="Vie de l'Association"
+        <SectionHeader icon={<Newspaper className="h-4 w-4" />} title="Actualités"
           href="/admin/news" linkLabel={isAdmin ? 'Gérer' : undefined} />
 
         {loading ? (
@@ -237,63 +237,78 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
   );
 };
 
+const CATEGORY_BADGE: Record<string, string> = {
+  association: '🏛️ Association',
+  event: '📅 Événement',
+  announcement: '📢 Annonce',
+  church: '⛪ Église',
+};
+
 const NewsCard = ({ post, variant }: { post: NewsPost; variant: 'featured' | 'grid' }) => {
   const isFeatured = variant === 'featured';
+  const isExternal = !!post.external_url;
   const href = post.external_url || `/actualites/${post.id}`;
 
-  return (
-    <Link to={href} target={post.external_url ? '_blank' : undefined} rel={post.external_url ? 'noopener noreferrer' : undefined}>
-      <div className={cn(
-        'group rounded-2xl border border-border/60 bg-card overflow-hidden hover:border-primary/30 hover:shadow-[0_8px_30px_-10px_hsl(var(--primary)/0.2)] transition-all',
-        isFeatured ? 'flex flex-col sm:flex-row' : ''
-      )}>
-        {/* Image */}
-        <div className={cn('relative overflow-hidden bg-muted', isFeatured ? 'sm:w-2/5 aspect-video sm:aspect-auto' : 'aspect-video')}>
-          {post.image_url ? (
-            <img src={post.image_url} alt={post.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-          ) : post.video_url ? (
-            <div className="w-full h-full flex items-center justify-center bg-zinc-900">
-              <Play className="h-10 w-10 text-white/60" />
-            </div>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
-            </div>
-          )}
-          <div className="absolute top-2 left-2">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
-              {post.category === 'association' ? '🏛️ Association' :
-               post.category === 'event' ? '📅 Événement' :
-               post.category === 'announcement' ? '📢 Annonce' : '⛪ Église'}
-            </span>
+  const inner = (
+    <div className={cn(
+      'group rounded-2xl border border-border/60 bg-card overflow-hidden hover:border-primary/30 hover:shadow-[0_8px_30px_-10px_hsl(var(--primary)/0.2)] transition-all',
+      isFeatured ? 'flex flex-col sm:flex-row' : ''
+    )}>
+      {/* Image */}
+      <div className={cn('relative overflow-hidden bg-muted', isFeatured ? 'sm:w-2/5 aspect-video sm:aspect-auto' : 'aspect-video')}>
+        {post.image_url ? (
+          <img src={post.image_url} alt={post.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        ) : post.video_url ? (
+          <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+            <Play className="h-10 w-10 text-white/60" />
           </div>
-        </div>
-        {/* Content */}
-        <div className={cn('p-4 flex flex-col justify-between', isFeatured ? 'sm:flex-1' : '')}>
-          <div>
-            <h3 className={cn('font-cinzel font-bold text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2', isFeatured ? 'text-lg' : 'text-sm')}>
-              {post.title}
-            </h3>
-            {post.excerpt && (
-              <p className={cn('text-muted-foreground mt-1.5 leading-relaxed line-clamp-2', isFeatured ? 'text-sm' : 'text-xs')}>
-                {post.excerpt}
-              </p>
-            )}
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
           </div>
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/40">
-            <span className="text-[10px] text-muted-foreground/70">
-              {formatDistanceToNow(new Date(post.published_at), { addSuffix: true, locale: fr })}
-              {post.author_name && ` · ${post.author_name}`}
-            </span>
-            {post.external_url
-              ? <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
-              : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />}
-          </div>
+        )}
+        <div className="absolute top-2 left-2">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
+            {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
+          </span>
         </div>
       </div>
-    </Link>
+      {/* Content */}
+      <div className={cn('p-4 flex flex-col justify-between', isFeatured ? 'sm:flex-1' : '')}>
+        <div>
+          <h3 className={cn('font-cinzel font-bold text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2', isFeatured ? 'text-lg' : 'text-sm')}>
+            {post.title}
+          </h3>
+          {post.excerpt && (
+            <p className={cn('text-muted-foreground mt-1.5 leading-relaxed line-clamp-2', isFeatured ? 'text-sm' : 'text-xs')}>
+              {post.excerpt}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/40">
+          <span className="text-[10px] text-muted-foreground/70">
+            {formatDistanceToNow(new Date(post.published_at), { addSuffix: true, locale: fr })}
+            {post.author_name && ` · ${post.author_name}`}
+          </span>
+          {isExternal
+            ? <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />}
+        </div>
+      </div>
+    </div>
   );
+
+  if (isExternal) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer">
+        {inner}
+      </a>
+    );
+  }
+  return <Link to={href}>{inner}</Link>;
 };
 
 // ── External Catholic News ─────────────────────────────────────────────────────
@@ -497,7 +512,7 @@ const Index = () => {
   useEffect(() => {
     if (!user) return;
     db.from('user_roles').select('role').eq('user_id', user.id).then(({ data }: any) => {
-      setIsAdmin((data || []).some((r: any) => r.role === 'admin' || r.role === 'superadmin'));
+      setIsAdmin((data || []).some((r: any) => ['admin', 'admin_principal', 'superadmin'].includes(r.role)));
     });
     // Charger pays/ville du profil pour les actualités locales
     db.from('profiles').select('country, city').eq('id', user.id).single()

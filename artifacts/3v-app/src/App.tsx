@@ -73,6 +73,7 @@ import Temoignages from "./pages/Temoignages";
 import Chapelet from "./pages/Chapelet";
 import PriereQuotidienne from "./pages/PriereQuotidienne";
 import Dons from "./pages/Dons";
+import Actualites from "./pages/Actualites";
 import NotFound from "./pages/NotFound";
 import ProfileCompletion from "./pages/ProfileCompletion";
 import NotificationInitializer from "@/components/NotificationInitializer";
@@ -246,6 +247,7 @@ const App = () => {
                       <Route path="/admin/daily-prayer" element={<AdminPriereQuotidienne />} />
                       <Route path="/admin/news" element={<AdminNews />} />
                       <Route path="/profile" element={<Profile />} />
+                      <Route path="/actualites/:id" element={<Actualites />} />
                       <Route path="/documents-3v" element={<Documents3V />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>

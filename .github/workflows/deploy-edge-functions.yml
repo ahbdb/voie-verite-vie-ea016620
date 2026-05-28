@@ -39,3 +39,11 @@ jobs:
         run: |
           supabase secrets set GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
             --project-ref kaddsojhnkyfavaulrfc
+
+      - name: Deploy fetch-news
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy fetch-news \
+            --project-ref kaddsojhnkyfavaulrfc \
+            --no-verify-jwt
