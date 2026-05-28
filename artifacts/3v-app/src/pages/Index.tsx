@@ -257,24 +257,28 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
     const knownLinks = new Set(dbPosts.map(p => p.external_url ?? p.id).filter(Boolean));
     const filtered = rssPosts.filter(p => p.external_url && !knownLinks.has(p.external_url));
     const all = [...dbPosts, ...filtered];
-    const priority = (c: string) => c === 'church' ? 1 : 0; // asso/event/announcement = 0, church = 1
+    const priority = (c: string) => c === 'church' ? 1 : 0;
     return all.sort((a, b) => priority(a.category) - priority(b.category));
   }, [dbPosts, rssPosts]);
 
-  // ── Auto-scroll fluide (requestAnimationFrame pixel par pixel) ───────────
+  // Contenu doublé → boucle infinie sans saut brutal
+  const loopPosts = React.useMemo(
+    () => (allPosts.length > 0 ? [...allPosts, ...allPosts] : []),
+    [allPosts],
+  );
+
+  // ── Auto-scroll infini (rAF, 0.5 px/frame, reset silencieux à mi-chemin) ──
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || allPosts.length === 0) return;
-    const SPEED = 0.6; // px/frame — doux et continu
     let rafId: number;
 
     const tick = () => {
       if (!pausedRef.current && el) {
-        const maxScroll = el.scrollWidth - el.clientWidth;
-        if (el.scrollLeft >= maxScroll - 1) {
-          el.scrollLeft = 0;
-        } else {
-          el.scrollLeft += SPEED;
+        el.scrollLeft += 0.5;
+        const half = el.scrollWidth / 2;
+        if (el.scrollLeft >= half) {
+          el.scrollLeft -= half; // reset invisible : 2e copie = 1ère copie
         }
       }
       rafId = requestAnimationFrame(tick);
@@ -311,25 +315,32 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
             </div>
           ) : null
         ) : (
-          <div
-            ref={scrollRef}
-            className="mt-6 flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 snap-x snap-mandatory scrollbar-hide"
-            onMouseEnter={() => { pausedRef.current = true; }}
-            onMouseLeave={() => { pausedRef.current = false; }}
-            onTouchStart={() => { pausedRef.current = true; }}
-            onTouchEnd={() => { setTimeout(() => { pausedRef.current = false; }, 2000); }}
-          >
-            {allPosts.map((post, i) => (
-              <motion.div
-                key={post.id}
-                className="snap-start shrink-0 w-[280px] sm:w-[320px]"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i, 6) * 0.04 }}
-              >
-                <NewsCard post={post} />
-              </motion.div>
-            ))}
+          <div className="relative mt-6">
+            {/* Gradients latéraux pour indiquer qu'il y a plus de contenu */}
+            <div className="pointer-events-none absolute left-0 top-0 bottom-3 w-10 z-10 bg-gradient-to-r from-background to-transparent" />
+            <div className="pointer-events-none absolute right-0 top-0 bottom-3 w-10 z-10 bg-gradient-to-l from-background to-transparent" />
+
+            <div
+              ref={scrollRef}
+              className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide"
+              style={{ scrollBehavior: 'auto' }}
+              onMouseEnter={() => { pausedRef.current = true; }}
+              onMouseLeave={() => { pausedRef.current = false; }}
+              onTouchStart={() => { pausedRef.current = true; }}
+              onTouchEnd={() => { setTimeout(() => { pausedRef.current = false; }, 2500); }}
+            >
+              {loopPosts.map((post, i) => (
+                <motion.div
+                  key={`${post.id}-${i}`}
+                  className="shrink-0 w-[280px] sm:w-[300px]"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i, 5) * 0.05, duration: 0.4 }}
+                >
+                  <NewsCard post={post} />
+                </motion.div>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -342,27 +353,33 @@ const NewsCard = ({ post }: { post: NewsPost }) => {
   const href = post.external_url || `/actualites/${post.id}`;
 
   const inner = (
-    <div className="group rounded-2xl border border-border/60 bg-card overflow-hidden hover:border-primary/30 hover:shadow-[0_8px_30px_-10px_hsl(var(--primary)/0.2)] transition-all h-full flex flex-col">
+    <div className="group rounded-2xl border border-border/60 bg-card overflow-hidden hover:border-primary/40 hover:shadow-[0_12px_40px_-12px_hsl(var(--primary)/0.25)] transition-all duration-300 h-full flex flex-col">
 
-      {/* Image — proxifiée via wsrv.nl pour contourner le hotlink */}
+      {/* Media — dimensions naturelles, pas de ratio forcé */}
       {post.image_url ? (
-        <div className="relative overflow-hidden w-full aspect-video bg-muted/20">
+        <div className="relative overflow-hidden w-full bg-muted/10">
           <img
             src={proxyImg(post.image_url)!}
             alt={post.title}
-            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+            className="w-full h-auto block group-hover:scale-[1.03] transition-transform duration-500 ease-out"
             loading="lazy"
             onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }}
           />
+          {/* Dégradé bas pour lisibilité du badge */}
+          <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/40 to-transparent" />
           <div className="absolute top-2 left-2 z-10">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide shadow">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide shadow-md backdrop-blur-sm">
               {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
             </span>
           </div>
         </div>
       ) : post.video_url ? (
-        <div className="relative aspect-video bg-zinc-900 flex items-center justify-center">
-          <Play className="h-10 w-10 text-white/60" />
+        <div className="relative w-full aspect-video bg-zinc-900 flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 transition-colors">
+              <Play className="h-5 w-5 text-white ml-0.5" />
+            </div>
+          </div>
           <div className="absolute top-2 left-2">
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
               {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
@@ -370,8 +387,8 @@ const NewsCard = ({ post }: { post: NewsPost }) => {
           </div>
         </div>
       ) : (
-        <div className="aspect-video bg-muted flex items-center justify-center relative">
-          <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+        <div className="w-full h-[120px] bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center relative">
+          <ImageIcon className="h-8 w-8 text-primary/20" />
           <div className="absolute top-2 left-2">
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
               {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
@@ -383,23 +400,25 @@ const NewsCard = ({ post }: { post: NewsPost }) => {
       {/* Texte */}
       <div className="p-4 flex flex-col flex-1 justify-between">
         <div>
-          <h3 className="font-cinzel font-bold text-sm text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2">
+          <h3 className="font-cinzel font-bold text-sm text-foreground leading-snug group-hover:text-primary transition-colors duration-200 line-clamp-2">
             {post.title}
           </h3>
           {post.excerpt && (
-            <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed line-clamp-2">
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed line-clamp-2">
               {post.excerpt}
             </p>
           )}
         </div>
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/40">
-          <span className="text-[10px] text-muted-foreground/70">
+          <span className="text-[10px] text-muted-foreground/60">
             {formatDistanceToNow(new Date(post.published_at), { addSuffix: true, locale: fr })}
             {post.author_name && ` · ${post.author_name}`}
           </span>
-          {isExternal
-            ? <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
-            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />}
+          <motion.div whileHover={{ x: 3 }} transition={{ type: 'spring', stiffness: 400 }}>
+            {isExternal
+              ? <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+              : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />}
+          </motion.div>
         </div>
       </div>
     </div>

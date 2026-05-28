@@ -46,7 +46,8 @@ const Actualites = () => {
       .then(({ data, error }: any) => {
         if (error || !data) {
           setNotFound(true);
-        } else if (data.external_url) {
+        } else if (data.external_url && !data.content && !data.excerpt) {
+          // Article purement externe sans contenu local → rediriger
           window.location.href = data.external_url;
           return;
         } else {
@@ -148,14 +149,21 @@ const Actualites = () => {
           </div>
         )}
 
-        {/* Contenu HTML */}
+        {/* Contenu */}
         {post.content ? (
           <div
             className="prose prose-sm dark:prose-invert max-w-none leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: post.content }}
+            dangerouslySetInnerHTML={{
+              __html: /<[a-z][\s\S]*?>/i.test(post.content)
+                ? post.content
+                : post.content
+                    .split(/\n{2,}/)
+                    .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+                    .join(''),
+            }}
           />
-        ) : post.excerpt && !post.content ? (
-          <p className="text-foreground/80 leading-relaxed">{post.excerpt}</p>
+        ) : post.excerpt ? (
+          <p className="text-foreground/80 leading-relaxed text-base">{post.excerpt}</p>
         ) : null}
 
         {/* Lien externe de secours */}
