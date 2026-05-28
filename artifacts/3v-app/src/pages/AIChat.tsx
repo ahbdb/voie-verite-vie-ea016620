@@ -258,8 +258,7 @@ const AIChat = () => {
         ? [contextMsg, userMessage]
         : [...messages, userMessage];
 
-      // Utilise la Netlify Edge Function (Claude claude-sonnet-4-6 avec extended thinking)
-      const res = await fetch('/api/ai-chat', {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ messages: historyWithContext }),
