@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 import { Heart } from 'lucide-react';
 import DonationModal from './DonationModal';
 
+// Pages où le bouton flottant ne doit PAS apparaître (interfère avec la saisie)
+const HIDDEN_PATHS = ['/ai-chat', '/meeting', '/admin/video'];
+
 const FloatingSupportButton = () => {
   const { t } = useTranslation();
+  const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
 
@@ -14,6 +19,7 @@ const FloatingSupportButton = () => {
   }, []);
 
   if (!visible) return null;
+  if (HIDDEN_PATHS.some(p => pathname.startsWith(p))) return null;
 
   return (
     <>

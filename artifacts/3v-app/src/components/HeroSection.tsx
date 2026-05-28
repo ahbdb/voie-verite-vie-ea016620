@@ -276,30 +276,8 @@ const HeroNewsCarousel = () => {
     const load = async () => {
       const all: CarouselItem[] = [];
 
-      // ── 1. Textes liturgiques du jour (toujours en tête) ─────────────────────
+      // ── 1. Activités à venir ─────────────────────────────────────────────────
       const today = new Date().toISOString().split('T')[0];
-      try {
-        const { data: reading } = await (supabase as any)
-          .from('biblical_readings')
-          .select('books, chapters, day_number')
-          .eq('date', today)
-          .limit(1)
-          .single();
-        if (reading) {
-          all.push({
-            key: 'liturgy-today',
-            type: 'platform',
-            badge: '📖 Texte du jour',
-            badgeIcon: '📖',
-            title: `Lecture du jour — ${reading.books} ${reading.chapters}`,
-            excerpt: `Méditez l'Évangile de ce ${lit.season.toLowerCase()} avec la communauté.`,
-            href: '/messe-office',
-            isExternal: false,
-          });
-        }
-      } catch {}
-
-      // ── 2. Activités à venir ─────────────────────────────────────────────────
       try {
         const { data: acts } = await (supabase as any)
           .from('activities')

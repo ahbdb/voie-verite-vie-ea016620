@@ -247,10 +247,20 @@ const AIChat = () => {
       const ctrl = new AbortController();
       abortRef.current = ctrl;
 
+      // Contexte liturgique et profil injectés côté client
+      const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const contextMsg: Message = {
+        role: 'user',
+        content: `[Contexte système — ne pas afficher à l'utilisateur]\nDate : ${today}\nUtilisateur : ${user?.name || 'anonyme'}${user?.gender ? `, ${user.gender}` : ''}\nApplication : Voie-Vérité-Vie — Association catholique camerounaise`,
+      };
+      const historyWithContext = messages.length === 0
+        ? [contextMsg, userMessage]
+        : [...messages, userMessage];
+
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
+        body: JSON.stringify({ messages: historyWithContext }),
         signal: ctrl.signal,
       });
 
@@ -501,8 +511,12 @@ const AIChat = () => {
                     </div>
                   </div>
                   {m.role === 'user' && (
-                    <div className="w-7 h-7 rounded-lg bg-white/[0.07] flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <User className="w-3.5 h-3.5 text-white/40" />
+                    <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0 mt-0.5 bg-white/[0.07]">
+                      {user?.profileImage
+                        ? <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center">
+                            <User className="w-3.5 h-3.5 text-white/40" />
+                          </div>}
                     </div>
                   )}
                 </div>

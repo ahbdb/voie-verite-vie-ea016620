@@ -151,20 +151,25 @@ export const useWebSpeech = (options: UseWebSpeechOptions = {}) => {
 
       const recognition = new SpeechRecognition();
       recognition.lang = optionsRef.current.language || 'fr-FR';
-      recognition.continuous      = false;
+      // continuous = true : le micro ne s'arrête PAS automatiquement à la fin d'une phrase.
+      // L'utilisateur contrôle lui-même l'arrêt via le bouton.
+      recognition.continuous      = true;
       recognition.interimResults  = true;
       recognition.maxAlternatives = 1;
 
       let finalTranscript = '';
       let hasStarted      = false;
+      // Timeout de sécurité longue (3 min) pour éviter une session bloquée
+      const MAX_DURATION_MS = optionsRef.current.timeout || 180_000;
 
       recognition.onstart = () => {
         hasStarted = true;
         setIsListening(true);
         finalTranscript = '';
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        const ms = optionsRef.current.timeout || 10000;
-        timeoutRef.current = setTimeout(() => { try { recognition.stop(); } catch (_) {} }, ms);
+        timeoutRef.current = setTimeout(() => {
+          try { recognition.stop(); } catch (_) {}
+        }, MAX_DURATION_MS);
       };
 
       recognition.onend = () => {
@@ -178,6 +183,7 @@ export const useWebSpeech = (options: UseWebSpeechOptions = {}) => {
       };
 
       recognition.onresult = (event: any) => {
+        // Collecter uniquement les résultats finaux (interimResults sert juste à l'affichage)
         for (let i = event.resultIndex; i < event.results.length; i++) {
           if (event.results[i].isFinal) {
             finalTranscript += event.results[i][0].transcript + ' ';

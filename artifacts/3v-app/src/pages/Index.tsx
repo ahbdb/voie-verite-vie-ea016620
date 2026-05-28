@@ -651,7 +651,6 @@ const Index = () => {
         <HeroSection />
         <QuickLinksBar />
         <AssociationNewsSection isAdmin={isAdmin} />
-        <VersetDuJour />
         <MissionSection />
         <CTASection />
       </main>
