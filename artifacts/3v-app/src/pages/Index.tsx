@@ -15,11 +15,12 @@ import { Button } from '@/components/ui/button';
 import {
   Phone, Video, Mic, Radio, ChevronRight, Heart, MessageCircle,
   Clock, BookOpen, Newspaper, Plus, Play,
-  ExternalLink, Image as ImageIcon,
+  ExternalLink, Image as ImageIcon, Share2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const db = supabase as any;
 
@@ -30,9 +31,9 @@ interface ActiveRoom {
 }
 
 interface NewsPost {
-  id: string; title: string; excerpt: string | null; image_url: string | null;
-  video_url: string | null; category: string; author_name: string | null;
-  featured: boolean; published_at: string; external_url: string | null;
+  id: string; title: string; excerpt: string | null; content?: string | null;
+  image_url: string | null; video_url: string | null; category: string;
+  author_name: string | null; featured: boolean; published_at: string; external_url: string | null;
 }
 
 interface RssItem {
@@ -126,6 +127,30 @@ function rssThumb(item: RssItem) {
   return item.thumbnail || item.enclosure?.link || null;
 }
 
+/** Temps de lecture estimé en minutes */
+function readingTime(text: string | null | undefined): number {
+  if (!text) return 0;
+  return Math.max(1, Math.ceil(text.trim().split(/\s+/).length / 200));
+}
+
+/** Vrai si publié il y a moins de 24h */
+function isNew(publishedAt: string): boolean {
+  return Date.now() - new Date(publishedAt).getTime() < 86_400_000;
+}
+
+/** Partage natif ou copie dans le presse-papier */
+async function sharePost(post: NewsPost) {
+  const url = post.external_url || `${window.location.origin}/actualites/${post.id}`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: post.title, url });
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast.success('Lien copié !');
+    }
+  } catch { /* annulé par l'utilisateur */ }
+}
+
 // ── Active call banner ─────────────────────────────────────────────────────────
 
 const ActiveCallBanner = () => {
@@ -204,89 +229,111 @@ function rssItemToPost(item: RssItem, sourceName: string): NewsPost {
   };
 }
 
+const CATEGORY_TABS = [
+  { value: 'all',          label: 'Tout' },
+  { value: 'association',  label: '🏛️ Association' },
+  { value: 'event',        label: '📅 Événements' },
+  { value: 'announcement', label: '📢 Annonces' },
+  { value: 'church',       label: '⛪ Église' },
+];
+
 const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
-  const [dbPosts, setDbPosts]   = useState<NewsPost[]>([]);
-  const [rssPosts, setRssPosts] = useState<NewsPost[]>([]);
-  const [loadingDb, setLoadingDb] = useState(true);
-  const scrollRef  = useRef<HTMLDivElement>(null);
-  const pausedRef  = useRef(false);
+  const [dbPosts, setDbPosts]       = useState<NewsPost[]>([]);
+  const [rssPosts, setRssPosts]     = useState<NewsPost[]>([]);
+  const [loadingDb, setLoadingDb]   = useState(true);
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [activeIdx, setActiveIdx]   = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const pausedRef = useRef(false);
 
   // ── 1. Articles DB ─────────────────────────────────────────────────────────
-  useEffect(() => {
+  const loadDb = useCallback(() => {
     db.from('news_posts')
       .select('*')
       .eq('is_published', true)
       .order('published_at', { ascending: false })
       .limit(30)
-      .then(({ data }: any) => {
-        setDbPosts(data || []);
-        setLoadingDb(false);
-      })
+      .then(({ data }: any) => { setDbPosts(data || []); setLoadingDb(false); })
       .catch(() => setLoadingDb(false));
   }, []);
 
-  // ── 2. RSS catholiques (s'ajoutent après le chargement DB) ─────────────────
+  useEffect(() => { loadDb(); }, [loadDb]);
+
+  // Auto-refresh toutes les 30 min
+  useEffect(() => {
+    const id = setInterval(loadDb, 30 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [loadDb]);
+
+  // ── 2. RSS catholiques ─────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    const rssSources = [
-      { url: RSS_WORLD,                          name: 'Aleteia' },
-      { url: 'https://www.imedias.eu/feed/',     name: 'iMédia Afrique' },
-      { url: 'https://www.famillechretienne.fr/feed/', name: 'Famille Chrétienne' },
-    ];
-
-    Promise.allSettled(
-      rssSources.map(s => fetchRss(s.url, 5).then(items => ({ items, name: s.name })))
-    ).then(results => {
+    Promise.allSettled([
+      fetchRss(RSS_WORLD, 5).then(items => ({ items, name: 'Aleteia' })),
+      fetchRss('https://www.imedias.eu/feed/', 5).then(items => ({ items, name: 'iMédia Afrique' })),
+      fetchRss('https://www.famillechretienne.fr/feed/', 5).then(items => ({ items, name: 'Famille Chrétienne' })),
+    ]).then(results => {
       if (cancelled) return;
       const posts: NewsPost[] = [];
       for (const r of results) {
         if (r.status !== 'fulfilled') continue;
         for (const item of r.value.items) {
-          if (!item.link) continue;
-          posts.push(rssItemToPost(item, r.value.name));
+          if (item.link) posts.push(rssItemToPost(item, r.value.name));
         }
       }
       setRssPosts(posts);
     }).catch(() => {});
-
     return () => { cancelled = true; };
   }, []);
 
-  // ── Fusion DB + RSS — activités asso en premier, église après ────────────
+  // ── Fusion + tri ──────────────────────────────────────────────────────────
   const allPosts = React.useMemo(() => {
     const knownLinks = new Set(dbPosts.map(p => p.external_url ?? p.id).filter(Boolean));
-    const filtered = rssPosts.filter(p => p.external_url && !knownLinks.has(p.external_url));
-    const all = [...dbPosts, ...filtered];
-    const priority = (c: string) => c === 'church' ? 1 : 0;
-    return all.sort((a, b) => priority(a.category) - priority(b.category));
+    const all = [...dbPosts, ...rssPosts.filter(p => p.external_url && !knownLinks.has(p.external_url))];
+    return all.sort((a, b) => (a.category === 'church' ? 1 : 0) - (b.category === 'church' ? 1 : 0));
   }, [dbPosts, rssPosts]);
 
-  // Contenu doublé → boucle infinie sans saut brutal
-  const loopPosts = React.useMemo(
-    () => (allPosts.length > 0 ? [...allPosts, ...allPosts] : []),
-    [allPosts],
+  // ── Filtre par catégorie ──────────────────────────────────────────────────
+  const filteredPosts = React.useMemo(
+    () => activeCategory === 'all' ? allPosts : allPosts.filter(p => p.category === activeCategory),
+    [allPosts, activeCategory],
   );
 
-  // ── Auto-scroll infini (rAF, 0.5 px/frame, reset silencieux à mi-chemin) ──
+  // ── Tabs visibles (seulement ceux avec du contenu) ────────────────────────
+  const visibleTabs = React.useMemo(() => {
+    const cats = new Set(allPosts.map(p => p.category));
+    return CATEGORY_TABS.filter(t => t.value === 'all' || cats.has(t.value));
+  }, [allPosts]);
+
+  // Contenu doublé → boucle infinie
+  const loopPosts = React.useMemo(
+    () => (filteredPosts.length > 0 ? [...filteredPosts, ...filteredPosts] : []),
+    [filteredPosts],
+  );
+
+  // Reset scroll quand le filtre change
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollLeft = 0;
+    setActiveIdx(0);
+  }, [activeCategory]);
+
+  // ── Auto-scroll infini ────────────────────────────────────────────────────
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || allPosts.length === 0) return;
+    if (!el || filteredPosts.length === 0) return;
     let rafId: number;
-
     const tick = () => {
       if (!pausedRef.current && el) {
         el.scrollLeft += 0.5;
-        const half = el.scrollWidth / 2;
-        if (el.scrollLeft >= half) {
-          el.scrollLeft -= half; // reset invisible : 2e copie = 1ère copie
-        }
+        if (el.scrollLeft >= el.scrollWidth / 2) el.scrollLeft -= el.scrollWidth / 2;
       }
       rafId = requestAnimationFrame(tick);
     };
-
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [allPosts.length]);
+  }, [filteredPosts.length]);
+
+  const dotsCount = Math.min(filteredPosts.length, 8);
 
   return (
     <section className="py-10 bg-background border-y border-border/40">
@@ -298,14 +345,34 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
           linkLabel={isAdmin ? 'Gérer' : undefined}
         />
 
-        {loadingDb ? (
-          <div className="mt-6 flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 snap-x snap-mandatory scrollbar-hide">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="rounded-2xl bg-muted/30 animate-pulse h-64 shrink-0 w-[280px] sm:w-[320px] snap-start" />
+        {/* ── Filtres catégorie ── */}
+        {!loadingDb && allPosts.length > 0 && visibleTabs.length > 2 && (
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {visibleTabs.map(tab => (
+              <button
+                key={tab.value}
+                onClick={() => setActiveCategory(tab.value)}
+                className={cn(
+                  'shrink-0 text-xs px-3 py-1.5 rounded-full border transition-all duration-200 font-medium',
+                  activeCategory === tab.value
+                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                    : 'border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground',
+                )}
+              >
+                {tab.label}
+              </button>
             ))}
           </div>
-        ) : allPosts.length === 0 ? (
-          isAdmin ? (
+        )}
+
+        {loadingDb ? (
+          <div className="mt-6 flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="rounded-2xl bg-muted/30 animate-pulse h-64 shrink-0 w-[280px] sm:w-[300px]" />
+            ))}
+          </div>
+        ) : filteredPosts.length === 0 ? (
+          isAdmin && allPosts.length === 0 ? (
             <div className="mt-6 rounded-2xl border border-dashed border-border/60 bg-muted/20 p-10 text-center">
               <Newspaper className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground mb-4">Aucune actualité disponible.</p>
@@ -313,35 +380,66 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
                 <Link to="/admin/news"><Plus className="h-3.5 w-3.5 mr-1.5" /> Créer la première</Link>
               </Button>
             </div>
-          ) : null
+          ) : (
+            <p className="mt-6 text-sm text-muted-foreground text-center py-8">Aucun article dans cette catégorie.</p>
+          )
         ) : (
-          <div className="relative mt-6">
-            {/* Gradients latéraux pour indiquer qu'il y a plus de contenu */}
-            <div className="pointer-events-none absolute left-0 top-0 bottom-3 w-10 z-10 bg-gradient-to-r from-background to-transparent" />
-            <div className="pointer-events-none absolute right-0 top-0 bottom-3 w-10 z-10 bg-gradient-to-l from-background to-transparent" />
+          <>
+            <div className="relative mt-4">
+              <div className="pointer-events-none absolute left-0 top-0 bottom-3 w-10 z-10 bg-gradient-to-r from-background to-transparent" />
+              <div className="pointer-events-none absolute right-0 top-0 bottom-3 w-10 z-10 bg-gradient-to-l from-background to-transparent" />
 
-            <div
-              ref={scrollRef}
-              className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide"
-              style={{ scrollBehavior: 'auto' }}
-              onMouseEnter={() => { pausedRef.current = true; }}
-              onMouseLeave={() => { pausedRef.current = false; }}
-              onTouchStart={() => { pausedRef.current = true; }}
-              onTouchEnd={() => { setTimeout(() => { pausedRef.current = false; }, 2500); }}
-            >
-              {loopPosts.map((post, i) => (
-                <motion.div
-                  key={`${post.id}-${i}`}
-                  className="shrink-0 w-[280px] sm:w-[300px]"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(i, 5) * 0.05, duration: 0.4 }}
-                >
-                  <NewsCard post={post} />
-                </motion.div>
-              ))}
+              <div
+                ref={scrollRef}
+                className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide"
+                style={{ scrollBehavior: 'auto' }}
+                onMouseEnter={() => { pausedRef.current = true; }}
+                onMouseLeave={() => { pausedRef.current = false; }}
+                onTouchStart={() => { pausedRef.current = true; }}
+                onTouchEnd={() => { setTimeout(() => { pausedRef.current = false; }, 2500); }}
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  const cardW = 316;
+                  const normalizedScroll = el.scrollLeft % (el.scrollWidth / 2);
+                  setActiveIdx(Math.round(normalizedScroll / cardW) % filteredPosts.length);
+                }}
+              >
+                {loopPosts.map((post, i) => (
+                  <motion.div
+                    key={`${post.id}-${i}`}
+                    className="shrink-0 w-[280px] sm:w-[300px]"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i, 5) * 0.05, duration: 0.4 }}
+                  >
+                    <NewsCard post={post} />
+                  </motion.div>
+                ))}
+              </div>
             </div>
-          </div>
+
+            {/* ── Indicateur de progression (dots) ── */}
+            {dotsCount > 1 && (
+              <div className="flex justify-center items-center gap-1.5 mt-3">
+                {Array.from({ length: dotsCount }).map((_, i) => (
+                  <motion.div
+                    key={i}
+                    animate={{ width: i === (activeIdx % dotsCount) ? '1.5rem' : '0.375rem' }}
+                    transition={{ duration: 0.3 }}
+                    className="h-1.5 rounded-full"
+                    style={{
+                      backgroundColor: i === (activeIdx % dotsCount)
+                        ? 'hsl(var(--primary))'
+                        : 'hsl(var(--border))',
+                    }}
+                  />
+                ))}
+                {filteredPosts.length > 8 && (
+                  <span className="text-[10px] text-muted-foreground/50 ml-1">+{filteredPosts.length - 8}</span>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </section>
@@ -351,11 +449,13 @@ const AssociationNewsSection = ({ isAdmin }: { isAdmin: boolean }) => {
 const NewsCard = ({ post }: { post: NewsPost }) => {
   const isExternal = !!post.external_url;
   const href = post.external_url || `/actualites/${post.id}`;
+  const _isNew = isNew(post.published_at);
+  const mins = readingTime((post.content || post.excerpt) ?? null);
 
   const inner = (
     <div className="group rounded-2xl border border-border/60 bg-card overflow-hidden hover:border-primary/40 hover:shadow-[0_12px_40px_-12px_hsl(var(--primary)/0.25)] transition-all duration-300 h-full flex flex-col">
 
-      {/* Media — dimensions naturelles, pas de ratio forcé */}
+      {/* Media — dimensions naturelles */}
       {post.image_url ? (
         <div className="relative overflow-hidden w-full bg-muted/10">
           <img
@@ -365,34 +465,46 @@ const NewsCard = ({ post }: { post: NewsPost }) => {
             loading="lazy"
             onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }}
           />
-          {/* Dégradé bas pour lisibilité du badge */}
           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/40 to-transparent" />
-          <div className="absolute top-2 left-2 z-10">
+          <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide shadow-md backdrop-blur-sm">
               {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
             </span>
+            {_isNew && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/90 text-white uppercase tracking-wide shadow-md backdrop-blur-sm animate-pulse">
+                Nouveau
+              </span>
+            )}
           </div>
+          {/* Bouton partage */}
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); void sharePost(post); }}
+            className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/60"
+            title="Partager"
+          >
+            <Share2 className="h-3 w-3 text-white" />
+          </button>
         </div>
       ) : post.video_url ? (
         <div className="relative w-full aspect-video bg-zinc-900 flex items-center justify-center">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 transition-colors">
-              <Play className="h-5 w-5 text-white ml-0.5" />
-            </div>
+          <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 transition-colors">
+            <Play className="h-5 w-5 text-white ml-0.5" />
           </div>
-          <div className="absolute top-2 left-2">
+          <div className="absolute top-2 left-2 flex items-center gap-1.5">
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
               {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
             </span>
+            {_isNew && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/90 text-white uppercase tracking-wide animate-pulse">Nouveau</span>}
           </div>
         </div>
       ) : (
-        <div className="w-full h-[120px] bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center relative">
+        <div className="w-full h-[100px] bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center relative">
           <ImageIcon className="h-8 w-8 text-primary/20" />
-          <div className="absolute top-2 left-2">
+          <div className="absolute top-2 left-2 flex items-center gap-1.5">
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/90 text-white uppercase tracking-wide">
               {CATEGORY_BADGE[post.category] ?? '📰 Actualité'}
             </span>
+            {_isNew && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/90 text-white uppercase tracking-wide animate-pulse">Nouveau</span>}
           </div>
         </div>
       )}
@@ -410,11 +522,18 @@ const NewsCard = ({ post }: { post: NewsPost }) => {
           )}
         </div>
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/40">
-          <span className="text-[10px] text-muted-foreground/60">
-            {formatDistanceToNow(new Date(post.published_at), { addSuffix: true, locale: fr })}
-            {post.author_name && ` · ${post.author_name}`}
-          </span>
-          <motion.div whileHover={{ x: 3 }} transition={{ type: 'spring', stiffness: 400 }}>
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60 min-w-0">
+            <span className="truncate">
+              {formatDistanceToNow(new Date(post.published_at), { addSuffix: true, locale: fr })}
+              {post.author_name && ` · ${post.author_name}`}
+            </span>
+            {mins > 0 && (
+              <span className="shrink-0 flex items-center gap-0.5 text-muted-foreground/40">
+                <Clock className="h-2.5 w-2.5" />{mins} min
+              </span>
+            )}
+          </div>
+          <motion.div whileHover={{ x: 3 }} transition={{ type: 'spring', stiffness: 400 }} className="shrink-0 ml-2">
             {isExternal
               ? <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
               : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />}
