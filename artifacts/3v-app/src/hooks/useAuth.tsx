@@ -20,15 +20,13 @@ interface AuthContextType {
   supabaseUser: User | null;
   session: Session | null;
   loading: boolean;
-  /**
-   * Devient true une fois que enrichFromProfile a résolu (succès ou échec).
-   * Le garde de complétion de profil DOIT attendre ce flag avant de rediriger.
-   */
   profileEnriched: boolean;
   refetch: () => Promise<void>;
   signOut: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, firstName: string, lastName: string, gender: 'homme' | 'femme') => Promise<{ error: any }>;
+  /** Marque immédiatement profileComplete=true dans le contexte (évite la race condition après ProfileCompletion) */
+  markProfileComplete: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -66,7 +64,6 @@ function readStoredSession(): Session | null {
 }
 
 // ── enrichFromProfile : lecture réelle depuis la table profiles ──────────────
-// onDone() est appelé en finally → le garde sait que la vraie valeur est disponible.
 function enrichFromProfile(
   session: Session,
   setUser: (u: AuthUser) => void,
@@ -74,41 +71,44 @@ function enrichFromProfile(
 ) {
   void (async () => {
     try {
-      const { data } = await supabase
+      // Utilise `as any` car les types générés ne reflètent pas encore les migrations
+      const { data } = await (supabase as any)
         .from('profiles')
         .select('full_name, first_name, last_name, avatar_url, gender')
         .eq('id', session.user.id)
         .single();
-      if (!data) return;
-      const d = data as {
-        full_name: string | null; first_name: string | null;
-        last_name: string | null; avatar_url: string | null;
-        gender: string | null;
-      };
-      const firstName   = d.first_name || d.full_name?.trim().split(' ')[0] || null;
-      const lastName    = d.last_name  || (d.full_name?.trim().split(' ').slice(1).join(' ') || null);
-      const displayName = [firstName, lastName].filter(Boolean).join(' ') || d.full_name;
 
-      // Genre : table profiles EN PRIORITÉ, sinon user_metadata Auth (fallback
-      // si la migration SQL n'a pas encore été appliquée mais que updateUser a réussi)
-      const genderFromProfile  = d.gender as 'homme' | 'femme' | null;
+      // Genre : table profiles EN PRIORITÉ, sinon user_metadata (fallback si migration non appliquée)
+      const genderFromProfile  = (data?.gender ?? null) as 'homme' | 'femme' | null;
       const genderFromMetadata = session.user.user_metadata?.gender as 'homme' | 'femme' | null;
       const resolvedGender     = genderFromProfile || genderFromMetadata || null;
 
-      setUser({
-        id: session.user.id,
-        name: displayName || null,
-        firstName,
-        lastName,
-        email: session.user.email || null,
-        profileImage: d.avatar_url || session.user.user_metadata?.avatar_url || null,
-        gender: resolvedGender,
-        profileComplete: !!resolvedGender, // vrai dès que l'une des deux sources a le genre
-        roles: [],
-      });
+      if (data) {
+        const firstName   = data.first_name || data.full_name?.trim().split(' ')[0] || null;
+        const lastName    = data.last_name  || (data.full_name?.trim().split(' ').slice(1).join(' ') || null);
+        const displayName = [firstName, lastName].filter(Boolean).join(' ') || data.full_name;
+
+        setUser({
+          id: session.user.id,
+          name: displayName || null,
+          firstName,
+          lastName,
+          email: session.user.email || null,
+          profileImage: data.avatar_url || session.user.user_metadata?.avatar_url || null,
+          gender: resolvedGender,
+          profileComplete: !!resolvedGender,
+          roles: [],
+        });
+      } else if (genderFromMetadata) {
+        // Pas de données en base mais metadata Auth a le genre → utiliser sessionToUser enrichi
+        setUser({ ...sessionToUser(session), gender: genderFromMetadata, profileComplete: true });
+      }
     } catch {
-      // Enrichissement best-effort — en cas d'erreur on signale quand même onDone
-      // pour ne pas bloquer le garde indéfiniment.
+      // En cas d'erreur réseau : metadata Auth comme fallback
+      const fallbackGender = session.user.user_metadata?.gender as 'homme' | 'femme' | null;
+      if (fallbackGender) {
+        setUser({ ...sessionToUser(session), gender: fallbackGender, profileComplete: true });
+      }
     } finally {
       onDone?.();
     }
@@ -189,10 +189,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const fullName = [firstName, lastName].filter(Boolean).join(' ');
     const { error, data } = await supabase.auth.signUp({
       email, password,
-      options: { data: { full_name: fullName, first_name: firstName, last_name: lastName, gender } },
+      options: {
+        data: { full_name: fullName, first_name: firstName, last_name: lastName, gender },
+        // Redirige vers le domaine actuel — essentiel après migration vers voieveritevie.org
+        emailRedirectTo: `${window.location.origin}/auth`,
+      },
     });
     if (!error && data.user) {
-      await supabase.from('profiles').upsert({
+      await (supabase as any).from('profiles').upsert({
         id: data.user.id, email,
         full_name: fullName, first_name: firstName,
         last_name: lastName || null, gender,
@@ -202,6 +206,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await supabase.auth.signInWithPassword({ email, password });
     }
     return { error };
+  };
+
+  const markProfileComplete = () => {
+    setUser(prev => prev ? { ...prev, profileComplete: true } : null);
   };
 
   const signOut = async () => { await supabase.auth.signOut(); };
@@ -224,7 +232,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AuthContext.Provider value={{
       user, supabaseUser, session, loading, profileEnriched,
-      refetch, signOut, signIn, signUp,
+      refetch, signOut, signIn, signUp, markProfileComplete,
     }}>
       {children}
     </AuthContext.Provider>

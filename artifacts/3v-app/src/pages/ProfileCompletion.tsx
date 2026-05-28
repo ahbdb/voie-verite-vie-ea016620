@@ -43,7 +43,7 @@ function useLiturgicalDay() {
 }
 
 export default function ProfileCompletion() {
-  const { user, refetch } = useAuth();
+  const { user, markProfileComplete } = useAuth();
   const navigate = useNavigate();
   const lit = useLiturgicalDay();
 
@@ -67,6 +67,13 @@ export default function ProfileCompletion() {
   const [saving, setSaving]               = useState(false);
 
   const firstName = user?.firstName || user?.name?.split(' ')[0] || '';
+
+  // Auto-navigation vers l'accueil 4s après la confirmation (étape 3)
+  useEffect(() => {
+    if (step !== 3) return;
+    const t = setTimeout(() => navigate('/'), 4000);
+    return () => clearTimeout(t);
+  }, [step, navigate]);
 
   // Style bouton dynamique selon couleur liturgique
   const btnStyle: React.CSSProperties = {
@@ -121,11 +128,14 @@ export default function ProfileCompletion() {
       if (country.trim()) update.country = country.trim();
       if (city.trim())    update.city    = city.trim();
 
-      // Erreur silencieuse : ne pas bloquer si la colonne n'existe pas encore
-      await supabase.from('profiles').update(update).eq('id', user.id).then(() => {}).catch(() => {});
+      // Erreur silencieuse : colonnes peuvent ne pas exister si migration non appliquée
+      await (supabase as any).from('profiles').update(update).eq('id', user.id).then(() => {}).catch(() => {});
 
-      // ── 3. Rafraîchir le contexte ───────────────────────────────────────────
-      await refetch();
+      // ── 3. Marquer le profil comme complet immédiatement dans le contexte ────
+      // N'appelle PAS refetch() : getSession() pourrait retourner l'ancienne
+      // session avant que onAuthStateChange se déclenche → race condition.
+      // markProfileComplete() est synchrone et évite tout redirect en boucle.
+      markProfileComplete();
 
       setStep(3);
     } catch (err) {
