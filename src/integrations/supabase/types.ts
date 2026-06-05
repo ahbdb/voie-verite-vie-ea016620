@@ -262,51 +262,6 @@ export type Database = {
         }
         Relationships: []
       }
-      broadcast_notifications: {
-        Row: {
-          body: string | null
-          created_at: string
-          created_by: string
-          icon: string | null
-          id: string
-          is_sent: boolean | null
-          scheduled_at: string | null
-          sent_at: string | null
-          target_role: string | null
-          title: string
-          type: string | null
-          updated_at: string
-        }
-        Insert: {
-          body?: string | null
-          created_at?: string
-          created_by: string
-          icon?: string | null
-          id?: string
-          is_sent?: boolean | null
-          scheduled_at?: string | null
-          sent_at?: string | null
-          target_role?: string | null
-          title: string
-          type?: string | null
-          updated_at?: string
-        }
-        Update: {
-          body?: string | null
-          created_at?: string
-          created_by?: string
-          icon?: string | null
-          id?: string
-          is_sent?: boolean | null
-          scheduled_at?: string | null
-          sent_at?: string | null
-          target_role?: string | null
-          title?: string
-          type?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
       celebration_events: {
         Row: {
           animation: string
@@ -574,98 +529,6 @@ export type Database = {
         }
         Relationships: []
       }
-      news_posts: {
-        Row: {
-          author_id: string | null
-          author_name: string | null
-          category: string
-          content: string | null
-          created_at: string
-          excerpt: string | null
-          external_url: string | null
-          featured: boolean
-          id: string
-          image_url: string | null
-          is_published: boolean
-          published_at: string
-          tags: string[] | null
-          title: string
-          updated_at: string
-          video_url: string | null
-        }
-        Insert: {
-          author_id?: string | null
-          author_name?: string | null
-          category?: string
-          content?: string | null
-          created_at?: string
-          excerpt?: string | null
-          external_url?: string | null
-          featured?: boolean
-          id?: string
-          image_url?: string | null
-          is_published?: boolean
-          published_at?: string
-          tags?: string[] | null
-          title: string
-          updated_at?: string
-          video_url?: string | null
-        }
-        Update: {
-          author_id?: string | null
-          author_name?: string | null
-          category?: string
-          content?: string | null
-          created_at?: string
-          excerpt?: string | null
-          external_url?: string | null
-          featured?: boolean
-          id?: string
-          image_url?: string | null
-          is_published?: boolean
-          published_at?: string
-          tags?: string[] | null
-          title?: string
-          updated_at?: string
-          video_url?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "news_posts_author_id_fkey"
-            columns: ["author_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      notification_settings: {
-        Row: {
-          created_at: string
-          push_enabled: boolean | null
-          sound_enabled: boolean | null
-          updated_at: string
-          user_id: string
-          vibration_enabled: boolean | null
-        }
-        Insert: {
-          created_at?: string
-          push_enabled?: boolean | null
-          sound_enabled?: boolean | null
-          updated_at?: string
-          user_id: string
-          vibration_enabled?: boolean | null
-        }
-        Update: {
-          created_at?: string
-          push_enabled?: boolean | null
-          sound_enabled?: boolean | null
-          updated_at?: string
-          user_id?: string
-          vibration_enabled?: boolean | null
-        }
-        Relationships: []
-      }
       notifications: {
         Row: {
           created_at: string
@@ -797,57 +660,33 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
-          baptism_date: string | null
           birth_date: string | null
-          city: string | null
-          country: string | null
           created_at: string | null
           email: string
-          first_name: string | null
           full_name: string | null
-          gender: string | null
           id: string
-          last_name: string | null
-          marital_status: string | null
           phone_country_code: string | null
           phone_number: string | null
-          wedding_date: string | null
         }
         Insert: {
           avatar_url?: string | null
-          baptism_date?: string | null
           birth_date?: string | null
-          city?: string | null
-          country?: string | null
           created_at?: string | null
           email: string
-          first_name?: string | null
           full_name?: string | null
-          gender?: string | null
           id: string
-          last_name?: string | null
-          marital_status?: string | null
           phone_country_code?: string | null
           phone_number?: string | null
-          wedding_date?: string | null
         }
         Update: {
           avatar_url?: string | null
-          baptism_date?: string | null
           birth_date?: string | null
-          city?: string | null
-          country?: string | null
           created_at?: string | null
           email?: string
-          first_name?: string | null
           full_name?: string | null
-          gender?: string | null
           id?: string
-          last_name?: string | null
-          marital_status?: string | null
           phone_country_code?: string | null
           phone_number?: string | null
-          wedding_date?: string | null
         }
         Relationships: []
       }
@@ -1034,133 +873,6 @@ export type Database = {
           updated_at?: string
           whatsapp_broadcast_link?: string | null
           youtube_stream_key?: string | null
-        }
-        Relationships: []
-      }
-      testimonials: {
-        Row: {
-          anonymous: boolean
-          categorie: string
-          created_at: string
-          id: string
-          prenom: string | null
-          recit: string
-          status: string
-          titre: string
-          user_id: string | null
-        }
-        Insert: {
-          anonymous?: boolean
-          categorie?: string
-          created_at?: string
-          id?: string
-          prenom?: string | null
-          recit: string
-          status?: string
-          titre: string
-          user_id?: string | null
-        }
-        Update: {
-          anonymous?: boolean
-          categorie?: string
-          created_at?: string
-          id?: string
-          prenom?: string | null
-          recit?: string
-          status?: string
-          titre?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "testimonials_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_notifications: {
-        Row: {
-          body: string | null
-          broadcast_notification_id: string | null
-          created_at: string
-          data: Json | null
-          icon: string | null
-          id: string
-          is_read: boolean | null
-          link: string | null
-          message: string
-          title: string
-          type: string | null
-          updated_at: string
-          user_id: string
-          viewed_at: string | null
-        }
-        Insert: {
-          body?: string | null
-          broadcast_notification_id?: string | null
-          created_at?: string
-          data?: Json | null
-          icon?: string | null
-          id?: string
-          is_read?: boolean | null
-          link?: string | null
-          message?: string
-          title: string
-          type?: string | null
-          updated_at?: string
-          user_id: string
-          viewed_at?: string | null
-        }
-        Update: {
-          body?: string | null
-          broadcast_notification_id?: string | null
-          created_at?: string
-          data?: Json | null
-          icon?: string | null
-          id?: string
-          is_read?: boolean | null
-          link?: string | null
-          message?: string
-          title?: string
-          type?: string | null
-          updated_at?: string
-          user_id?: string
-          viewed_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_notifications_broadcast_notification_id_fkey"
-            columns: ["broadcast_notification_id"]
-            isOneToOne: false
-            referencedRelation: "broadcast_notifications"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_permissions: {
-        Row: {
-          created_at: string
-          granted_by: string | null
-          id: string
-          permission: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          granted_by?: string | null
-          id?: string
-          permission: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          granted_by?: string | null
-          id?: string
-          permission?: string
-          user_id?: string
         }
         Relationships: []
       }
@@ -1507,18 +1219,8 @@ export type Database = {
         }
         Returns: boolean
       }
-      insert_church_articles: { Args: { articles: Json }; Returns: number }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_admin_simple: { Args: { _user_id: string }; Returns: boolean }
-      mark_notification_read: {
-        Args: { p_notification_id: string }
-        Returns: undefined
-      }
-      reimport_church_articles: { Args: { articles: Json }; Returns: number }
-      send_broadcast_notification: {
-        Args: { p_broadcast_id: string }
-        Returns: undefined
-      }
       update_page_content_data: {
         Args: { p_content: Json; p_page_key: string }
         Returns: Json

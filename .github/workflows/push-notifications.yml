@@ -1,0 +1,271 @@
+name: Notifications automatiques
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # Toutes les 30 minutes
+  workflow_dispatch:
+    inputs:
+      type:
+        description: 'Type: morning / midday / evening / feast / pending / custom'
+        required: true
+        default: 'pending'
+      title:
+        description: 'Titre (si type=custom)'
+        required: false
+      body:
+        description: 'Message (si type=custom)'
+        required: false
+      url:
+        description: "URL à ouvrir (si type=custom)"
+        required: false
+        default: '/'
+
+jobs:
+  send-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install firebase-admin @supabase/supabase-js
+
+      - name: Envoyer les notifications FCM
+        env:
+          SUPABASE_URL: https://kaddsojhnkyfavaulrfc.supabase.co
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthZGRzb2pobmt5ZmF2YXVscmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Njg1MjcsImV4cCI6MjA3NzM0NDUyN30.hFAbVxHmfDY1Xqkij62R8dTBfHw6ff5mSb3faq_4CPs
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          INPUT_TYPE: ${{ inputs.type }}
+          INPUT_TITLE: ${{ inputs.title }}
+          INPUT_BODY: ${{ inputs.body }}
+          INPUT_URL: ${{ inputs.url }}
+        run: |
+          node --input-type=commonjs << 'SCRIPT'
+          const admin = require('firebase-admin');
+          const { createClient } = require('@supabase/supabase-js');
+
+          (async () => {
+
+          // ── Firebase Admin ───────────────────────────────────────────────────
+          const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+          admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+          const messaging = admin.messaging();
+
+          const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+
+          // ── Calendrier liturgique ────────────────────────────────────────────
+          function getEaster(year) {
+            const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+            const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+            const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+            const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+            const m = Math.floor((a + 11 * h + 22 * l) / 451);
+            return new Date(year, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1);
+          }
+          function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+          function mmdd(d) { return `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+          const now = new Date();
+          const year = now.getFullYear();
+          const todayMMDD = mmdd(now);
+          const utcH = now.getUTCHours();
+          const utcM = now.getUTCMinutes();
+          const easter = getEaster(year);
+
+          const VARIABLE = {
+            'variable-easter':        easter,
+            'variable-pentecost':     addDays(easter, 49),
+            'variable-ascension':     addDays(easter, 39),
+            'variable-trinity':       addDays(easter, 56),
+            'variable-corpus':        addDays(easter, 60),
+            'variable-sacred-heart':  addDays(easter, 68),
+            'variable-ash-wednesday': addDays(easter, -46),
+            'variable-palm-sunday':   addDays(easter, -7),
+          };
+
+          const FEASTS = [
+            { id: 'noel',        date: '12-25',                  title: '🌟 Joyeux Noël !',                    body: "Que la lumière du Christ illumine votre cœur. ✝️🌟",                    url: '/' },
+            { id: 'paques',      date: 'variable-easter',        title: '✝️ Joyeuses Pâques !',               body: 'Le Christ est ressuscité, Alléluia ! 🌸✝️',                            url: '/' },
+            { id: 'pentecote',   date: 'variable-pentecost',     title: '🕊️ Bonne fête de la Pentecôte !',   body: "Que l'Esprit Saint vous guide et vous illumine aujourd'hui. 🔥",       url: '/messe-office' },
+            { id: 'ascension',   date: 'variable-ascension',     title: "☁️ Bonne fête de l'Ascension !",    body: 'Le Seigneur est monté au Ciel. Alléluia ! ✝️',                         url: '/' },
+            { id: 'trinite',     date: 'variable-trinity',       title: '✝️ Bonne fête de la Sainte Trinité !', body: 'Au nom du Père, du Fils et du Saint-Esprit. ✝️',                  url: '/' },
+            { id: 'corpus',      date: 'variable-corpus',        title: '🍞 Bonne fête du Corps du Christ !', body: 'Adoration et louange au Saint-Sacrement. 🙏',                         url: '/' },
+            { id: 'sacre-coeur', date: 'variable-sacred-heart',  title: "❤️ Bonne fête du Sacré-Cœur !",     body: "Cœur de Jésus, que votre amour nous embrase. ❤️‍🔥",                  url: '/' },
+            { id: 'toussaint',   date: '11-01',                  title: '🕯️ Bonne fête de la Toussaint !',   body: 'Que les saints intercèdent pour nous. 🕯️',                             url: '/' },
+            { id: 'assomption',  date: '08-15',                  title: "🌹 Bonne fête de l'Assomption !",   body: 'Vive la Vierge Marie, étoile du matin ! 👑',                           url: '/' },
+            { id: 'immaculee',   date: '12-08',                  title: "💙 Bonne fête de l'Immaculée Conception !", body: 'Gloire à la Vierge Marie ! 💙',                              url: '/' },
+            { id: 'epiphanie',   date: '01-06',                  title: '⭐ Bonne fête des Rois Mages !',     body: "L'étoile guide les Mages vers l'Enfant-Dieu. ⭐",                     url: '/' },
+            { id: 'jean-b',      date: '06-24',                  title: '🕊️ Bonne fête de Saint Jean-Baptiste !', body: 'Le précurseur du Christ. Préparez le chemin du Seigneur. 🕊️', url: '/' },
+            { id: 'pierre-paul', date: '06-29',                  title: '⛵ Bonne fête de Saints Pierre et Paul !', body: 'Apôtres fondateurs de l\'Église. ⛵',                          url: '/' },
+            { id: 'st-joseph',   date: '03-19',                  title: '⚒️ Bonne fête de Saint Joseph !',   body: 'Patron des familles et des travailleurs. ⚒️',                          url: '/' },
+            { id: 'annonciation',date: '03-25',                  title: "🌸 Bonne fête de l'Annonciation !", body: "L'Ange Gabriel annonce à Marie la naissance du Christ. 🌸",           url: '/' },
+            { id: 'nativite-m',  date: '09-08',                  title: '🌹 Bonne fête de la Nativité de Marie !', body: 'Joyeux anniversaire à la Vierge Marie ! 🌹',                   url: '/' },
+            { id: 'fondation-3v',date: '07-07',                  title: '🎉 Joyeux anniversaire du Mouvement 3V !', body: 'Félicitations pour cet anniversaire ! ✝️🎊',                  url: '/' },
+            { id: 'mercredi-cendres', date: 'variable-ash-wednesday', title: '✝️ Mercredi des Cendres',      body: 'Début du Carême — temps de prière, de jeûne et de partage. ✝️',       url: '/careme-2026' },
+            { id: 'rameaux',     date: 'variable-palm-sunday',   title: '🌿 Hosanna ! Dimanche des Rameaux', body: 'Béni soit celui qui vient au nom du Seigneur ! 🌿',                   url: '/' },
+          ];
+
+          function checkFeastToday() {
+            for (const f of FEASTS) {
+              const d = f.date.startsWith('variable-') ? VARIABLE[f.date] : null;
+              const fDate = d ? mmdd(d) : f.date;
+              if (fDate === todayMMDD) return f;
+            }
+            return null;
+          }
+
+          // ── Notifications programmées ────────────────────────────────────────
+          const SCHEDULED = {
+            morning: { title: '🌅 Bonjour ! Que Dieu bénisse votre journée', body: 'Découvrez les lectures du jour et commencez avec une prière', url: '/biblical-reading', action: 'bible' },
+            midday:  { title: '☀️ Angelus — 12h',  body: 'Un moment de recueillement au milieu de la journée', url: '/', action: 'general' },
+            evening: { title: '🌙 Bonsoir ! Prière du soir', body: 'Terminez votre journée avec une prière et les vêpres', url: '/messe-office', action: 'general' },
+          };
+
+          // ── Envoi FCM (par lots de 500) ──────────────────────────────────────
+          async function sendFCM(tokens, payload) {
+            if (tokens.length === 0) return { sent: 0, failed: 0, expired: [] };
+            let sent = 0, failed = 0;
+            const expired = [];
+            for (let i = 0; i < tokens.length; i += 500) {
+              const batch = tokens.slice(i, i + 500);
+              const msg = {
+                tokens: batch,
+                notification: { title: payload.title, body: payload.body || '' },
+                webpush: {
+                  notification: { icon: '/icon-192x192.png', badge: '/badge-72x72.png', requireInteraction: false, vibrate: [300, 100, 300] },
+                  fcmOptions: { link: payload.url || '/' },
+                  data: { url: payload.url || '/', action: payload.action || 'general' },
+                },
+                android: { notification: { icon: 'ic_notification', color: '#7c3aed', sound: 'default', channelId: 'default' }, priority: 'high' },
+                apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+              };
+              const res = await messaging.sendEachForMulticast(msg);
+              sent += res.successCount;
+              failed += res.failureCount;
+              res.responses.forEach((r, idx) => {
+                if (!r.success) {
+                  const code = r.error?.code || '';
+                  if (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token')) {
+                    expired.push(batch[idx]);
+                  }
+                }
+              });
+            }
+            return { sent, failed, expired };
+          }
+
+          // ── Récupérer les tokens FCM ─────────────────────────────────────────
+          // Accepte les tokens FCM simples (chaîne) ET les anciens tokens Web Push
+          // dont l'endpoint pointe vers fcm.googleapis.com (le FCM token est dans l'URL).
+          async function getFCMTokens() {
+            const { data: rows, error } = await supabase.from('fcm_tokens').select('token');
+            if (error) { console.error('Supabase (fcm_tokens):', error.message); return []; }
+            if (!rows || rows.length === 0) { console.log('Aucun token enregistré.'); return []; }
+            const fcm = [];
+            for (const r of rows) {
+              try {
+                const p = JSON.parse(r.token);
+                if (p.endpoint && p.endpoint.includes('fcm.googleapis.com/fcm/send/')) {
+                  // Extraire le token FCM depuis l'URL de l'endpoint Web Push
+                  const t = p.endpoint.split('fcm.googleapis.com/fcm/send/')[1];
+                  if (t) fcm.push(t);
+                }
+                // Autre endpoint (ex: Mozilla Push) → ignorer
+              } catch {
+                // Pas du JSON → token FCM natif
+                fcm.push(r.token);
+              }
+            }
+            return fcm;
+          }
+
+          // ── Construire la liste des notifications à envoyer ──────────────────
+          const queue = [];
+          const inputType = process.env.INPUT_TYPE || '';
+          const isMorning = !inputType && utcH === 6  && utcM < 30;
+          const isMidday  = !inputType && utcH === 11 && utcM < 30;
+          const isEvening = !inputType && utcH === 19 && utcM < 30;
+
+          // Dispatch manuel
+          if (inputType === 'custom') {
+            queue.push({ title: process.env.INPUT_TITLE || '🔔 Voie Vérité Vie', body: process.env.INPUT_BODY || '', url: process.env.INPUT_URL || '/', action: 'general' });
+          } else if (inputType === 'feast') {
+            const feast = checkFeastToday();
+            feast ? queue.push({ ...feast, action: 'general' }) : console.log("Pas de fête aujourd'hui.");
+          } else if (inputType === 'morning' || isMorning) {
+            queue.push(SCHEDULED.morning);
+            const feast = checkFeastToday();
+            if (feast) { console.log(`Fête du jour: ${feast.title}`); queue.push({ ...feast, action: 'general' }); }
+          } else if (inputType === 'midday' || isMidday) {
+            queue.push(SCHEDULED.midday);
+          } else if (inputType === 'evening' || isEvening) {
+            queue.push(SCHEDULED.evening);
+          }
+
+          // TOUJOURS : récupérer les broadcasts en attente (is_sent=false)
+          const { data: pending, error: pbErr } = await supabase
+            .from('broadcast_notifications')
+            .select('id, title, body, type')
+            .eq('is_sent', false);
+
+          if (pbErr) {
+            console.log('Broadcasts non accessibles (RLS ou table absente) :', pbErr.message);
+          } else if (pending && pending.length > 0) {
+            console.log(`${pending.length} broadcast(s) en attente`);
+            for (const p of pending) {
+              queue.push({ title: p.title, body: p.body || '', url: '/', action: p.type || 'general', broadcastId: p.id });
+            }
+          }
+
+          // Rien à envoyer
+          if (queue.length === 0) {
+            console.log('Rien à envoyer ce cycle.');
+            process.exit(0);
+          }
+
+          // ── Tokens FCM ──────────────────────────────────────────────────────
+          const fcmTokens = await getFCMTokens();
+          console.log(`Tokens FCM disponibles : ${fcmTokens.length}`);
+
+          if (fcmTokens.length === 0) {
+            console.log("Aucun token FCM — les utilisateurs doivent ouvrir l'app pour s'enregistrer.");
+            // Marquer quand même les broadcasts comme traités pour ne pas les renvoyer indéfiniment
+            for (const n of queue) {
+              if (n.broadcastId) {
+                await supabase.from('broadcast_notifications').update({ is_sent: true, sent_at: new Date().toISOString() }).eq('id', n.broadcastId);
+              }
+            }
+            process.exit(0);
+          }
+
+          // ── Envoi ────────────────────────────────────────────────────────────
+          let totalSent = 0, totalFailed = 0;
+          const allExpired = [];
+
+          for (const notif of queue) {
+            console.log(`→ "${notif.title}"`);
+            const { sent, failed, expired } = await sendFCM(fcmTokens, notif);
+            totalSent += sent;
+            totalFailed += failed;
+            allExpired.push(...expired);
+
+            if (notif.broadcastId) {
+              await supabase.from('broadcast_notifications')
+                .update({ is_sent: true, sent_at: new Date().toISOString() })
+                .eq('id', notif.broadcastId);
+            }
+          }
+
+          // ── Nettoyer les tokens expirés ──────────────────────────────────────
+          if (allExpired.length > 0) {
+            await supabase.from('fcm_tokens').delete().in('token', allExpired);
+            console.log(`${allExpired.length} token(s) expirés supprimés`);
+          }
+
+          console.log(`✅ Total: ${totalSent} envoyés, ${totalFailed} échoués sur ${fcmTokens.length} appareils`);
+          if (totalSent === 0 && fcmTokens.length > 0) process.exit(1);
+
+          })();
+          SCRIPT

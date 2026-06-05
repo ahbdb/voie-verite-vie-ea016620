@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import AdminPageWrapper from '@/components/admin/AdminPageWrapper';
 import { useAdmin } from '@/hooks/useAdmin';
-import { broadcastNotificationService } from '@/hooks/useBroadcastNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,9 +11,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Phone, Plus, Radio, RefreshCw, Users, Video, Mic } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Image, Phone, Plus, Radio, RefreshCw, Trash2, Users, Video, Mic, Upload } from 'lucide-react';
 import type { VideoParticipantRecord, VideoRoomRecord } from '@/hooks/useAdminVideoRoom';
+import { useCallSession } from '@/contexts/CallSessionContext';
 
 const db = supabase as any;
 
@@ -27,6 +31,7 @@ interface UserProfile {
 const AdminVideo = () => {
   const navigate = useNavigate();
   const { user, adminRole } = useAdmin();
+  const { primeAudioPlayback } = useCallSession();
   const hasVideoAccess = adminRole === 'admin' || adminRole === 'admin_principal';
   const [rooms, setRooms] = useState<VideoRoomRecord[]>([]);
   const [participants, setParticipants] = useState<VideoParticipantRecord[]>([]);
@@ -35,11 +40,17 @@ const AdminVideo = () => {
   const [creating, setCreating] = useState(false);
   const [callMode, setCallMode] = useState<'all' | 'select'>('all');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [roomToDelete, setRoomToDelete] = useState<VideoRoomRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     roomType: 'video' as 'video' | 'audio',
+    scheduledAt: '',
+    flyerUrl: '',
   });
+  const [flyerFile, setFlyerFile] = useState<File | null>(null);
+  const [uploadingFlyer, setUploadingFlyer] = useState(false);
 
   const activeParticipantsByRoom = useMemo(() => {
     return participants.reduce<Record<string, number>>((acc, p) => {
@@ -89,7 +100,7 @@ const AdminVideo = () => {
   }, [hasVideoAccess]);
 
   const adminDisplayName = () => {
-    const name = user?.user_metadata?.full_name || user?.email || 'Un administrateur';
+    const name = user?.name || user?.email || 'Un administrateur';
     if (adminRole === 'admin_principal') return `L'administrateur principal ${name}`;
     return `L'administrateur ${name}`;
   };
@@ -100,14 +111,30 @@ const AdminVideo = () => {
 
     setCreating(true);
     try {
+      // Upload flyer if selected
+      let flyerUrl = formData.flyerUrl.trim() || null;
+      if (flyerFile) {
+        setUploadingFlyer(true);
+        const ext = flyerFile.name.split('.').pop() || 'jpg';
+        const path = `${user.id}/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('video-flyers').upload(path, flyerFile, { upsert: true });
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from('video-flyers').getPublicUrl(path);
+          flyerUrl = urlData.publicUrl;
+        }
+        setUploadingFlyer(false);
+      }
+
       const { data, error } = await db
         .from('video_rooms')
         .insert({
           title: formData.title.trim(),
           description: formData.description.trim() || null,
           created_by: user.id,
-          status: 'waiting',
+          status: formData.scheduledAt ? 'scheduled' : 'waiting',
           room_type: formData.roomType,
+          scheduled_at: formData.scheduledAt ? new Date(formData.scheduledAt).toISOString() : null,
+          flyer_url: flyerUrl,
           updated_at: new Date().toISOString(),
         })
         .select('*')
@@ -115,36 +142,83 @@ const AdminVideo = () => {
 
       if (error) throw error;
 
+      // Créer une scheduled_session pour que le live apparaisse dans CallsAndLives
+      await db.from('scheduled_sessions').insert({
+        title: formData.title.trim(),
+        description: formData.description.trim() || null,
+        session_type: formData.roomType === 'audio' ? 'audio' : 'video',
+        scheduled_date: new Date().toISOString().slice(0, 10),
+        scheduled_time: new Date().toTimeString().slice(0, 8),
+        estimated_duration: 60,
+        access_type: 'open',
+        recurrence: 'once',
+        status: formData.scheduledAt ? 'scheduled' : 'live',
+        created_by: user.id,
+        video_room_id: data.id,
+        ...(flyerUrl ? { thumbnail_url: flyerUrl } : {}),
+        ...(formData.scheduledAt ? { scheduled_date: new Date(formData.scheduledAt).toISOString().slice(0, 10), scheduled_time: new Date(formData.scheduledAt).toTimeString().slice(0, 8) } : {}),
+      }).catch(() => {});
+
+      // Créer une actualité si un flyer est fourni
+      if (flyerUrl) {
+        await supabase.from('news_posts').insert({
+          title: formData.title.trim(),
+          excerpt: formData.description.trim() || `${formData.roomType === 'audio' ? 'Appel audio' : 'Appel vidéo'} en direct`,
+          image_url: flyerUrl,
+          category: 'event',
+          is_published: true,
+          featured: false,
+          published_at: new Date().toISOString(),
+          author_name: user?.email || 'Admin',
+        } as any).catch(() => {});
+      }
+
       const meetingPath = `/meeting/${data.id}`;
       const callLabel = formData.roomType === 'audio' ? 'audio' : 'vidéo';
       const notifTitle = `📞 ${formData.title.trim()}`;
       const notifBody = `${adminDisplayName()} a lancé un appel ${callLabel}. Rejoins maintenant !`;
 
       try {
-        if (callMode === 'all') {
-          await broadcastNotificationService.sendToAll(notifTitle, notifBody, 'call', undefined, meetingPath);
-        } else {
-          // Send only to selected users
-          const ids = Array.from(selectedUserIds);
-          if (ids.length > 0) {
-            const payload = ids.map((uid) => ({
-              user_id: uid,
-              title: notifTitle,
-              message: notifBody,
-              type: 'call',
-              link: meetingPath,
-              is_read: false,
-            }));
-            await supabase.from('notifications').insert(payload);
-          }
+        const selectedIds = callMode === 'select' ? Array.from(selectedUserIds) : undefined;
+
+        // Web Push — reaches devices even when app is closed/background
+        void supabase.functions.invoke('send-push', {
+          body: {
+            title: notifTitle,
+            body: notifBody,
+            url: meetingPath,
+            action: 'call',
+            tag: `call-${data.id}`,
+            requireInteraction: true,
+            vibrate: [400, 200, 400, 200, 600],
+            ...(selectedIds ? { user_ids: selectedIds } : {}),
+          },
+        });
+
+        const targetIds = callMode === 'all'
+          ? allUsers.map((u) => u.id)
+          : (selectedIds || []);
+
+        if (targetIds.length > 0) {
+          const payload = targetIds.map((uid) => ({
+            user_id: uid,
+            title: notifTitle,
+            message: notifBody,
+            type: 'call',
+            link: meetingPath,
+            is_read: false,
+          }));
+          await supabase.from('notifications').insert(payload);
         }
       } catch (err) {
         console.error('[admin-video] notification error', err);
       }
 
       toast.success('Salle créée, appel envoyé.');
-      setFormData({ title: '', description: '', roomType: 'video' });
+      setFormData({ title: '', description: '', roomType: 'video', scheduledAt: '', flyerUrl: '' });
+      setFlyerFile(null);
       setSelectedUserIds(new Set());
+      primeAudioPlayback();
       navigate(meetingPath);
     } catch (err) {
       console.error('[admin-video]', err);
@@ -158,7 +232,32 @@ const AdminVideo = () => {
     try {
       const notifTitle = `📞 Rappel : ${roomTitle}`;
       const notifBody = `${adminDisplayName()} vous rappelle pour l'appel ${roomType === 'audio' ? 'audio' : 'vidéo'}. Rejoignez maintenant !`;
-      await broadcastNotificationService.sendToAll(notifTitle, notifBody, 'call', undefined, `/meeting/${roomId}`);
+      const meetingPath = `/meeting/${roomId}`;
+
+      // Web Push — reaches devices even when app is closed/background
+      void supabase.functions.invoke('send-push', {
+        body: {
+          title: notifTitle,
+          body: notifBody,
+          url: meetingPath,
+          action: 'call',
+          tag: `call-${roomId}`,
+          requireInteraction: true,
+          vibrate: [400, 200, 400, 200, 600],
+        },
+      });
+
+      if (allUsers.length > 0) {
+        const payload = allUsers.map((u) => ({
+          user_id: u.id,
+          title: notifTitle,
+          message: notifBody,
+          type: 'call',
+          link: meetingPath,
+          is_read: false,
+        }));
+        await supabase.from('notifications').insert(payload);
+      }
       toast.success('Rappel envoyé à tous');
     } catch {
       toast.error('Rappel échoué');
@@ -174,6 +273,26 @@ const AdminVideo = () => {
       if (error) throw error;
       toast.success('Salle terminée.');
     } catch { toast.error('Erreur.'); }
+  };
+
+  const handleDeleteRoom = async () => {
+    if (!roomToDelete) return;
+    setDeleting(true);
+    try {
+      await db.from('video_room_participants').delete().eq('room_id', roomToDelete.id);
+      await db.from('video_room_messages').delete().eq('room_id', roomToDelete.id);
+      await db.from('video_message_reactions').delete().eq('room_id', roomToDelete.id);
+      await db.from('video_room_signals').delete().eq('room_id', roomToDelete.id);
+      const { error } = await db.from('video_rooms').delete().eq('id', roomToDelete.id);
+      if (error) throw error;
+      toast.success('Session supprimée définitivement.');
+      setRoomToDelete(null);
+    } catch (err) {
+      console.error('[admin-video] delete error', err);
+      toast.error('Suppression échouée.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const toggleUserSelection = (uid: string) => {
@@ -199,6 +318,28 @@ const AdminVideo = () => {
 
   return (
     <AdminPageWrapper>
+      {/* ── Delete confirmation dialog ───────────────────────────────────── */}
+      <AlertDialog open={Boolean(roomToDelete)} onOpenChange={(open) => { if (!open) setRoomToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette session ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La session <strong>«&nbsp;{roomToDelete?.title}&nbsp;»</strong> et tous ses messages, réactions et journaux de participants seront supprimés de façon définitive. Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleDeleteRoom()}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleting ? 'Suppression…' : 'Supprimer définitivement'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="min-h-screen flex flex-col bg-background">
         <Navigation />
         <main className="flex-1 container mx-auto px-4 py-8 pt-24 space-y-6">
@@ -273,8 +414,63 @@ const AdminVideo = () => {
                     placeholder="Description (optionnel)"
                     rows={2}
                   />
-                  <Button type="submit" disabled={creating} className="w-full">
-                    <Plus className="h-4 w-4 mr-1" /> {creating ? 'Création...' : 'Créer et appeler'}
+
+                  {/* Scheduled date/time */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium flex items-center gap-1.5">
+                      <CalendarClock className="h-4 w-4 text-muted-foreground" /> Programmer (optionnel)
+                    </label>
+                    <Input
+                      type="datetime-local"
+                      value={formData.scheduledAt}
+                      onChange={(e) => setFormData((c) => ({ ...c, scheduledAt: e.target.value }))}
+                      className="text-sm"
+                    />
+                  </div>
+
+                  {/* Flyer / cover image */}
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium flex items-center gap-1.5">
+                      <Image className="h-4 w-4 text-muted-foreground" /> Flyer / visuel (optionnel)
+                    </label>
+                    <div className="flex gap-2">
+                      <label className="flex-1 flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm cursor-pointer hover:bg-muted/50 transition-colors">
+                        <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="truncate text-muted-foreground">
+                          {flyerFile ? flyerFile.name : 'Choisir une image…'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          className="sr-only"
+                          onChange={(e) => { setFlyerFile(e.target.files?.[0] || null); setFormData((c) => ({ ...c, flyerUrl: '' })); }}
+                        />
+                      </label>
+                      {flyerFile && (
+                        <button type="button" onClick={() => setFlyerFile(null)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+                      )}
+                    </div>
+                    {!flyerFile && (
+                      <Input
+                        value={formData.flyerUrl}
+                        onChange={(e) => setFormData((c) => ({ ...c, flyerUrl: e.target.value }))}
+                        placeholder="…ou coller l'URL d'une image"
+                        className="text-sm"
+                      />
+                    )}
+                    {(flyerFile || formData.flyerUrl) && (
+                      <img
+                        src={flyerFile ? URL.createObjectURL(flyerFile) : formData.flyerUrl}
+                        alt="Aperçu flyer"
+                        className="w-full max-h-40 object-cover rounded-md border border-border"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    )}
+                  </div>
+
+                  <Button type="submit" disabled={creating || uploadingFlyer} className="w-full">
+                    <Plus className="h-4 w-4 mr-1" />
+                    {uploadingFlyer ? 'Upload flyer…' : creating ? 'Création…' : formData.scheduledAt ? 'Programmer' : 'Créer et appeler'}
                   </Button>
                 </form>
               </CardContent>
@@ -326,12 +522,21 @@ const AdminVideo = () => {
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
+                        {room.flyer_url && (
+                          <img src={room.flyer_url} alt="flyer" className="w-full max-h-28 object-cover rounded-md" />
+                        )}
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {count}</span>
                           <span>{room.room_type === 'audio' ? '🎙️ Audio' : '📹 Vidéo'}</span>
+                          {room.scheduled_at && (
+                            <span className="flex items-center gap-1">
+                              <CalendarClock className="h-3 w-3" />
+                              {new Date(room.scheduled_at).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          <Button size="sm" asChild><Link to={`/meeting/${room.id}`}>Ouvrir</Link></Button>
+                          <Button size="sm" onClick={() => { primeAudioPlayback(); navigate(`/meeting/${room.id}`); }}>Ouvrir</Button>
                           {!ended && (
                             <>
                               <Button size="sm" variant="outline" onClick={() => void handleRecall(room.id, room.title, room.room_type)}>
@@ -339,6 +544,16 @@ const AdminVideo = () => {
                               </Button>
                               <Button size="sm" variant="outline" onClick={() => void handleCloseRoom(room.id)}>Terminer</Button>
                             </>
+                          )}
+                          {ended && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-800 text-red-400 hover:bg-red-900/20 hover:text-red-300"
+                              onClick={() => setRoomToDelete(room)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-1" /> Supprimer
+                            </Button>
                           )}
                         </div>
                       </CardContent>

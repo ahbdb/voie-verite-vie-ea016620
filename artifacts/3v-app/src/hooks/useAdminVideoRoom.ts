@@ -1,23 +1,40 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useCallSession } from '@/contexts/CallSessionContext';
 
 const db = supabase as any;
 
+const METERED_USER = 'a2356b6905de4125c48c1199';
+const METERED_CRED = 'qiDS7HJT6hxF4GAa';
+
+// Free open-relay credentials (no monthly cap — fallback if dedicated quota runs out)
+const OPEN_USER = 'openrelayproject';
+const OPEN_CRED  = 'openrelayproject';
+
 const RTC_CONFIGURATION: RTCConfiguration = {
   iceServers: [
+    // STUN — multiple providers for redundancy
     {
       urls: [
+        'stun:stun.relay.metered.ca:80',
         'stun:stun.l.google.com:19302',
         'stun:stun1.l.google.com:19302',
         'stun:stun2.l.google.com:19302',
         'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302',
         'stun:stun.cloudflare.com:3478',
       ],
     },
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    // TURN — dedicated credentials (UDP, TCP, TLS)
+    { urls: 'turn:global.relay.metered.ca:80',                 username: METERED_USER, credential: METERED_CRED },
+    { urls: 'turn:global.relay.metered.ca:80?transport=tcp',   username: METERED_USER, credential: METERED_CRED },
+    { urls: 'turn:global.relay.metered.ca:443',                username: METERED_USER, credential: METERED_CRED },
+    { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: METERED_USER, credential: METERED_CRED },
+    // TURN — open relay fallback (free, no quota — works when dedicated quota exhausted)
+    { urls: 'turn:openrelay.metered.ca:80',                    username: OPEN_USER, credential: OPEN_CRED },
+    { urls: 'turn:openrelay.metered.ca:80?transport=tcp',      username: OPEN_USER, credential: OPEN_CRED },
+    { urls: 'turn:openrelay.metered.ca:443',                   username: OPEN_USER, credential: OPEN_CRED },
+    { urls: 'turns:openrelay.metered.ca:443?transport=tcp',    username: OPEN_USER, credential: OPEN_CRED },
   ],
   iceCandidatePoolSize: 10,
   iceTransportPolicy: 'all',
@@ -42,6 +59,8 @@ export interface VideoRoomRecord {
   ended_at: string | null;
   created_at: string;
   updated_at: string;
+  flyer_url: string | null;
+  scheduled_at: string | null;
 }
 
 export interface VideoParticipantRecord {
@@ -52,6 +71,7 @@ export interface VideoParticipantRecord {
   is_active: boolean;
   joined_at: string;
   left_at: string | null;
+  avatar_url?: string | null;
 }
 
 interface VideoSignalRecord {
@@ -89,6 +109,46 @@ export interface VideoMessageReactionRecord {
   created_at: string;
 }
 
+export interface PeerStat {
+  userId: string;
+  iceState: string;
+  localCandidateType: 'host' | 'srflx' | 'relay' | 'unknown';
+  remoteCandidateType: 'host' | 'srflx' | 'relay' | 'unknown';
+  rttMs: number | null;
+  bytesSent: number;
+  bytesReceived: number;
+  audioPacketsLost: number;
+}
+
+// ── Module-level session persistence ─────────────────────────────────────────
+// React refs are garbage-collected on component unmount, which closes every
+// RTCPeerConnection they hold. Saving to module-level prevents GC and keeps
+// audio/video flowing when the user navigates away without hanging up.
+interface PersistedSession {
+  roomId: string;
+  peerConns: Map<string, RTCPeerConnection>;
+  stream: MediaStream;
+  origVideoTrack: MediaStreamTrack | null;
+  audioCtx: AudioContext | null;
+  keepAliveOsc: OscillatorNode | null;
+  analysers: Map<string, AnalyserNode>;
+  sources: Map<string, MediaStreamAudioSourceNode>;
+  initiated: Set<string>;
+  pendingIce: Map<string, RTCIceCandidateInit[]>;
+  screenTrack: MediaStreamTrack | null;
+  remoteStreams: RemoteVideoStream[];
+  channel: ReturnType<typeof db.channel> | null;
+  participants: VideoParticipantRecord[];
+  messages: VideoRoomMessageRecord[];
+  reactions: VideoMessageReactionRecord[];
+}
+let _persist: PersistedSession | null = null;
+// Updated on every mount/remount; called by the kept-alive channel during soft leave
+// so incoming WebRTC signals are processed even while the call page is unmounted.
+let _bgSignalFn: ((sig: VideoSignalRecord) => void) | null = null;
+// Interval that watches peer connections during soft leave and restarts ICE if they degrade.
+let _bgHealthTimer: ReturnType<typeof setInterval> | null = null;
+
 interface UseAdminVideoRoomOptions {
   roomId?: string;
   userId?: string;
@@ -113,6 +173,7 @@ export const useAdminVideoRoom = ({
   const [loading, setLoading] = useState(true);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [micEnabled, setMicEnabled] = useState(true);
+  const micEnabledRef = useRef(true);
   const [cameraEnabled, setCameraEnabled] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -120,10 +181,21 @@ export const useAdminVideoRoom = ({
   const [startRequested, setStartRequested] = useState(false);
   const [mutedParticipants, setMutedParticipants] = useState<Set<string>>(new Set());
   const [activeSpeakers, setActiveSpeakers] = useState<Set<string>>(new Set());
+  const [participantMicState, setParticipantMicState] = useState<Map<string, boolean>>(new Map());
+  const [ejected, setEjected] = useState(false);
+  const [lobbyParticipants, setLobbyParticipants] = useState<Set<string>>(new Set());
+  const [isInLobby, setIsInLobby] = useState(false);
+  const [emojiReactions, setEmojiReactions] = useState<Map<string, Array<{ id: number; emoji: string }>>>(new Map());
   const [connectionQuality, setConnectionQuality] = useState<'good' | 'poor' | 'reconnecting'>('good');
+  const [peerStats, setPeerStats] = useState<Map<string, PeerStat>>(new Map());
 
   const channelRef = useRef<any>(null);
+  const isInLobbyRef = useRef(false);
+  const lobbyRingTimerRef = useRef<number | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  // Fallback streams for browsers/WebViews that don't populate ev.streams[0] in ontrack.
+  // Tracks are accumulated here so audio+video stay in the same MediaStream per peer.
+  const peerFallbackStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const initiatedPeersRef = useRef<Set<string>>(new Set());
   const localStreamRef = useRef<MediaStream | null>(null);
   const joinedRef = useRef(false);
@@ -132,13 +204,18 @@ export const useAdminVideoRoom = ({
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
   const participantsRef = useRef<VideoParticipantRecord[]>([]);
   const disconnectTimersRef = useRef<Map<string, number>>(new Map());
+  /** Debounce timer — only show 'poor' after being disconnected for 5 s. */
+  const qualityTimerRef = useRef<number | null>(null);
   const displayNameRef = useRef(displayName || 'Participant');
   const canManageRoomRef = useRef(canManageRoom);
   const roomRef = useRef<VideoRoomRecord | null>(null);
   const facingModeRef = useRef<'user' | 'environment'>('user');
   const userIdRef = useRef(userId);
   const isPageHiddenRef = useRef(false);
-  /** When true, unmount cleanup skips leaveRoom + track/peer teardown so audio continues. */
+  /** When true, unmount cleanup does full teardown (explicit hang-up / admin end).
+   *  Default is false: navigation without raccrocher keeps peers alive. */
+  const hardLeaveRef = useRef(false);
+  /** Legacy soft-leave flag kept for compatibility. */
   const softLeaveRef = useRef(false);
 
   // Audio level detection
@@ -146,6 +223,9 @@ export const useAdminVideoRoom = ({
   const analyserNodesRef = useRef<Map<string, AnalyserNode>>(new Map());
   const sourceNodesRef = useRef<Map<string, MediaStreamAudioSourceNode>>(new Map());
   const keepAliveNodeRef = useRef<OscillatorNode | null>(null);
+  const remoteStreamsRef = useRef<RemoteVideoStream[]>([]);
+  const messagesRef = useRef<VideoRoomMessageRecord[]>([]);
+  const reactionsRef = useRef<VideoMessageReactionRecord[]>([]);
 
   const roomType = room?.room_type ?? 'unknown';
   const canShareScreen =
@@ -162,7 +242,42 @@ export const useAdminVideoRoom = ({
     canManageRoomRef.current = canManageRoom;
     roomRef.current = room;
     userIdRef.current = userId;
-  }, [participants, displayName, canManageRoom, room, userId]);
+    remoteStreamsRef.current = remoteStreams;
+    messagesRef.current = messages;
+    reactionsRef.current = reactions;
+  }, [participants, displayName, canManageRoom, room, userId, remoteStreams, messages, reactions]);
+
+  // Keep micEnabledRef in sync so toggleMicrophone never reads stale state
+  useEffect(() => { micEnabledRef.current = micEnabled; }, [micEnabled]);
+
+  // Context helpers — stored in refs so they remain callable during soft leave
+  // (when the call page is unmounted but the context is still alive).
+  const { notifyMic, setBackgroundStreams, clearBackgroundStreams } = useCallSession();
+  const notifyMicContextRef = useRef(notifyMic);
+  const setBackgroundStreamsRef = useRef(setBackgroundStreams);
+  const clearBackgroundStreamsRef = useRef(clearBackgroundStreams);
+  useEffect(() => {
+    notifyMicContextRef.current = notifyMic;
+    setBackgroundStreamsRef.current = setBackgroundStreams;
+    clearBackgroundStreamsRef.current = clearBackgroundStreams;
+  }, [notifyMic, setBackgroundStreams, clearBackgroundStreams]);
+
+  // ── Auto-restore from soft leave ─────────────────────────────────────────────
+  // If a persisted session exists for this room, skip the "Rejoindre" button
+  // and restore directly without requiring another user tap.
+  useEffect(() => {
+    if (!enabled || !roomId || !userId || startRequested) return;
+    if (_persist) {
+      if (_persist.roomId === roomId) {
+        setStartRequested(true);
+      } else {
+        // Stale persisted session for a different room — release it
+        _persist.peerConns.forEach((pc) => pc.close());
+        _persist.stream.getTracks().forEach((t) => t.stop());
+        _persist = null;
+      }
+    }
+  }, [enabled, roomId, userId, startRequested]);
 
   // ── Audio level detection ───────────────────────────────────────────────────
 
@@ -234,6 +349,77 @@ export const useAdminVideoRoom = ({
     const id = setInterval(pollSpeakers, SPEAKING_POLL_MS);
     return () => clearInterval(id);
   }, [isConnected, pollSpeakers]);
+
+  // ── WebRTC stats collection (candidate type, RTT, packet loss) ──────────────
+
+  const collectStats = useCallback(async () => {
+    const map = new Map<string, PeerStat>();
+    await Promise.all(
+      Array.from(peerConnectionsRef.current.entries()).map(async ([pid, pc]) => {
+        try {
+          const reports = await pc.getStats();
+          const candidateMap = new Map<string, string>();
+          let localCandidateType: PeerStat['localCandidateType'] = 'unknown';
+          let remoteCandidateType: PeerStat['remoteCandidateType'] = 'unknown';
+          let rttMs: number | null = null;
+          let bytesSent = 0;
+          let bytesReceived = 0;
+          let audioPacketsLost = 0;
+
+          reports.forEach((r: RTCStats & Record<string, unknown>) => {
+            if (r.type === 'local-candidate' || r.type === 'remote-candidate') {
+              candidateMap.set(r.id as string, (r.candidateType as string) || 'unknown');
+            }
+          });
+
+          reports.forEach((r: RTCStats & Record<string, unknown>) => {
+            if (r.type === 'candidate-pair' && r.nominated) {
+              // Prefer succeeded pair; fall back to any nominated pair so candidate
+              // types are visible even when the connection is 'disconnected' (in which
+              // case the previously-succeeded pair may have flipped to 'in-progress').
+              const lc = (candidateMap.get(r.localCandidateId as string) || 'unknown') as PeerStat['localCandidateType'];
+              const rc = (candidateMap.get(r.remoteCandidateId as string) || 'unknown') as PeerStat['remoteCandidateType'];
+              if (r.state === 'succeeded') {
+                rttMs = r.currentRoundTripTime != null ? Math.round((r.currentRoundTripTime as number) * 1000) : null;
+                bytesSent = (r.bytesSent as number) || 0;
+                bytesReceived = (r.bytesReceived as number) || 0;
+                localCandidateType = lc;
+                remoteCandidateType = rc;
+              } else if (localCandidateType === 'unknown') {
+                // Fallback — fills in candidate types while ICE is re-checking
+                localCandidateType = lc;
+                remoteCandidateType = rc;
+                bytesSent = (r.bytesSent as number) || bytesSent;
+                bytesReceived = (r.bytesReceived as number) || bytesReceived;
+              }
+            }
+            if (r.type === 'inbound-rtp' && r.kind === 'audio') {
+              audioPacketsLost = (r.packetsLost as number) || 0;
+            }
+          });
+
+          map.set(pid, {
+            userId: pid,
+            iceState: pc.iceConnectionState,
+            localCandidateType,
+            remoteCandidateType,
+            rttMs,
+            bytesSent,
+            bytesReceived,
+            audioPacketsLost,
+          });
+        } catch { /* peer may have closed */ }
+      })
+    );
+    if (map.size > 0) setPeerStats(map);
+  }, []);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    void collectStats();
+    const id = setInterval(() => void collectStats(), 3000);
+    return () => clearInterval(id);
+  }, [isConnected, collectStats]);
 
   // ── MediaSession API — tells the OS to keep audio alive (like WhatsApp) ────
 
@@ -319,7 +505,19 @@ export const useAdminVideoRoom = ({
       .eq('room_id', roomId)
       .order('joined_at', { ascending: true });
     if (error) throw error;
-    setParticipants((data || []) as VideoParticipantRecord[]);
+    const parts = (data || []) as VideoParticipantRecord[];
+    // Publish participants immediately so syncPeers() fires without delay.
+    // Avatar URLs are enriched in the background — non-critical for audio.
+    setParticipants(parts);
+    if (parts.length > 0) {
+      const ids = parts.map((p) => p.user_id);
+      void db.from('profiles').select('id, avatar_url').in('id', ids).then(({ data: profs }: { data: { id: string; avatar_url: string | null }[] | null }) => {
+        if (!profs?.length) return;
+        const avatarMap: Record<string, string | null> = {};
+        (profs as { id: string; avatar_url: string | null }[]).forEach((p) => { avatarMap[p.id] = p.avatar_url; });
+        setParticipants(parts.map((p) => ({ ...p, avatar_url: avatarMap[p.user_id] ?? null })));
+      });
+    }
   }, [roomId]);
 
   const loadMessages = useCallback(async () => {
@@ -393,10 +591,19 @@ export const useAdminVideoRoom = ({
       pc.close();
       peerConnectionsRef.current.delete(pid);
     }
+    peerFallbackStreamsRef.current.delete(pid);
     pendingIceCandidatesRef.current.delete(pid);
     initiatedPeersRef.current.delete(pid);
     detachAudioAnalyser(pid);
     setRemoteStreams((cur) => cur.filter((e) => e.userId !== pid));
+    // Clear quality badge if no remaining peer is in a degraded state
+    const anyBad = Array.from(peerConnectionsRef.current.values()).some(
+      (c) => c.connectionState === 'disconnected' || c.connectionState === 'failed'
+    );
+    if (!anyBad) {
+      if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
+      setConnectionQuality('good');
+    }
   }, [detachAudioAnalyser]);
 
   const flushPendingIceCandidates = useCallback(async (pid: string, pc: RTCPeerConnection) => {
@@ -409,28 +616,39 @@ export const useAdminVideoRoom = ({
   }, []);
 
   const createPeerConnection = useCallback(
-    (pid: string) => {
-      const existing = peerConnectionsRef.current.get(pid);
-      if (existing) return existing;
+    (pid: string, rewireExisting?: RTCPeerConnection) => {
+      // rewireExisting: re-attach fresh handlers on a saved peer connection after
+      // soft-leave restore — stale closures from the old mount reference dead state
+      // setters and must be replaced with closures from the current mount.
+      if (!rewireExisting) {
+        const existing = peerConnectionsRef.current.get(pid);
+        if (existing) return existing;
+      }
 
-      const pc = new RTCPeerConnection(RTC_CONFIGURATION);
-      const stream = localStreamRef.current;
-      const audioTracks = stream?.getAudioTracks() || [];
-      const videoTracks = stream?.getVideoTracks() || [];
-
-      audioTracks.forEach((t) => pc.addTrack(t, stream as MediaStream));
-      videoTracks.forEach((t) => pc.addTrack(t, stream as MediaStream));
-
-      if (audioTracks.length === 0) pc.addTransceiver('audio', { direction: 'recvonly' });
-      if (roomType !== 'audio' && videoTracks.length === 0) pc.addTransceiver('video', { direction: 'recvonly' });
+      const pc = rewireExisting ?? new RTCPeerConnection(RTC_CONFIGURATION);
 
       pc.onicecandidate = (ev) => {
         if (ev.candidate) void sendSignal('ice-candidate', ev.candidate.toJSON(), pid);
       };
 
       pc.ontrack = (ev) => {
-        const [s] = ev.streams;
-        if (s) upsertRemoteStream(pid, s);
+        if (ev.streams[0]) {
+          // Normal path: browser provides a single stream containing all tracks.
+          // Audio and video are always bundled together — safe to replace directly.
+          upsertRemoteStream(pid, ev.streams[0]);
+          ev.track.onunmute = () => upsertRemoteStream(pid, ev.streams[0]);
+        } else {
+          // Fallback: some mobile WebViews (older Android, WKWebView) fire ontrack
+          // without a stream. We must accumulate ALL tracks for this peer into ONE
+          // shared MediaStream. If each ontrack creates its own stream, the second
+          // call (video) overwrites the first (audio) → silent call.
+          let s = peerFallbackStreamsRef.current.get(pid);
+          if (!s) { s = new MediaStream(); peerFallbackStreamsRef.current.set(pid, s); }
+          if (!s.getTrackById(ev.track.id)) s.addTrack(ev.track);
+          upsertRemoteStream(pid, s);
+          const capturedStream = s;
+          ev.track.onunmute = () => upsertRemoteStream(pid, capturedStream);
+        }
       };
 
       pc.onconnectionstatechange = () => {
@@ -440,12 +658,27 @@ export const useAdminVideoRoom = ({
 
         if (state === 'connected') {
           if (existingTimer) { window.clearTimeout(existingTimer); disconnectTimersRef.current.delete(pid); }
+          // Cancel any pending 'poor' quality timer — connection recovered
+          if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
           setConnectionQuality('good');
           return;
         }
 
         if (state === 'disconnected') {
-          setConnectionQuality('poor');
+          // After 3 s of disconnected, proactively restart ICE — silently, no badge change.
+          // 'disconnected' is a transient state that often self-heals; showing a badge
+          // for it is alarming and misleading. Only 'failed' (below) warrants a visible indicator.
+          if (!qualityTimerRef.current) {
+            qualityTimerRef.current = window.setTimeout(() => {
+              qualityTimerRef.current = null;
+              if (pc.connectionState !== 'disconnected') return;
+              // Restart ICE silently — both sides attempt, polite/impolite handles glare
+              pc.createOffer({ iceRestart: true })
+                .then(offer => pc.setLocalDescription(offer))
+                .then(() => { if (pc.localDescription) void sendSignal('offer', pc.localDescription, pid); })
+                .catch(() => {});
+            }, 3_000);
+          }
           // Give extra time if page is hidden (user switched app)
           const timeout = isPageHiddenRef.current ? DISCONNECT_TIMEOUT_MS * 2 : DISCONNECT_TIMEOUT_MS;
           if (!existingTimer) {
@@ -461,14 +694,23 @@ export const useAdminVideoRoom = ({
         }
 
         if (state === 'failed') {
-          setConnectionQuality('reconnecting');
+          if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
           if (existingTimer) { window.clearTimeout(existingTimer); disconnectTimersRef.current.delete(pid); }
           // Try ICE restart before giving up
           const shouldOffer = uid && uid.localeCompare(pid) < 0;
           if (shouldOffer) {
             pc.createOffer({ iceRestart: true })
               .then(offer => pc.setLocalDescription(offer))
-              .then(() => { if (pc.localDescription) void sendSignal('offer', pc.localDescription, pid); })
+              .then(() => {
+                if (pc.localDescription) void sendSignal('offer', pc.localDescription, pid);
+                if (!disconnectTimersRef.current.has(pid)) {
+                  const tid = window.setTimeout(() => {
+                    if (pc.connectionState !== 'connected') removePeer(pid);
+                    disconnectTimersRef.current.delete(pid);
+                  }, 15_000);
+                  disconnectTimersRef.current.set(pid, tid);
+                }
+              })
               .catch(() => removePeer(pid));
           } else {
             // The other side will restart ICE — give it 10 s
@@ -487,7 +729,41 @@ export const useAdminVideoRoom = ({
         }
       };
 
-      peerConnectionsRef.current.set(pid, pc);
+      if (!rewireExisting) {
+        const stream = localStreamRef.current;
+        const audioTracks = stream?.getAudioTracks() || [];
+        const videoTracks = stream?.getVideoTracks() || [];
+
+        audioTracks.forEach((t) => pc.addTrack(t, stream as MediaStream));
+        videoTracks.forEach((t) => pc.addTrack(t, stream as MediaStream));
+
+        if (audioTracks.length === 0) pc.addTransceiver('audio', { direction: 'recvonly' });
+        if (roomType !== 'audio' && videoTracks.length === 0) pc.addTransceiver('video', { direction: 'recvonly' });
+
+        // Lobby mode: null outgoing tracks so the participant is silent/invisible until admitted
+        if (isInLobbyRef.current) {
+          pc.getSenders().forEach((s) => void s.replaceTrack(null));
+        }
+
+        // Negotiated DataChannel used purely as an ICE keepalive.
+        // Both peers create id=0 independently — no extra signaling round-trip.
+        // The 2-second heartbeat prevents ICE timeout when the call page is navigated
+        // away (soft leave) or the tab is backgrounded, keeping connectionState
+        // at 'connected' so re-entry is instant with no ICE restart needed.
+        const kaDc = pc.createDataChannel('hb', { negotiated: true, id: 0 });
+        let kaTimer: number | null = null;
+        kaDc.onopen = () => {
+          kaTimer = window.setInterval(() => {
+            try { if (kaDc.readyState === 'open') kaDc.send('\0'); } catch {}
+          }, 2_000);
+        };
+        kaDc.onclose = () => {
+          if (kaTimer !== null) { window.clearInterval(kaTimer); kaTimer = null; }
+        };
+
+        peerConnectionsRef.current.set(pid, pc);
+      }
+
       return pc;
     },
     [removePeer, roomType, sendSignal, upsertRemoteStream]
@@ -582,6 +858,24 @@ export const useAdminVideoRoom = ({
 
       try {
         if (signal.signal_type === 'offer') {
+          // ── Perfect negotiation: handle offer collision (glare) ──────────
+          // The peer whose userId is lexicographically LOWER initiates offers
+          // (see syncPeers). That peer is "impolite" — it ignores colliding offers.
+          // The peer with the HIGHER userId is "polite" — it rolls back its own
+          // local offer and accepts the incoming one instead.
+          const isPolite = userId.localeCompare(signal.sender_id) > 0;
+          const offerCollision = pc.signalingState !== 'stable';
+
+          if (offerCollision && !isPolite) {
+            // Impolite peer: drop the incoming offer to avoid glare
+            return;
+          }
+
+          if (offerCollision && isPolite) {
+            // Polite peer: rollback our local offer, accept theirs
+            try { await pc.setLocalDescription({ type: 'rollback' }); } catch {}
+          }
+
           await pc.setRemoteDescription(signal.payload as RTCSessionDescriptionInit);
           await flushPendingIceCandidates(signal.sender_id, pc);
           const answer = await pc.createAnswer();
@@ -623,6 +917,8 @@ export const useAdminVideoRoom = ({
         .from('video_room_signals')
         .select('*')
         .eq('room_id', roomId)
+        // Only fetch signals addressed to us (or broadcast signals with no recipient)
+        .or(`recipient_id.is.null,recipient_id.eq.${userId}`)
         .order('created_at', { ascending: true });
 
       for (const sig of data || []) {
@@ -643,6 +939,18 @@ export const useAdminVideoRoom = ({
     });
 
     for (const p of others) {
+      const existing = peerConnectionsRef.current.get(p.user_id);
+      // Tear down dead connections so they are re-negotiated from scratch.
+      // This is the primary fix for "connexion faible après retour" — a failed
+      // ICE connection is never recoverable via restart alone; a fresh offer is required.
+      if (existing && (existing.connectionState === 'failed' || existing.connectionState === 'closed')) {
+        existing.close();
+        peerConnectionsRef.current.delete(p.user_id);
+        initiatedPeersRef.current.delete(p.user_id);
+        // Optimistically reset quality — the new connection will update it once established
+        if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
+        setConnectionQuality('good');
+      }
       if (!peerConnectionsRef.current.has(p.user_id)) {
         createPeerConnection(p.user_id);
       }
@@ -699,21 +1007,81 @@ export const useAdminVideoRoom = ({
   }, [roomId, userId]);
 
   const endRoom = useCallback(async () => {
-    if (!roomId || !canManageRoomRef.current) return;
-    await db.from('video_rooms').update({ status: 'ended', ended_at: new Date().toISOString() }).eq('id', roomId);
+    if (!roomId) return;
+    if (!canManageRoomRef.current) throw new Error('Vous n\'avez pas les droits pour terminer cette réunion.');
+
+    const sendEnded = async () => {
+      if (!channelRef.current) return;
+      try {
+        await channelRef.current.send({ type: 'broadcast', event: 'session-ended', payload: { roomId } });
+      } catch { /* non-critical */ }
+    };
+
+    // 1. Broadcast immediately — active subscribers react in <100ms
+    await sendEnded();
+
+    // 2. Update DB — authoritative; triggers postgres_changes for everyone
+    //    including soft-leave users via the CallSessionContext subscription.
+    const { error: roomErr } = await db
+      .from('video_rooms')
+      .update({ status: 'ended', ended_at: new Date().toISOString() })
+      .eq('id', roomId);
+    if (roomErr) throw new Error(`Impossible de terminer la réunion : ${roomErr.message}`);
+
+    // Also end the linked scheduled_session so CallsAndLives stops showing it as live.
+    await (db as any)
+      .from('scheduled_sessions')
+      .update({ status: 'ended' })
+      .eq('video_room_id', roomId);
+
     await db.from('video_room_participants').update({ is_active: false, left_at: new Date().toISOString() }).eq('room_id', roomId);
+
+    // 3. Broadcast again after DB update — catches clients who missed the first
+    await sendEnded();
+
     setIsConnected(false);
   }, [roomId]);
 
-  /** Call before navigating away to keep audio flowing to remote peers (WhatsApp-style). */
+  // Heartbeat: keeps the participant row alive in the DB while user is in background
+  const heartbeat = useCallback(async () => {
+    if (!roomId || !userId || !joinedRef.current) return;
+    await db
+      .from('video_room_participants')
+      .update({ is_active: true })
+      .eq('room_id', roomId)
+      .eq('user_id', userId);
+  }, [roomId, userId]);
+
+  /** Call before navigating away to keep audio flowing to remote peers (WhatsApp-style).
+   *  This is now the DEFAULT behaviour on unmount — calling this is optional. */
   const softLeave = useCallback(() => {
     softLeaveRef.current = true;
+  }, []);
+
+  /** Call when user explicitly hangs up or admin ends the room.
+   *  This is the ONLY scenario that fully disconnects peers and marks the user as left. */
+  const triggerHardLeave = useCallback(() => {
+    hardLeaveRef.current = true;
   }, []);
 
   // ── Join request ──────────────────────────────────────────────────────────
 
   const requestJoin = useCallback(async () => {
     if (!enabled || !roomId || !userId || isJoining || startRequested) return;
+    // Check if this user was ejected — allow re-entry but place in lobby (muted, invisible to non-admins)
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(`ejected:${roomId}:${userId}`) === '1') {
+      isInLobbyRef.current = true;
+      setIsInLobby(true);
+    }
+
+    // Soft-leave restore: a live stream is already saved — skip getUserMedia entirely.
+    // Jumping straight to setStartRequested triggers startRoom() which takes the
+    // _persist restore path and reconnects in <500 ms without touching the camera/mic.
+    if (_persist && _persist.roomId === roomId) {
+      setStartRequested(true);
+      return;
+    }
+
     setIsJoining(true);
     setLoading(true);
     setMediaError(null);
@@ -733,13 +1101,14 @@ export const useAdminVideoRoom = ({
             noiseSuppression: true,
             autoGainControl: true,
             sampleRate: 48000,
+            channelCount: 1,
           },
         });
       } catch {
         if (shouldUseVideo) {
           try {
             media = await navigator.mediaDevices.getUserMedia({
-              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
               video: false,
             });
             setMediaError('Caméra indisponible — appel audio uniquement.');
@@ -764,6 +1133,33 @@ export const useAdminVideoRoom = ({
       localStreamRef.current = media;
       setLocalStream(media);
 
+      // If the OS kills the microphone (iOS background, permission revoked), try to
+      // re-acquire it and re-inject the new track into all peer connections silently.
+      media.getAudioTracks().forEach((track) => {
+        track.onended = async () => {
+          try {
+            const fresh = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+            });
+            const [newTrack] = fresh.getAudioTracks();
+            if (!newTrack) return;
+            newTrack.enabled = micEnabledRef.current;
+            await Promise.all(
+              Array.from(peerConnectionsRef.current.values()).map(async (pc) => {
+                const sender = pc.getSenders().find((s) => s.track?.kind === 'audio');
+                if (sender) await sender.replaceTrack(newTrack);
+              })
+            );
+            if (localStreamRef.current) {
+              localStreamRef.current.removeTrack(track);
+              localStreamRef.current.addTrack(newTrack);
+            }
+            setMicEnabled(newTrack.enabled);
+            newTrack.onended = track.onended; // keep the handler on the fresh track
+          } catch { /* can't recover — user will need to rejoin */ }
+        };
+      });
+
       // Attach audio analyser for the local stream
       if (userId) attachAudioAnalyser(userId, media);
 
@@ -783,10 +1179,15 @@ export const useAdminVideoRoom = ({
 
   const toggleMicrophone = useCallback(() => {
     const tracks = localStreamRef.current?.getAudioTracks() || [];
-    const next = !micEnabled;
+    const next = !micEnabledRef.current;
     tracks.forEach((t) => { t.enabled = next; });
+    micEnabledRef.current = next;
     setMicEnabled(next);
-  }, [micEnabled]);
+    // Update CallSessionContext so FloatingCallBanner icon reflects the new state
+    // even when AdminVideoRoom is unmounted (soft leave).
+    notifyMicContextRef.current(next);
+    void channelRef.current?.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: next } });
+  }, [userId]); // Stable ref — reads micEnabledRef, no stale closure after soft leave
 
   const toggleCamera = useCallback(() => {
     if (roomType === 'audio') return;
@@ -803,13 +1204,61 @@ export const useAdminVideoRoom = ({
 
   // ── Admin mute ────────────────────────────────────────────────────────────
 
-  const muteParticipant = useCallback((pid: string) => {
+  const muteParticipant = useCallback(async (pid: string) => {
+    const willBeMuted = !mutedParticipants.has(pid);
     setMutedParticipants((prev) => {
       const next = new Set(prev);
       if (next.has(pid)) next.delete(pid); else next.add(pid);
       return next;
     });
+    try {
+      await channelRef.current?.send({
+        type: 'broadcast',
+        event: 'admin-mute',
+        payload: { targetUserId: pid, muted: willBeMuted },
+      });
+    } catch { /* non-critical */ }
+  }, [mutedParticipants]);
+
+  const ejectParticipant = useCallback(async (pid: string) => {
+    if (!roomId || !canManageRoomRef.current) return;
+    await db.from('video_room_participants')
+      .update({ is_active: false, left_at: new Date().toISOString() })
+      .eq('room_id', roomId)
+      .eq('user_id', pid);
+    try {
+      await channelRef.current?.send({ type: 'broadcast', event: 'admin-eject', payload: { targetUserId: pid } });
+    } catch { /* non-critical */ }
+  }, [roomId]);
+
+  const admitParticipant = useCallback(async (pid: string) => {
+    if (!canManageRoomRef.current) return;
+    setLobbyParticipants(prev => { const next = new Set(prev); next.delete(pid); return next; });
+    try {
+      await channelRef.current?.send({ type: 'broadcast', event: 'lobby-admit', payload: { targetUserId: pid } });
+    } catch { /* non-critical */ }
   }, []);
+
+  const sendEmojiReaction = useCallback(async (emoji: string) => {
+    if (!userId) return;
+    const id = Date.now();
+    setEmojiReactions(prev => {
+      const next = new Map(prev);
+      next.set(userId, [...(next.get(userId) || []), { id, emoji }]);
+      return next;
+    });
+    setTimeout(() => {
+      setEmojiReactions(prev => {
+        const next = new Map(prev);
+        const remaining = (next.get(userId) || []).filter(r => r.id !== id);
+        if (remaining.length === 0) next.delete(userId); else next.set(userId, remaining);
+        return next;
+      });
+    }, 3500);
+    try {
+      await channelRef.current?.send({ type: 'broadcast', event: 'emoji-reaction', payload: { userId, emoji, id } });
+    } catch { /* non-critical */ }
+  }, [userId]);
 
   // ── Messages CRUD ─────────────────────────────────────────────────────────
 
@@ -873,6 +1322,20 @@ export const useAdminVideoRoom = ({
     [reactions, roomId, userId]
   );
 
+  // ── Auto-restore soft-leave session ──────────────────────────────────────
+  // When the call page remounts and _persist has a live session for this room,
+  // skip the join button entirely and restore immediately.
+  // Safe to do without a user gesture because the restore path never calls
+  // getUserMedia — it reuses the stream already captured in _persist.
+  useEffect(() => {
+    if (!enabled || !roomId || !userId || startRequested || isJoining) return;
+    if (_persist && _persist.roomId === roomId) {
+      setStartRequested(true);
+    }
+  // startRequested / isJoining guards prevent infinite loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, roomId, userId]);
+
   // ── Preload room ──────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -895,6 +1358,263 @@ export const useAdminVideoRoom = ({
     const startRoom = async () => {
       setLoading(true);
       try {
+        // ── Fast path: soft-leave restore — NO loadRoom() wait ───────────────
+        // loadRoom() can take 200-500 ms on slow networks. For soft-leave
+        // restore we already have everything we need in _persist + roomRef.
+        // room_type never changes mid-session; status is checked from cache.
+        // A background loadRoom() below catches any "room ended" edge case.
+        if (_persist && _persist.roomId === roomId) {
+          const cachedRoom = roomRef.current;
+          if (cachedRoom?.status === 'ended') {
+            // Room was ended while the user was away.
+            _persist.peerConns.forEach((pc) => pc.close());
+            _persist.stream.getTracks().forEach((t) => t.stop());
+            _persist = null;
+            // Fall through to cold-join path which will throw / show ended UI.
+          }
+        }
+
+        if (_persist && _persist.roomId === roomId) {
+          const saved = _persist;
+          _persist = null;
+
+          // Stop the background health monitor — we're back on the page.
+          if (_bgHealthTimer !== null) { clearInterval(_bgHealthTimer); _bgHealthTimer = null; }
+          // Stop background audio — the call page will render its own video elements.
+          clearBackgroundStreamsRef.current();
+
+          const savedRoomType = roomRef.current?.room_type ?? 'video';
+          // Kick off a background room refresh so status changes (ended, etc.)
+          // are reflected in the UI without blocking the restore.
+          void loadRoom();
+
+          // ── Close any peer connections that degraded while the user was away ──
+          // Only tear down definitively dead connections ('failed' or 'closed').
+          // 'disconnected' connections often self-heal within a few hundred ms.
+          // 'checking' connections have an ICE restart already in progress — killing
+          // them would abort that restart and add an extra round-trip.
+          const freshStreams = saved.remoteStreams.filter((rs) => {
+            const pc = saved.peerConns.get(rs.userId);
+            if (!pc) return false;
+            if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+              pc.close();
+              saved.peerConns.delete(rs.userId);
+              saved.initiated.delete(rs.userId);
+              try { saved.sources.get(rs.userId)?.disconnect(); } catch {}
+              saved.sources.delete(rs.userId);
+              saved.analysers.delete(rs.userId);
+              return false;
+            }
+            return true; // keep connected, disconnected, checking, new
+          });
+
+          peerConnectionsRef.current = saved.peerConns;
+          // Replace stale event-handler closures on all restored peer connections.
+          // The saved PCs were created during the previous mount and close over that
+          // mount's state setters. Re-wiring ensures ICE state changes and new tracks
+          // after restore update the current component's state, not dead no-ops.
+          peerConnectionsRef.current.forEach((pc, pid) => createPeerConnection(pid, pc));
+          localStreamRef.current = saved.stream;
+          originalVideoTrackRef.current = saved.origVideoTrack;
+          audioContextRef.current = saved.audioCtx;
+          keepAliveNodeRef.current = saved.keepAliveOsc;
+          analyserNodesRef.current = saved.analysers;
+          sourceNodesRef.current = saved.sources;
+          initiatedPeersRef.current = saved.initiated;
+          pendingIceCandidatesRef.current = saved.pendingIce;
+          screenTrackRef.current = saved.screenTrack;
+
+          setLocalStream(saved.stream);
+          setRemoteStreams(freshStreams);
+          // Restore participants/messages/reactions immediately so the UI is
+          // fully populated before any DB call returns. The user should see
+          // everyone the moment the call page remounts — zero blank window.
+          if (saved.participants.length > 0) setParticipants(saved.participants);
+          if (saved.messages.length > 0) setMessages(saved.messages);
+          if (saved.reactions.length > 0) setReactions(saved.reactions);
+          setMicEnabled(saved.stream.getAudioTracks().some((t) => t.enabled));
+          setCameraEnabled(savedRoomType !== 'audio' && Boolean(saved.origVideoTrack?.enabled));
+          setIsScreenSharing(Boolean(saved.screenTrack && saved.screenTrack.readyState === 'live'));
+
+          // Resume AudioContext — browsers suspend it when the page is hidden/backgrounded
+          if (saved.audioCtx?.state === 'suspended') void saved.audioCtx.resume();
+
+          // Show the call UI immediately — streams are already in place from _persist.
+          // DB sync (activate row, participants, signals) runs in parallel below.
+          // This is what makes re-entry feel instant ("tic au tac").
+          if (active) { setIsConnected(true); setLoading(false); }
+
+          // Re-activate participant row + load participants + fetch pending signals
+          // all in parallel. Non-blocking from the user's perspective since the UI
+          // is already visible above.
+          const activatePromise = userId
+            ? db.from('video_room_participants')
+                .update({ is_active: true, left_at: null })
+                .eq('room_id', roomId)
+                .eq('user_id', userId)
+                .then(() => { joinedRef.current = true; })
+            : Promise.resolve();
+
+          // Wire up the channel BEFORE the parallel DB calls so fetchPendingSignals()
+          // can race alongside loadParticipants() instead of waiting for it.
+          if (saved.channel) {
+            // ── Reuse the channel that stayed subscribed during soft leave ─────
+            channelRef.current = saved.channel;
+            _bgSignalFn = handleIncomingSignal;
+            if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
+            setConnectionQuality('good');
+          } else if (!channelRef.current) {
+            // ── No saved channel — create a new subscription (first mount or fallback) ─
+            const channel = db
+              .channel(`video-room:${roomId}`)
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'video_room_participants', filter: `room_id=eq.${roomId}` }, () => void loadParticipants())
+              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'video_room_signals', filter: `room_id=eq.${roomId}` }, (sig: { new: VideoSignalRecord }) => { _bgSignalFn?.(sig.new); })
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'video_room_messages', filter: `room_id=eq.${roomId}` }, () => void loadMessages())
+              .on('postgres_changes', { event: '*', schema: 'public', table: 'video_message_reactions', filter: `room_id=eq.${roomId}` }, () => void loadReactions())
+              .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'video_rooms', filter: `id=eq.${roomId}` }, (ev: { new: VideoRoomRecord }) => setRoom(ev.new))
+              .on('broadcast', { event: 'session-ended' }, () => {
+                setRoom((prev) => (prev ? { ...prev, status: 'ended' } : prev));
+              })
+              .on('broadcast', { event: 'admin-mute' }, (ev: { payload: { targetUserId: string; muted: boolean } }) => {
+                if (ev.payload?.targetUserId !== userIdRef.current) return;
+                const shouldMute = ev.payload.muted;
+                localStreamRef.current?.getAudioTracks().forEach((t) => { t.enabled = !shouldMute; });
+                setMicEnabled(!shouldMute);
+              })
+              .on('broadcast', { event: 'mic-state' }, (ev: { payload: { userId: string; micEnabled: boolean } }) => {
+                if (!ev.payload?.userId) return;
+                setParticipantMicState(prev => { const next = new Map(prev); next.set(ev.payload.userId, ev.payload.micEnabled); return next; });
+              })
+              .on('broadcast', { event: 'admin-eject' }, (ev: { payload: { targetUserId: string } }) => {
+                if (ev.payload?.targetUserId !== userIdRef.current) return;
+                if (roomId) localStorage.setItem(`ejected:${roomId}:${userIdRef.current}`, '1');
+                hardLeaveRef.current = true;
+                setEjected(true);
+              })
+              .on('broadcast', { event: 'emoji-reaction' }, (ev: { payload: { userId: string; emoji: string; id: number } }) => {
+                const { userId: uid, emoji, id } = ev.payload || {};
+                if (!uid || !emoji) return;
+                setEmojiReactions(prev => { const next = new Map(prev); next.set(uid, [...(next.get(uid) || []), { id, emoji }]); return next; });
+                setTimeout(() => {
+                  setEmojiReactions(prev => {
+                    const next = new Map(prev);
+                    const remaining = (next.get(uid) || []).filter(r => r.id !== id);
+                    if (remaining.length === 0) next.delete(uid); else next.set(uid, remaining);
+                    return next;
+                  });
+                }, 3500);
+              })
+              .on('broadcast', { event: 'lobby-request' }, (ev: { payload: { userId: string } }) => {
+                const { userId: uid } = ev.payload || {};
+                if (!uid || uid === userIdRef.current) return;
+                setLobbyParticipants(prev => { const next = new Set(prev); next.add(uid); return next; });
+              })
+              .on('broadcast', { event: 'lobby-admit' }, (ev: { payload: { targetUserId: string } }) => {
+                const { targetUserId } = ev.payload || {};
+                if (!targetUserId) return;
+                setLobbyParticipants(prev => { const next = new Set(prev); next.delete(targetUserId); return next; });
+                if (targetUserId !== userIdRef.current) return;
+                const admitStream = localStreamRef.current;
+                if (admitStream) {
+                  peerConnectionsRef.current.forEach((pc) => {
+                    pc.getTransceivers().forEach((transceiver) => {
+                      const kind = transceiver.receiver.track?.kind;
+                      const track = kind === 'audio'
+                        ? admitStream.getAudioTracks()[0] || null
+                        : admitStream.getVideoTracks()[0] || null;
+                      void transceiver.sender.replaceTrack(track);
+                    });
+                  });
+                }
+                if (roomId && userIdRef.current) localStorage.removeItem(`ejected:${roomId}:${userIdRef.current}`);
+                isInLobbyRef.current = false;
+                setIsInLobby(false);
+                if (lobbyRingTimerRef.current) { window.clearInterval(lobbyRingTimerRef.current); lobbyRingTimerRef.current = null; }
+              })
+              .subscribe(async (status: string) => {
+                if (status === 'SUBSCRIBED') {
+                  _bgSignalFn = handleIncomingSignal;
+                  if (qualityTimerRef.current) { window.clearTimeout(qualityTimerRef.current); qualityTimerRef.current = null; }
+                  setConnectionQuality('good');
+                  await fetchPendingSignals();
+                  void channelRef.current?.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
+                  if (isInLobbyRef.current) {
+                    peerConnectionsRef.current.forEach((pc) => pc.getSenders().forEach((s) => void s.replaceTrack(null)));
+                    void channelRef.current?.send({ type: 'broadcast', event: 'lobby-request', payload: { userId } });
+                    if (lobbyRingTimerRef.current) window.clearInterval(lobbyRingTimerRef.current);
+                    lobbyRingTimerRef.current = window.setInterval(() => {
+                      void channelRef.current?.send({ type: 'broadcast', event: 'lobby-request', payload: { userId } });
+                    }, 20_000);
+                  }
+                  const uid = userIdRef.current;
+                  if (uid) {
+                    peerConnectionsRef.current.forEach((pc, pid) => {
+                      if (pc.connectionState === 'connected') return;
+                      if (uid.localeCompare(pid) >= 0) return;
+                      pc.createOffer({ iceRestart: true })
+                        .then(offer => pc.setLocalDescription(offer))
+                        .then(() => {
+                          if (pc.localDescription) {
+                            void db.from('video_room_signals').insert({
+                              room_id: roomId,
+                              sender_id: uid,
+                              recipient_id: pid,
+                              signal_type: 'offer',
+                              payload: pc.localDescription.toJSON?.() ?? pc.localDescription,
+                            });
+                          }
+                        })
+                        .catch(() => {});
+                    });
+                  }
+                }
+              });
+            channelRef.current = channel;
+          }
+
+          // Critical parallel path — activate, load participants, and (for reused
+          // channel) process any signals that queued while the call page was unmounted.
+          await Promise.all([
+            activatePromise,
+            loadParticipants(),
+            saved.channel ? fetchPendingSignals() : Promise.resolve(),
+          ]);
+          void loadMessages();
+          void loadReactions();
+
+          // Broadcast mic state and restart ICE for any degraded connections.
+          // Always initiate ICE restart on return regardless of userId order — the
+          // polite/impolite pattern in handleIncomingSignal resolves any offer collision.
+          if (saved.channel && channelRef.current) {
+            void channelRef.current.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
+          }
+          const uidR = userIdRef.current;
+          if (uidR) {
+            peerConnectionsRef.current.forEach((pc, pid) => {
+              if (pc.connectionState === 'connected') return;
+              if (pc.signalingState !== 'stable') return; // already negotiating
+              pc.createOffer({ iceRestart: true })
+                .then(offer => pc.setLocalDescription(offer))
+                .then(() => {
+                  if (pc.localDescription) {
+                    void db.from('video_room_signals').insert({
+                      room_id: roomId,
+                      sender_id: uidR,
+                      recipient_id: pid,
+                      signal_type: 'offer',
+                      payload: pc.localDescription.toJSON?.() ?? pc.localDescription,
+                    });
+                  }
+                })
+                .catch(() => {});
+            });
+          }
+
+          if (active) setIsConnected(true);
+          return;
+        }
+
+        // ── Cold join path (no saved session, or room was ended) ────────────
         const currentRoom = roomRef.current || (await loadRoom());
         if (!currentRoom) throw new Error('Salle introuvable.');
 
@@ -920,7 +1640,7 @@ export const useAdminVideoRoom = ({
             .on('postgres_changes', {
               event: 'INSERT', schema: 'public', table: 'video_room_signals',
               filter: `room_id=eq.${roomId}`,
-            }, (p: { new: VideoSignalRecord }) => void handleIncomingSignal(p.new))
+            }, (p: { new: VideoSignalRecord }) => { _bgSignalFn?.(p.new); })
             .on('postgres_changes', {
               event: '*', schema: 'public', table: 'video_room_messages',
               filter: `room_id=eq.${roomId}`,
@@ -933,11 +1653,85 @@ export const useAdminVideoRoom = ({
               event: 'UPDATE', schema: 'public', table: 'video_rooms',
               filter: `id=eq.${roomId}`,
             }, (p: { new: VideoRoomRecord }) => setRoom(p.new))
+            // ── Instant broadcast: admin ended the session ─────────────────
+            // This fires in <100ms for all connected clients, much faster than
+            // Postgres Changes (which can take several seconds to propagate).
+            .on('broadcast', { event: 'session-ended' }, () => {
+              setRoom((prev) => prev ? { ...prev, status: 'ended' } : prev);
+            })
+            // ── Admin-mute: disable/enable this client's own mic track ──────
+            .on('broadcast', { event: 'admin-mute' }, (ev: { payload: { targetUserId: string; muted: boolean } }) => {
+              if (ev.payload?.targetUserId !== userIdRef.current) return;
+              const shouldMute = ev.payload.muted;
+              localStreamRef.current?.getAudioTracks().forEach((t) => { t.enabled = !shouldMute; });
+              setMicEnabled(!shouldMute);
+            })
+            // ── Mic state: track each participant's mic on/off ───────────────
+            .on('broadcast', { event: 'mic-state' }, (ev: { payload: { userId: string; micEnabled: boolean } }) => {
+              if (!ev.payload?.userId) return;
+              setParticipantMicState(prev => { const next = new Map(prev); next.set(ev.payload.userId, ev.payload.micEnabled); return next; });
+            })
+            // ── Admin eject: kick this client out ───────────────────────────
+            .on('broadcast', { event: 'admin-eject' }, (ev: { payload: { targetUserId: string } }) => {
+              if (ev.payload?.targetUserId !== userIdRef.current) return;
+              if (roomId) localStorage.setItem(`ejected:${roomId}:${userIdRef.current}`, '1');
+              hardLeaveRef.current = true;
+              setEjected(true);
+            })
+            // ── Emoji reactions on video panels ─────────────────────────────
+            .on('broadcast', { event: 'emoji-reaction' }, (ev: { payload: { userId: string; emoji: string; id: number } }) => {
+              const { userId: uid, emoji, id } = ev.payload || {};
+              if (!uid || !emoji) return;
+              setEmojiReactions(prev => { const next = new Map(prev); next.set(uid, [...(next.get(uid) || []), { id, emoji }]); return next; });
+              setTimeout(() => {
+                setEmojiReactions(prev => {
+                  const next = new Map(prev);
+                  const remaining = (next.get(uid) || []).filter(r => r.id !== id);
+                  if (remaining.length === 0) next.delete(uid); else next.set(uid, remaining);
+                  return next;
+                });
+              }, 3500);
+            })
+            .on('broadcast', { event: 'lobby-request' }, (ev: { payload: { userId: string } }) => {
+              const { userId: uid } = ev.payload || {};
+              if (!uid || uid === userIdRef.current) return;
+              setLobbyParticipants(prev => { const next = new Set(prev); next.add(uid); return next; });
+            })
+            .on('broadcast', { event: 'lobby-admit' }, (ev: { payload: { targetUserId: string } }) => {
+              const { targetUserId } = ev.payload || {};
+              if (!targetUserId) return;
+              setLobbyParticipants(prev => { const next = new Set(prev); next.delete(targetUserId); return next; });
+              if (targetUserId !== userIdRef.current) return;
+              const admitStream = localStreamRef.current;
+              if (admitStream) {
+                peerConnectionsRef.current.forEach((pc) => {
+                  pc.getTransceivers().forEach((transceiver) => {
+                    const kind = transceiver.receiver.track?.kind;
+                    const track = kind === 'audio'
+                      ? admitStream.getAudioTracks()[0] || null
+                      : admitStream.getVideoTracks()[0] || null;
+                    void transceiver.sender.replaceTrack(track);
+                  });
+                });
+              }
+              if (roomId && userIdRef.current) localStorage.removeItem(`ejected:${roomId}:${userIdRef.current}`);
+              isInLobbyRef.current = false;
+              setIsInLobby(false);
+              if (lobbyRingTimerRef.current) { window.clearInterval(lobbyRingTimerRef.current); lobbyRingTimerRef.current = null; }
+            })
             .subscribe(async (status: string) => {
               if (status === 'SUBSCRIBED') {
-                // ★ KEY FIX: now that we're subscribed, fetch any signals
-                //   that were sent BEFORE our subscription was ready.
+                _bgSignalFn = handleIncomingSignal;
                 await fetchPendingSignals();
+                void channelRef.current?.send({ type: 'broadcast', event: 'mic-state', payload: { userId, micEnabled: localStreamRef.current?.getAudioTracks().some(t => t.enabled) ?? false } });
+                if (isInLobbyRef.current) {
+                  peerConnectionsRef.current.forEach((pc) => pc.getSenders().forEach((s) => void s.replaceTrack(null)));
+                  void channelRef.current?.send({ type: 'broadcast', event: 'lobby-request', payload: { userId } });
+                  if (lobbyRingTimerRef.current) window.clearInterval(lobbyRingTimerRef.current);
+                  lobbyRingTimerRef.current = window.setInterval(() => {
+                    void channelRef.current?.send({ type: 'broadcast', event: 'lobby-request', payload: { userId } });
+                  }, 20_000);
+                }
               }
             });
           channelRef.current = channel;
@@ -956,24 +1750,85 @@ export const useAdminVideoRoom = ({
 
     return () => {
       active = false;
-      // Always remove the Supabase realtime channel
-      if (channelRef.current) db.removeChannel(channelRef.current);
-      channelRef.current = null;
       disconnectTimersRef.current.forEach((t) => window.clearTimeout(t));
       disconnectTimersRef.current.clear();
 
-      const isSoft = softLeaveRef.current;
-      softLeaveRef.current = false; // reset for next mount
+      const isHard = hardLeaveRef.current;
+      hardLeaveRef.current = false; // reset for next mount
+      softLeaveRef.current = false;
 
-      if (isSoft) {
-        // ── Soft leave: keep peer connections + tracks alive so remote peers
-        //    still receive our audio (WhatsApp-style background mode).
-        //    The orphaned WebRTC connections will auto-close after
-        //    DISCONNECT_TIMEOUT_MS if the user does not return.
+      if (!isHard) {
+        // ── Soft leave: save all WebRTC state + keep channel subscribed ──────
+        // The channel stays alive so incoming signals (ICE restarts, new offers)
+        // are processed via _bgSignalFn while the call page is unmounted.
+        // Connections are restored seamlessly when the user comes back.
+        if (localStreamRef.current && roomId) {
+          const savedRoomId = roomId;
+          const savedUserId = userIdRef.current;
+
+          _persist = {
+            roomId,
+            peerConns: peerConnectionsRef.current,
+            stream: localStreamRef.current,
+            origVideoTrack: originalVideoTrackRef.current,
+            audioCtx: audioContextRef.current,
+            keepAliveOsc: keepAliveNodeRef.current,
+            analysers: analyserNodesRef.current,
+            sources: sourceNodesRef.current,
+            initiated: initiatedPeersRef.current,
+            pendingIce: pendingIceCandidatesRef.current,
+            screenTrack: screenTrackRef.current,
+            remoteStreams: remoteStreamsRef.current,
+            channel: channelRef.current, // keep alive — do NOT removeChannel
+            participants: participantsRef.current,
+            messages: messagesRef.current,
+            reactions: reactionsRef.current,
+          };
+
+          // Tell the browser this tab is still playing media so it does NOT
+          // throttle setTimeout/setInterval. Without this the DataChannel
+          // keepalive (2 s ping) stops firing and ICE goes to 'disconnected'.
+          setBackgroundStreamsRef.current(remoteStreamsRef.current.map((rs) => rs.stream));
+
+          // Background health monitor — watches peer connections while the page
+          // is unmounted and restarts ICE if they degrade.
+          if (_bgHealthTimer !== null) clearInterval(_bgHealthTimer);
+          _bgHealthTimer = setInterval(() => {
+            if (!_persist) { clearInterval(_bgHealthTimer!); _bgHealthTimer = null; return; }
+            _persist.peerConns.forEach((pc, pid) => {
+              if (pc.connectionState !== 'disconnected' && pc.connectionState !== 'failed') return;
+              if (pc.signalingState !== 'stable') return; // restart already in progress
+              pc.createOffer({ iceRestart: true })
+                .then((offer) => pc.setLocalDescription(offer))
+                .then(() => {
+                  if (!_persist || !pc.localDescription) return;
+                  void db.from('video_room_signals').insert({
+                    room_id: savedRoomId,
+                    sender_id: savedUserId,
+                    recipient_id: pid,
+                    signal_type: 'offer',
+                    payload: pc.localDescription.toJSON?.() ?? pc.localDescription,
+                  });
+                })
+                .catch(() => {});
+            });
+          }, 5_000);
+        } else {
+          // No valid media state — can't persist, remove channel normally
+          if (channelRef.current) db.removeChannel(channelRef.current);
+        }
+        channelRef.current = null;
         return;
       }
 
-      // ── Hard leave / unmount: full cleanup ──────────────────────────────
+      // ── Hard leave (explicit raccrocher or admin terminer): full cleanup ─
+      if (lobbyRingTimerRef.current) { window.clearInterval(lobbyRingTimerRef.current); lobbyRingTimerRef.current = null; }
+      isInLobbyRef.current = false;
+      if (_bgHealthTimer !== null) { clearInterval(_bgHealthTimer); _bgHealthTimer = null; }
+      clearBackgroundStreamsRef.current();
+      if (channelRef.current) db.removeChannel(channelRef.current);
+      channelRef.current = null;
+      _bgSignalFn = null;
       void leaveRoom();
       peerConnectionsRef.current.forEach((pc) => pc.close());
       peerConnectionsRef.current.clear();
@@ -1008,6 +1863,13 @@ export const useAdminVideoRoom = ({
     loadRoom, roomId, startRequested, userId,
   ]);
 
+  // Keep _bgSignalFn pointing to the latest handler on every re-render.
+  // This ensures signals processed during soft leave use up-to-date closures
+  // over peerConnectionsRef, pendingIceCandidatesRef, sendSignal, etc.
+  useEffect(() => {
+    _bgSignalFn = handleIncomingSignal;
+  }, [handleIncomingSignal]);
+
   // ── Sync peers on participant changes ─────────────────────────────────────
 
   useEffect(() => {
@@ -1034,6 +1896,7 @@ export const useAdminVideoRoom = ({
     mutedParticipants,
     activeSpeakers,
     connectionQuality,
+    peerStats,
     requestJoin,
     toggleMicrophone,
     toggleCamera,
@@ -1045,8 +1908,18 @@ export const useAdminVideoRoom = ({
     deleteMessage,
     toggleReaction,
     muteParticipant,
+    ejectParticipant,
+    admitParticipant,
+    sendEmojiReaction,
+    participantMicState,
+    ejected,
+    lobbyParticipants,
+    isInLobby,
+    emojiReactions,
     leaveRoom,
     endRoom,
+    heartbeat,
     softLeave,
+    triggerHardLeave,
   };
 };

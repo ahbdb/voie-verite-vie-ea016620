@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { playAttentionTone, sendVisibleNotification } from '@/lib/notification-service';
 import { createElement } from 'react';
@@ -15,11 +15,17 @@ export type AppNotificationType =
   | 'activity'
   | 'prayer'
   | 'info'
-  | 'call';
+  | 'call'
+  | 'bible'
+  | 'feast';
 
 export const useBroadcastNotifications = () => {
   const { user } = useAuth();
   const ringIntervalRef = useRef<number | null>(null);
+  const lastSeenIdRef = useRef<string | null>(null);
+  const pollingRef = useRef<number | null>(null);
+  const activeCallRoomIdRef = useRef<string | null>(null);
+  const activeCallToastIdRef = useRef<string | number | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -31,105 +37,155 @@ export const useBroadcastNotifications = () => {
       }
     };
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        stopRinging();
+    const stopCallToast = () => {
+      stopRinging();
+      if (activeCallToastIdRef.current !== null) {
+        toast.dismiss(activeCallToastIdRef.current);
+        activeCallToastIdRef.current = null;
+      }
+      activeCallRoomIdRef.current = null;
+    };
+
+    const handleCallRing = (n: { id: string; title: string; message?: string; body?: string; type: string; link?: string | null }) => {
+      const isCall = n.type === 'call';
+      const url = n.link || '/calls-lives';
+
+      if (isCall) {
+        stopCallToast();
+        // Extract roomId from link e.g. /meeting/<id>
+        const roomId = n.link?.split('/meeting/')[1] || null;
+        if (roomId) activeCallRoomIdRef.current = roomId;
+
+        void playAttentionTone();
+        // Vibrate on Android for physical feedback
+        if (navigator.vibrate) navigator.vibrate([400, 200, 400, 200, 600]);
+        let ringCount = 0;
+        ringIntervalRef.current = window.setInterval(() => {
+          ringCount += 1;
+          if (ringCount >= 12) { stopRinging(); return; }
+          void playAttentionTone();
+          if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+          void sendVisibleNotification({
+            title: n.title,
+            body: n.message || n.body || '',
+            tag: `call-${n.id}`,
+            action: 'call',
+            silent: false,
+            requireInteraction: true,
+            data: { url },
+          });
+        }, 3000);
+      }
+
+      void sendVisibleNotification({
+        title: n.title,
+        body: n.message || n.body || '',
+        tag: `${n.type}-${n.id}`,
+        action: isCall ? 'call' : 'reminder',
+        silent: false,
+        requireInteraction: isCall,
+        data: { url },
+      });
+
+      const toastId = toast.custom(
+        (id) =>
+          createElement(NotificationToast, {
+            title: n.title,
+            message: n.message || n.body || '',
+            type: n.type as NotifType,
+            link: n.link || undefined,
+            isCall,
+            onOpen: () => {
+              stopCallToast();
+              toast.dismiss(id);
+              if (n.link) window.location.href = n.link;
+            },
+            onDismiss: () => {
+              stopCallToast();
+              toast.dismiss(id);
+            },
+          }),
+        { duration: isCall ? 20000 : 7000, position: 'top-right' }
+      );
+      if (isCall) activeCallToastIdRef.current = toastId;
+    };
+
+    // Poll for new notifications via Supabase
+    const pollNotifications = async () => {
+      try {
+        const { data: rows, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (error || !rows?.length) return;
+
+        const newest = rows[0];
+        if (lastSeenIdRef.current === null) {
+          lastSeenIdRef.current = newest.id;
+          return;
+        }
+        if (newest.id === lastSeenIdRef.current) return;
+
+        const newRows = rows.filter((r: any) => r.id !== lastSeenIdRef.current);
+        lastSeenIdRef.current = newest.id;
+        for (const n of newRows) {
+          handleCallRing(n);
+        }
+      } catch {
+        // silent
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    void pollNotifications();
+    pollingRef.current = window.setInterval(pollNotifications, 30000);
 
-    const channel = supabase
-      .channel(`notifications-toast:${user.id}:${Math.random().toString(36).slice(2)}`)
+    // Realtime — sonne instantanément dès qu'une notification est insérée
+    const notifChannel = supabase
+      .channel(`notif-${user.id}`)
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
         (payload) => {
-          const n = payload.new as {
-            id: string;
-            title: string;
-            message: string;
-            type: AppNotificationType;
-            link: string | null;
-          };
+          const n = payload.new as { id: string; title: string; message?: string; body?: string; type: string; link?: string | null };
+          if (!n?.id) return;
+          lastSeenIdRef.current = n.id;
+          handleCallRing(n);
+        }
+      )
+      .subscribe();
 
-          const isCall = n.type === 'call';
-          const url = n.link || '/';
-
-          if (isCall) {
-            stopRinging();
-            void playAttentionTone();
-            let ringCount = 0;
-            ringIntervalRef.current = window.setInterval(() => {
-              ringCount += 1;
-              if (ringCount >= 10 || document.visibilityState === 'visible') {
-                stopRinging();
-                return;
-              }
-              void playAttentionTone();
-              void sendVisibleNotification({
-                title: n.title,
-                body: n.message,
-                tag: `${n.type}-${n.id}`,
-                action: 'call',
-                silent: false,
-                requireInteraction: true,
-                data: { url },
-              });
-            }, 3500);
+    // Realtime — ferme le popup immédiatement quand l'admin termine l'appel
+    const roomChannel = supabase
+      .channel('room-ended-watcher')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'video_rooms' },
+        (payload) => {
+          const room = payload.new as { id: string; status: string };
+          if (room.status === 'ended' && room.id === activeCallRoomIdRef.current) {
+            stopCallToast();
           }
-
-          void sendVisibleNotification({
-            title: n.title,
-            body: n.message,
-            tag: `${n.type}-${n.id}`,
-            action: isCall ? 'call' : 'reminder',
-            silent: false,
-            requireInteraction: isCall,
-            data: { url },
-          });
-
-          toast.custom(
-            (toastId) =>
-              createElement(NotificationToast, {
-                title: n.title,
-                message: n.message,
-                type: n.type as NotifType,
-                link: n.link,
-                isCall,
-                onOpen: () => {
-                  stopRinging();
-                  toast.dismiss(toastId);
-                  if (n.link) window.location.href = n.link;
-                },
-                onDismiss: () => {
-                  stopRinging();
-                  toast.dismiss(toastId);
-                },
-              }),
-            {
-              duration: isCall ? 20000 : 7000,
-              position: 'top-right',
-            }
-          );
         }
       )
       .subscribe();
 
     return () => {
       stopRinging();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      supabase.removeChannel(channel);
+      if (pollingRef.current) window.clearInterval(pollingRef.current);
+      supabase.removeChannel(notifChannel);
+      supabase.removeChannel(roomChannel);
     };
   }, [user?.id]);
 };
 
 export const broadcastNotificationService = {
+  /**
+   * Envoie une notification à TOUS les utilisateurs.
+   * — Web Push (téléphone verrouillé, arrière-plan) via Edge Function VAPID
+   * — Insère en DB → déclenche Supabase Realtime → toast in-app pour les connectés
+   */
   async sendToAll(
     title: string,
     message: string,
@@ -137,50 +193,68 @@ export const broadcastNotificationService = {
     _icon?: string,
     link: string | null = null
   ) {
-    const { data: profiles, error: pe } = await supabase.from('profiles').select('id');
-    if (pe) throw pe;
-    if (!profiles || profiles.length === 0) return { inserted: 0 };
-
-    const payload = profiles.map((p) => ({
-      user_id: p.id,
-      title,
-      message,
-      type,
-      link,
-      is_read: false,
-    }));
-
-    const { error } = await supabase.from('notifications').insert(payload);
-    if (error) throw error;
-    return { inserted: payload.length };
+    const isCall = type === 'call';
+    await supabase.functions.invoke('send-push-notification', {
+      body: {
+        title,
+        body: message,
+        action: type,
+        url: link || '/',
+        requireInteraction: isCall,
+        vibrate: isCall ? [400, 200, 400, 200, 600, 200, 600] : [200, 100, 200],
+        tag: isCall ? `call-${Date.now()}` : undefined,
+        insert_notifications: true,
+      },
+    }).catch((e) => console.warn('send-push-notification:', e));
+    return { error: null };
   },
 
+  /**
+   * Envoie une notification aux utilisateurs d'un rôle donné ('user' ou 'admin').
+   * L'Edge Function filtre par rôle côté serveur (service-role, pas de RLS).
+   */
   async sendToRole(
     title: string,
     message: string,
-    role: 'admin' | 'user',
+    role: 'user' | 'admin',
     type: AppNotificationType = 'announcement',
     _icon?: string,
     link: string | null = null
   ) {
-    const roleFilter = role === 'admin' ? ['admin', 'admin_principal'] : ['user'];
-    const { data: roleRows, error: re } = await supabase.from('user_roles').select('user_id, role').in('role', roleFilter as any);
-    if (re) throw re;
-    if (!roleRows || roleRows.length === 0) return { inserted: 0 };
+    const isCall = type === 'call';
+    await supabase.functions.invoke('send-push-notification', {
+      body: {
+        title,
+        body: message,
+        action: type,
+        url: link || '/',
+        requireInteraction: isCall,
+        vibrate: isCall ? [400, 200, 400, 200, 600, 200, 600] : [200, 100, 200],
+        role,
+        insert_notifications: true,
+      },
+    }).catch((e) => console.warn('send-push-notification (role):', e));
+    return { error: null };
+  },
 
-    const uniqueIds = [...new Set(roleRows.map((e) => e.user_id))];
-    const payload = uniqueIds.map((uid) => ({
-      user_id: uid,
-      title,
-      message,
-      type,
-      link,
-      is_read: false,
-    }));
+  async sendDailyGreeting() {
+    return this.sendToAll(
+      '👋 Bonjour!',
+      'Que ce jour soit rempli de paix et de bénédictions',
+      'greeting'
+    );
+  },
 
-    const { error } = await supabase.from('notifications').insert(payload);
-    if (error) throw error;
-    return { inserted: payload.length };
+  async sendReminder(title: string, message: string, _icon?: string) {
+    return this.sendToAll(title, message, 'reminder', _icon);
+  },
+
+  async sendAnnouncement(title: string, message: string, _icon?: string) {
+    return this.sendToAll(title, message, 'announcement', _icon);
+  },
+
+  async sendUpdate(title: string, message: string, _icon?: string) {
+    return this.sendToAll(title, message, 'update', _icon);
   },
 };
 

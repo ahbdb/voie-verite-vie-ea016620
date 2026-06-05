@@ -53,7 +53,13 @@
     "darkMode": "Modalità scura",
     "reduceText": "Riduci il testo",
     "enlargeText": "Ingrandisci il testo",
-    "callsAndLives": "Chiamate & Live"
+    "callsAndLives": "Chiamate & Live",
+    "documents3v": "Documenti 3V",
+    "masseOffice": "Messa e Ufficio",
+    "testimonials": "Testimonianze",
+    "chapelet": "Rosario",
+    "dailyPrayer": "Preghiera Quotidiana",
+    "donations": "Donazioni"
   },
   "nav": {
     "main": "Principale",
@@ -694,7 +700,35 @@
     "nameRequiredDesc": "Inserisci il tuo nome.",
     "donationSaved": "Donazione registrata!",
     "donationSavedDesc": "Grazie per la tua generosità. Sarai reindirizzato su WhatsApp per finalizzare la donazione.",
-    "donationError": "Si è verificato un errore. Riprova."
+    "donationError": "Si è verificato un errore. Riprova.",
+    "copied": "✅ Copiato!",
+    "copiedField": "{{field}} copiato.",
+    "copyError": "Errore",
+    "copyErrorDesc": "Impossibile copiare.",
+    "copy": "Copia",
+    "qrTitle": "Bonifico via la mia app bancaria",
+    "qrDesc": "Scansiona il codice QR con la tua app bancaria — tutti i dati sono precompilati, basta inserire l'importo.",
+    "qrCodeTitle": "Codice QR di bonifico",
+    "qrHowTitle": "📱 Come scansionare?",
+    "qrStep1": "Apri la tua app bancaria",
+    "qrStep2": "Cerca \"Bonifico\" o \"Scansiona un QR\"",
+    "qrStep3": "Scansiona il codice — i dati vengono precompilati",
+    "qrStep4": "Inserisci l'importo e conferma",
+    "qrCompat": "Compatibile con la maggior parte delle app bancarie europee (SEPA).",
+    "orManualTransfer": "o bonifico manuale",
+    "bankDetails": "Coordinate bancarie — Revolut",
+    "beneficiary": "Beneficiario",
+    "address": "Indirizzo",
+    "bank": "Banca",
+    "communication": "💡 Causale: Donazione — 3V",
+    "or": "o",
+    "mobileMoney": "Mobile Money / WhatsApp",
+    "mobileMoneyDesc": "Per una donazione tramite Orange Money, MTN o qualsiasi altro Mobile Money.",
+    "whatsappBtn": "Contatta via WhatsApp",
+    "thanks": "Grazie per la tua generosità 🙏 — Dio ti benedica!",
+    "floatingBtn": "Dona",
+    "floatingAriaLabel": "Sostieni l'associazione 3V",
+    "whatsappMsg": "Ciao! Vorrei fare una donazione all'associazione Voie, Vérité, Vie (3V)."
   },
   "postSignup": {
     "securityNote": "Per motivi di sicurezza, non possiamo aggiungerti \"automaticamente\" a WhatsApp/YouTube. Ecco però i link ufficiali in un clic."
@@ -708,8 +742,15 @@
     "howToContinue": "Come continuare",
     "tipClickChapter": "Clicca su un capitolo qui sopra per leggere i versetti",
     "tipTakeTime": "Prenditi il tuo tempo — è un viaggio spirituale",
-    "tipMeditate": "Medita su ciò che Dio ti sta dicendo",
-    "tipMarkComplete": "Torna per segnare questo giorno come completato"
+    "tipMeditate": "Medita su ciò che Dio ti dice",
+    "tipMarkComplete": "Torna a segnare questo giorno come completato",
+    "backToList": "Elenco capitoli",
+    "chapterOf": "Capitolo {{current}} di {{total}}",
+    "prevChapter": "Precedente",
+    "nextChapter": "Successivo",
+    "markAndQuiz": "Letto — Fai il quiz",
+    "doQuiz": "Fai il quiz",
+    "startReading": "Inizia la lettura"
   },
   "bibleBookSelector": {
     "searchPlaceholder": "Cerca un libro della Bibbia...",
@@ -848,8 +889,39 @@
       "users": "Utenti",
       "usersDesc": "Gestisci gli utenti",
       "neuvaines": "Novene",
-      "neuvinesDesc": "Gestisci le novene"
+      "neuvinesDesc": "Gestisci le novene",
+      "testimonials": "Testimonianze",
+      "testimonialsDesc": "Moderare le testimonianze",
+      "donations": "Donazioni & Offerte",
+      "donationsDesc": "Seguire e confermare le donazioni",
+      "feastDays": "Feste Cristiane",
+      "feastDaysDesc": "Gestire le feste e solennità del calendario liturgico",
+      "chapelet": "Rosario",
+      "chapeletDesc": "Panoramica dei misteri e delle preghiere del Rosario",
+      "dailyPrayer": "Preghiera Quotidiana",
+      "dailyPrayerDesc": "Anteprima del Vangelo del giorno e degli orari di preghiera"
     },
+    "accessDenied": "Accesso negato",
+    "principalOnly": "Questa pagina è riservata all'Admin Principale",
+    "backToAdmin": "Torna all'amministrazione",
+    "manageTitle": "Gestione Amministratori",
+    "principalOnlyPage": "Pagina riservata all'Admin Principale",
+    "nameCol": "Nome",
+    "emailCol": "Email",
+    "roleCol": "Ruolo",
+    "actionsCol": "Azioni",
+    "notSpecified": "Non specificato",
+    "you": "(Tu)",
+    "moderatorLabel": "Moderatore",
+    "removeAdminRights": "Rimuovi diritti admin",
+    "removeAdminConfirm": "Sei sicuro di voler rimuovere questa persona dagli amministratori?",
+    "remove": "Rimuovi",
+    "roleUpdated": "Ruolo aggiornato",
+    "updateError": "Errore durante l'aggiornamento",
+    "adminDeleted": "Admin rimosso",
+    "deleteError2": "Errore durante l'eliminazione",
+    "cannotModifyCreator": "Impossibile modificare il ruolo del creatore dell'app",
+    "cannotRemoveCreator": "Impossibile rimuovere i diritti admin al creatore dell'app",
     "homePage": {
       "title": "Gestione Pagina Iniziale",
       "content": "Contenuto della pagina iniziale",
@@ -1092,6 +1164,161 @@
       "totalViewers": "Visualizzazioni totali",
       "manageSessions": "Gestione sessioni",
       "noSessions": "Nessuna sessione da gestire."
+    }
+  },
+  "documents3v": {
+    "title": "Documenti 3V",
+    "subtitle": "Qui trovi tutti i documenti ufficiali del Movimento Voie-Vérité-Vie — documenti fondatori, regolamenti e moduli.",
+    "view": "Consulta",
+    "download": "Scarica",
+    "footer": "Questi documenti costituiscono il corpus canonico ufficiale del Movimento Voie-Vérité-Vie. Fondatore-Moderatore: AHOUFACK DYLANNE BAUDOUIN — Douala, Camerun.",
+    "category": {
+      "fondateurs": "Documenti Fondatori",
+      "reglements": "Regolamenti",
+      "adhesion": "Adesione",
+      "gouvernance": "Governance"
+    },
+    "badge": {
+      "fondateur": "Fondatore",
+      "spirituel": "Spirituale",
+      "reglementaire": "Regolamentare",
+      "adhesion": "Adesione",
+      "gouvernance": "Governance"
+    },
+    "statuts": {
+      "title": "Statuti di 3V",
+      "description": "Il documento di riferimento canonico dell'associazione — 15 Titoli, 136 Articoli. Definisce la natura giuridica, l'identità, la governance e i fondamenti del Movimento."
+    },
+    "reglementInterieur": {
+      "title": "Regolamento Interno",
+      "description": "Specifica il funzionamento pratico di 3V in applicazione degli Statuti — 14 Titoli, 85 Articoli. Disciplina l'adesione, gli organi, le attività e la vita finanziaria."
+    },
+    "regleDeVie": {
+      "title": "Regola di Vita",
+      "description": "Il volto interiore di 3V — 10 Capitoli, 55 Articoli. Traduce concretamente nella quotidianità di ogni membro i pilastri della vita spirituale: preghiera, penitenza, formazione e servizio."
+    },
+    "texteCharisme": {
+      "title": "Testo del Carisma",
+      "description": "Documento fondatore n°5 che espone la natura, le fonti e le espressioni del carisma di 3V — 7 Capitoli. Un dono dello Spirito Santo per l'edificazione del Corpo di Cristo."
+    },
+    "acteFondation": {
+      "title": "Atto di Fondazione",
+      "description": "Documento fondatore n°3 — atto ufficiale di creazione del Movimento il 1° gennaio 2024 a Douala, festa di Maria Madre di Dio. 5 Parti, 22 Articoli."
+    },
+    "reglementNumerique": {
+      "title": "Regolamento Interno Digitale",
+      "description": "Disciplina la presenza digitale di 3V: piattaforme ufficiali, linea editoriale, condotta dei membri online e protezione dei dati — 6 Titoli, 39 Articoli."
+    },
+    "formulairesAdhesion": {
+      "title": "Dossier di Adesione",
+      "description": "Moduli ufficiali per aderire al Movimento: membro attivo, membro famiglia, fratello/sorella associato/a, consenso genitoriale e disponibilità temporanea."
+    },
+    "memorandumRevision": {
+      "title": "Memorandum di Revisione 2033",
+      "description": "Documento di orientamento per la revisione ordinaria degli Statuti prevista nel 2033 — cinque anni dopo l'adozione formale del 2028. Memoria istituzionale di 3V."
+    }
+  },
+  "chapelet": {
+    "title": "Il Santo Rosario",
+    "subtitle": "Preghiera contemplativa guidata, mistero per mistero",
+    "badge": "Preghiera del Rosario",
+    "start": "Inizia il Rosario",
+    "restart": "Ricominciare",
+    "autoRead": "Lettura automatica",
+    "listen": "Ascoltare",
+    "stop": "Fermare",
+    "next": "Successivo",
+    "previous": "Precedente",
+    "mysteryOf": "Mistero {{n}}",
+    "fruit": "Frutto spirituale",
+    "scripture": "Passo evangelico",
+    "joyful": "Misteri Gaudiosi",
+    "luminous": "Misteri Luminosi",
+    "sorrowful": "Misteri Dolorosi",
+    "glorious": "Misteri Gloriosi",
+    "joyfulDesc": "Lunedì & Sabato",
+    "luminousDesc": "Giovedì",
+    "sorrowfulDesc": "Martedì & Venerdì",
+    "gloriousDesc": "Mercoledì & Domenica",
+    "chooseSet": "Scegliere i misteri",
+    "progress": "Avanzamento",
+    "step": "Passo {{current}} di {{total}}",
+    "done": "Rosario completato!",
+    "doneDesc": "Che la Vergine Maria interceda per voi e per tutti coloro per cui avete pregato.",
+    "doneVerse": "« Ave Maria, piena di grazia »",
+    "newChapelet": "Nuovo rosario",
+    "resumeTitle": "Sessione in corso",
+    "resume": "Riprendi"
+  },
+  "dailyPrayer": {
+    "title": "Preghiera del Giorno",
+    "subtitle": "Santifica ogni ora attraverso la preghiera",
+    "badge": "Liturgia delle Ore",
+    "gospelOfDay": "Vangelo del Giorno",
+    "liturgicalDay": "Festa liturgica",
+    "loadingGospel": "Caricamento del Vangelo...",
+    "gospelError": "Impossibile caricare il Vangelo di oggi.",
+    "morning": "Preghiere del Mattino",
+    "midday": "Preghiere di Mezzogiorno",
+    "evening": "Preghiere della Sera",
+    "night": "Preghiere della Notte",
+    "listen": "Ascoltare",
+    "stop": "Fermare",
+    "readAll": "Leggi tutto",
+    "liturgicalZone": "Zona liturgica"
+  },
+  "testimonials": {
+    "title": "Testimonianze",
+    "subtitle": "Le meraviglie che Dio compie nelle nostre vite",
+    "badge": "Grazie ricevute",
+    "share": "Condividi la mia testimonianza",
+    "formTitle": "La mia testimonianza",
+    "titleField": "Titolo",
+    "titlePlaceholder": "Es.: Guarigione miracolosa dopo una novena...",
+    "story": "Il tuo racconto",
+    "storyPlaceholder": "Racconta ciò che Dio ha fatto nella tua vita...",
+    "category": "Categoria",
+    "firstName": "Il tuo nome",
+    "firstNamePlaceholder": "Nome (facoltativo)",
+    "anonymous": "Pubblicare anonimamente",
+    "submit": "Inviare",
+    "submitting": "Invio...",
+    "cancel": "Annullare",
+    "modNotice": "La tua testimonianza sarà rivista da un moderatore prima della pubblicazione.",
+    "submitSuccess": "Testimonianza inviata! Sarà pubblicata dopo la verifica. Grazie ❤️",
+    "submitError": "Errore durante l'invio.",
+    "filterAll": "Tutti",
+    "empty": "Sii il primo a testimoniare",
+    "emptyDesc": "Nessuna testimonianza pubblicata per ora. Il tuo racconto può incoraggiare tutta la comunità.",
+    "emptyFilter": "Nessuna testimonianza in questa categoria",
+    "emptyFilterDesc": "Prova un'altra categoria o torna presto.",
+    "categories": {
+      "guerison": "Guarigione",
+      "conversion": "Conversione",
+      "famille": "Famiglia",
+      "travail": "Lavoro",
+      "foi": "Fede",
+      "autre": "Altro"
+    }
+  },
+  "dons": {
+    "title": "Donazioni & Offerte",
+    "subtitle": "La vostra generosità permette alla comunità 3V di crescere e di evangelizzare.",
+    "badge": "Sostenere la missione",
+    "verse": "«Ciascuno dia secondo quanto ha deliberato nel suo cuore, non con tristezza né per forza, perché Dio ama chi dona con gioia.»",
+    "verseRef": "2 Corinzi 9, 7",
+    "verse2": "«Chi semina con parsimonia, con parsimonia raccoglierà; chi semina con larghezza, con larghezza raccoglierà.»",
+    "verseRef2": "2 Corinzi 9, 6",
+    "causeTitle": "Per quale causa?",
+    "causes": {
+      "general": "Sostegno generale",
+      "generalDesc": "Per il funzionamento della comunità 3V",
+      "jeunesse": "Giovani & Formazione",
+      "jeunesseDesc": "Attività e ritiri per i giovani",
+      "evangelisation": "Evangelizzazione",
+      "evangelisationDesc": "Missioni e outreach",
+      "pauvres": "Aiuto ai poveri",
+      "pauvresDesc": "Solidarietà con i più bisognosi"
     }
   }
 }

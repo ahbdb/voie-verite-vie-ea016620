@@ -28,9 +28,12 @@ export const siteLinks: SiteCategory[] = [
     items: [
       { nameKey: 'common.biblicalReading', href: '/biblical-reading', icon: 'BookOpen' },
       { nameKey: 'common.prayerForum', href: '/prayer-forum', icon: 'Heart' },
+      { nameKey: 'common.dailyPrayer', href: '/priere-quotidienne', icon: 'Heart' },
+      { nameKey: 'common.chapelet', href: '/chapelet', icon: 'BookOpen' },
       { nameKey: 'common.lent', href: '/careme', icon: 'Cross' },
       { nameKey: 'common.stationsOfCross', href: '/chemin-de-croix', icon: 'Cross' },
       { nameKey: 'common.novenas', href: '/neuvaines', icon: 'BookOpen' },
+      { nameKey: 'common.masseOffice', href: '/messe-office', icon: 'BookOpen' },
     ],
   },
   {
@@ -40,7 +43,10 @@ export const siteLinks: SiteCategory[] = [
       { nameKey: 'common.activities', href: '/activities', icon: 'Calendar' },
       { nameKey: 'common.gallery', href: '/gallery', icon: 'Camera' },
       { nameKey: 'common.callsAndLives', href: '/calls-lives', icon: 'Radio' },
+      { nameKey: 'common.testimonials', href: '/temoignages', icon: 'Heart' },
+      { nameKey: 'common.donations', href: '/dons', icon: 'Heart' },
       { nameKey: 'reports.activityReports', href: '/reports', icon: 'FileText' },
+      { nameKey: 'common.documents3v', href: '/documents-3v', icon: 'FileText' },
     ],
   },
   {

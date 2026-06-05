@@ -1,4 +1,4 @@
-import { useState, useEffect, Component } from 'react';
+import { useState, useEffect, Component, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,8 @@ import {
   ZoomOut,
   Radio,
   FileText,
+  Search,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -79,6 +81,9 @@ const Navigation = () => {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const { user, signOut, loading: authLoading } = useAuth();
   const { isAdmin } = useAdmin();
   const { settings, setTheme, setTextSize, isDarkMode } = useSettings();
@@ -142,6 +147,27 @@ const Navigation = () => {
     setDeferredPrompt(null);
   };
 
+  const allNavItems = siteLinks.flatMap((cat) =>
+    cat.items.filter((i) => i.showInNav !== false).map((item) => ({ ...item, categoryTitle: t(cat.titleKey) }))
+  );
+
+  const searchResults = searchQuery.trim().length > 1
+    ? allNavItems.filter((item) =>
+        t(item.nameKey).toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.categoryTitle.toLowerCase().includes(searchQuery.toLowerCase())
+      ).slice(0, 6)
+    : [];
+
+  const openSearch = () => {
+    setSearchOpen(true);
+    setTimeout(() => searchInputRef.current?.focus(), 50);
+  };
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearchQuery('');
+  };
+
   const handleSignOut = async () => {
     await signOut();
     toast({
@@ -152,13 +178,85 @@ const Navigation = () => {
   };
 
   return (
+    <>
+      {/* Search overlay */}
+      {searchOpen && (
+        <div className="fixed inset-0 z-[60] bg-background/80 backdrop-blur-sm" onClick={closeSearch}>
+          <div
+            className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-lg px-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder={t('common.search') + '...'}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Escape' && closeSearch()}
+                  className="flex-1 bg-transparent text-foreground placeholder-muted-foreground text-sm outline-none"
+                />
+                <button onClick={closeSearch} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {searchResults.length > 0 ? (
+                <div className="py-2">
+                  {searchResults.map((item) => {
+                    const Icon = item.icon ? ICONS[item.icon as string] : undefined;
+                    return (
+                      <Link
+                        key={item.href}
+                        to={item.href}
+                        onClick={closeSearch}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors"
+                      >
+                        {Icon && <Icon className="h-4 w-4 text-primary shrink-0" />}
+                        <div>
+                          <div className="text-sm font-medium text-foreground">{t(item.nameKey)}</div>
+                          <div className="text-xs text-muted-foreground">{item.categoryTitle}</div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : searchQuery.trim().length > 1 ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">Aucun résultat pour « {searchQuery} »</div>
+              ) : (
+                <div className="py-4 px-4">
+                  <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider font-medium">Pages rapides</p>
+                  <div className="flex flex-wrap gap-2">
+                    {['/biblical-reading', '/chapelet', '/priere-quotidienne', '/temoignages', '/calls-lives', '/dons'].map((href) => {
+                      const found = allNavItems.find((i) => i.href === href);
+                      if (!found) return null;
+                      return (
+                        <Link
+                          key={href}
+                          to={href}
+                          onClick={closeSearch}
+                          className="text-xs rounded-full border border-border px-3 py-1 bg-muted/40 hover:bg-muted transition-colors text-foreground"
+                        >
+                          {t(found.nameKey)}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border/50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center space-x-3">
+          <Link to="/" className="flex flex-col items-center gap-0">
             <AnimatedLogo size="sm" />
-            <span className="font-cinzel font-semibold text-foreground hidden sm:inline whitespace-nowrap" style={{ fontSize: 'clamp(0.75rem, 1.5vw, 1.25rem)' }}>
-              {t('brand.fullName')}
+            <span className="font-cinzel text-[8px] tracking-[0.2em] text-muted-foreground/70 uppercase leading-none -mt-0.5 whitespace-nowrap">
+              Voie · Vérité · Vie
             </span>
           </Link>
 
@@ -211,6 +309,9 @@ const Navigation = () => {
           </div>
 
           <div className="hidden lg:flex items-center gap-2">
+            <Button onClick={openSearch} variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" title={t('common.search')}>
+              <Search className="w-4 h-4" />
+            </Button>
             <NotificationBellBoundary><NotificationBell /></NotificationBellBoundary>
             <LanguageSelector variant="icon" />
 
@@ -267,22 +368,10 @@ const Navigation = () => {
           </div>
 
           <div className="flex items-center gap-0.5 lg:hidden">
+            <Button onClick={openSearch} variant="ghost" size="icon" className="h-8 w-8" title={t('common.search')}>
+              <Search className="w-4 h-4" />
+            </Button>
             <LanguageSelector variant="icon" />
-            <Button
-              onClick={() => setTheme(isDarkMode ? 'light' : 'dark')}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              title={isDarkMode ? t('common.lightMode') : t('common.darkMode')}
-            >
-              {isDarkMode ? <Sun className="w-4 h-4 text-primary" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
-            </Button>
-            <Button onClick={handleZoomOut} variant="ghost" size="icon" className="h-8 w-8" disabled={!canZoomOut}>
-              <ZoomOut className="w-4 h-4" />
-            </Button>
-            <Button onClick={handleZoomIn} variant="ghost" size="icon" className="h-8 w-8" disabled={!canZoomIn}>
-              <ZoomIn className="w-4 h-4" />
-            </Button>
             <NotificationBellBoundary><NotificationBell /></NotificationBellBoundary>
 
             <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
@@ -346,6 +435,29 @@ const Navigation = () => {
                   </div>
 
                   <div className="border-t border-border/50 pt-4 space-y-2">
+                    <div className="flex items-center justify-between px-2 pb-2">
+                      <div className="flex items-center gap-1">
+                        <Button onClick={handleZoomOut} variant="ghost" size="icon" className="h-8 w-8" disabled={!canZoomOut} title={t('common.reduceText')}>
+                          <ZoomOut className="w-4 h-4" />
+                        </Button>
+                        <Button onClick={handleZoomIn} variant="ghost" size="icon" className="h-8 w-8" disabled={!canZoomIn} title={t('common.enlargeText')}>
+                          <ZoomIn className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          onClick={() => setTheme(isDarkMode ? 'light' : 'dark')}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title={isDarkMode ? t('common.lightMode') : t('common.darkMode')}
+                        >
+                          {isDarkMode ? <Sun className="w-4 h-4 text-primary" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
+                        </Button>
+                        <LanguageSelector variant="icon" />
+                      </div>
+                    </div>
+
                     <Button
                       onClick={() => {
                         handleInstall();
@@ -418,6 +530,7 @@ const Navigation = () => {
         </div>
       </div>
     </nav>
+    </>
   );
 };
 

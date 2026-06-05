@@ -6,6 +6,57 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { supabase as db } from '@/integrations/supabase/client';
+import { primeNotificationAudio } from '@/lib/notification-service';
+
+// ── Background audio player ───────────────────────────────────────────────────
+// Renders a hidden <audio> element for one remote stream while the call page
+// is unmounted. Keeps the soft-leaver able to hear others while browsing.
+const BackgroundAudio = React.memo(({ stream }: { stream: MediaStream }) => {
+  const ref = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.srcObject = stream;
+    el.play().catch(() => {});
+    return () => { el.srcObject = null; };
+  }, [stream]);
+  return (
+    <audio
+      ref={ref}
+      autoPlay
+      playsInline
+      aria-hidden="true"
+      style={{ display: 'none', position: 'absolute', width: 0, height: 0 }}
+    />
+  );
+});
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Builds a Blob URL for a 100ms silent WAV. Returns null on failure. */
+function createSilentWavUrl(): string | null {
+  try {
+    const sampleRate = 44100;
+    const numSamples = Math.ceil(sampleRate * 0.1); // 100 ms
+    const dataSize = numSamples * 2;                 // 16-bit mono
+    const buf = new ArrayBuffer(44 + dataSize);
+    const v = new DataView(buf);
+    const ws = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) v.setUint8(offset + i, str.charCodeAt(i));
+    };
+    ws(0, 'RIFF'); v.setUint32(4, 36 + dataSize, true);
+    ws(8, 'WAVE'); ws(12, 'fmt '); v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    ws(36, 'data'); v.setUint32(40, dataSize, true);
+    // Remaining bytes are 0 (silence)
+    return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+  } catch {
+    return null;
+  }
+}
 
 export interface ActiveCallInfo {
   roomId: string;
@@ -30,6 +81,16 @@ interface CallSessionContextValue {
   setHangUpFn: (fn: (() => Promise<void>) | null) => void;
   getMicToggleFn: () => (() => void) | null;
   setMicToggleFn: (fn: (() => void) | null) => void;
+  getEndRoomFn: () => (() => Promise<void>) | null;
+  setEndRoomFn: (fn: (() => Promise<void>) | null) => void;
+  /** Call this inside a user-gesture handler (e.g. "Join" click) so browsers
+   *  allow the silent audio to autoplay later even when the page is hidden. */
+  primeAudioPlayback: () => void;
+  /** Pass remote MediaStreams so the context plays them while the call page
+   *  is unmounted (soft leave — user browsing other pages). */
+  setBackgroundStreams: (streams: MediaStream[]) => void;
+  /** Remove background audio elements — call when the call page remounts. */
+  clearBackgroundStreams: () => void;
 }
 
 const CallSessionContext = createContext<CallSessionContextValue>({
@@ -47,6 +108,11 @@ const CallSessionContext = createContext<CallSessionContextValue>({
   setHangUpFn: () => {},
   getMicToggleFn: () => null,
   setMicToggleFn: () => {},
+  getEndRoomFn: () => null,
+  setEndRoomFn: () => {},
+  primeAudioPlayback: () => {},
+  setBackgroundStreams: () => {},
+  clearBackgroundStreams: () => {},
 });
 
 export const useCallSession = () => useContext(CallSessionContext);
@@ -56,10 +122,108 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
   const [isConnected, setIsConnected] = useState(false);
   const [isMicEnabled, setIsMicEnabled] = useState(true);
   const [participantCount, setParticipantCount] = useState(0);
+  const [backgroundStreams, setBackgroundStreamsState] = useState<MediaStream[]>([]);
 
   const softLeaveCallbackRef = useRef<(() => void) | null>(null);
   const hangUpFnRef = useRef<(() => Promise<void>) | null>(null);
   const micToggleFnRef = useRef<(() => void) | null>(null);
+  const endRoomFnRef = useRef<(() => Promise<void>) | null>(null);
+
+  // ── Silent audio keepalive ─────────────────────────────────────────────────
+  // A real DOM <audio> element (rendered below) keeps the browser's audio
+  // subsystem active even after the user navigates away from the call page or
+  // the phone screen turns off.
+  //
+  // Why DOM-attached instead of `new Audio()`?
+  //   • iOS PWA: Only a DOM-attached <audio> with `playsInline` that was started
+  //     during a user gesture is allowed to continue playing in the background.
+  //   • Android PWA: Chrome recognises the page as "playing media" and prevents
+  //     it from being suspended, keeping ICE keepalive timers alive.
+  //
+  // The element is kept at volume 0.001 so it is completely inaudible.
+  const silentAudioElRef = useRef<HTMLAudioElement | null>(null);
+  const silentBlobUrlRef = useRef<string | null>(null);
+
+  const ensureSrc = useCallback(() => {
+    const el = silentAudioElRef.current;
+    if (!el) return false;
+    if (el.src && el.src.startsWith('blob:')) return true; // already loaded
+    const url = createSilentWavUrl();
+    if (!url) return false;
+    if (silentBlobUrlRef.current) URL.revokeObjectURL(silentBlobUrlRef.current);
+    silentBlobUrlRef.current = url;
+    el.src = url;
+    el.loop = true;
+    el.volume = 0.001;
+    return true;
+  }, []);
+
+  const startSilentAudio = useCallback(() => {
+    const el = silentAudioElRef.current;
+    if (!el) return;
+    if (!el.paused) return; // already playing
+    if (!ensureSrc()) return;
+    el.play().catch(() => {
+      // Autoplay was blocked — will retry on the next user gesture via
+      // primeAudioPlayback(), which is called on every join/navigate action.
+    });
+  }, [ensureSrc]);
+
+  const stopSilentAudio = useCallback(() => {
+    const el = silentAudioElRef.current;
+    if (el) { el.pause(); el.src = ''; }
+    if (silentBlobUrlRef.current) {
+      URL.revokeObjectURL(silentBlobUrlRef.current);
+      silentBlobUrlRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Call synchronously inside EVERY user-gesture handler that navigates to or
+   * returns to a call (join button, recall button, return-to-call banner …).
+   *
+   * On iOS/Android, audio.play() is only allowed when called (directly or
+   * indirectly) from within a user-interaction event. Calling this here
+   * "unlocks" audio for the duration of the call, including when the page is
+   * later moved to the background.
+   */
+  const primeAudioPlayback = useCallback(() => {
+    const el = silentAudioElRef.current;
+    if (!el) return;
+    if (!ensureSrc()) return;
+    // Intentionally do NOT pause — we want this to keep playing as the keepalive.
+    el.play().catch(() => {});
+    // Also prime the notification AudioContext so incoming call tones play
+    // in the same user-gesture context that unlocked audio.
+    primeNotificationAudio();
+  }, [ensureSrc]);
+
+  // Start / stop in sync with the WebRTC connection state.
+  // Only stop the keepalive when the call session is fully over (activeCall===null)
+  // — NOT during the brief isConnected=false window that occurs when the call page
+  // remounts and restores _persist, which would cut audio and break iOS autoplay unlock.
+  useEffect(() => {
+    if (isConnected) {
+      startSilentAudio();
+    } else if (!activeCall) {
+      stopSilentAudio();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, activeCall]);
+
+  // Resume if the system paused it while the page was hidden (spec-required
+  // for Screen Wake Lock; some browsers also pause audio on visibility change)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && isConnected) {
+        startSilentAudio();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [isConnected, startSilentAudio]);
+
+  // ── Call session helpers ───────────────────────────────────────────────────
 
   const startCall = useCallback((info: ActiveCallInfo) => {
     setActiveCall(info);
@@ -68,14 +232,49 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
     setParticipantCount(0);
   }, []);
 
+  const setBackgroundStreams = useCallback((streams: MediaStream[]) => {
+    setBackgroundStreamsState(streams);
+  }, []);
+
+  const clearBackgroundStreams = useCallback(() => {
+    setBackgroundStreamsState([]);
+  }, []);
+
   const endCallSession = useCallback(() => {
     setActiveCall(null);
     setIsConnected(false);
     setParticipantCount(0);
+    setBackgroundStreamsState([]);
     softLeaveCallbackRef.current = null;
     hangUpFnRef.current = null;
     micToggleFnRef.current = null;
-  }, []);
+    endRoomFnRef.current = null;
+    stopSilentAudio();
+  }, [stopSilentAudio]);
+
+  // ── Global room-ended subscription ────────────────────────────────────────
+  // Works for ALL users regardless of whether the call page is mounted.
+  // This is the safety net that ejects soft-leave users when an admin
+  // clicks "Terminer": their call page is unmounted (no hook subscription),
+  // but this context is always alive and will receive the DB change.
+  const endCallSessionRef = useRef(endCallSession);
+  useEffect(() => { endCallSessionRef.current = endCallSession; }, [endCallSession]);
+
+  useEffect(() => {
+    if (!activeCall?.roomId) return;
+    const roomId = activeCall.roomId;
+    const channel = db
+      .channel(`ctx-ended:${roomId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'video_rooms', filter: `id=eq.${roomId}` },
+        (ev: { new: { status: string } }) => {
+          if (ev.new?.status === 'ended') endCallSessionRef.current();
+        },
+      )
+      .subscribe();
+    return () => { void db.removeChannel(channel); };
+  }, [activeCall?.roomId]);
 
   const notifyConnected = useCallback((v: boolean) => setIsConnected(v), []);
   const notifyMic = useCallback((v: boolean) => setIsMicEnabled(v), []);
@@ -85,6 +284,8 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
   const setHangUpFn = useCallback((fn: (() => Promise<void>) | null) => { hangUpFnRef.current = fn; }, []);
   const getMicToggleFn = useCallback(() => micToggleFnRef.current, []);
   const setMicToggleFn = useCallback((fn: (() => void) | null) => { micToggleFnRef.current = fn; }, []);
+  const getEndRoomFn = useCallback(() => endRoomFnRef.current, []);
+  const setEndRoomFn = useCallback((fn: (() => Promise<void>) | null) => { endRoomFnRef.current = fn; }, []);
 
   return (
     <CallSessionContext.Provider value={{
@@ -102,8 +303,28 @@ export const CallSessionProvider = ({ children }: { children: React.ReactNode })
       setHangUpFn,
       getMicToggleFn,
       setMicToggleFn,
+      getEndRoomFn,
+      setEndRoomFn,
+      primeAudioPlayback,
+      setBackgroundStreams,
+      clearBackgroundStreams,
     }}>
       {children}
+      {/*
+        Silent keepalive — keeps browser audio session alive in background.
+        Must be DOM-attached with playsInline so iOS allows background play.
+      */}
+      <audio
+        ref={silentAudioElRef}
+        loop
+        playsInline
+        aria-hidden="true"
+        style={{ display: 'none', position: 'absolute', width: 0, height: 0 }}
+      />
+      {/* Background audio for remote peers — active only while soft-leaving */}
+      {backgroundStreams.map((stream) => (
+        <BackgroundAudio key={stream.id} stream={stream} />
+      ))}
     </CallSessionContext.Provider>
   );
 };

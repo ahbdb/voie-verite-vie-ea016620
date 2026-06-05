@@ -1,11 +1,59 @@
-/* ── Notification Service Worker — Voie Vérité Vie ─────────────────────── */
+/* ── Notification + PWA Service Worker — Voie Vérité Vie ────────────────── */
 
-self.addEventListener('install', () => { self.skipWaiting(); });
-self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
+const CANONICAL_ORIGIN = 'https://voieveritevie.org';
+const CACHE_NAME = 'vvv-shell-v3';
+const SHELL_URLS = ['/', '/manifest.json', '/icon-192x192.png', '/badge-72x72.png'];
+
+self.addEventListener('install', (e) => {
+  // Ne PAS appeler skipWaiting() ici — on attend que l'app le demande via SKIP_WAITING
+  // pour éviter qu'un rechargement surprise interrompe l'utilisateur.
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_URLS).catch(() => {}))
+  );
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      // Supprimer les anciens caches
+      caches.keys().then((keys) =>
+        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      ),
+    ])
+  );
+});
+
+/* ── Fetch : redirection si ancien domaine + support hors-ligne ────────── */
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Si l'utilisateur est sur l'ancien domaine → rediriger vers le nouveau
+  if (url.origin !== CANONICAL_ORIGIN && request.mode === 'navigate') {
+    event.respondWith(
+      Response.redirect(CANONICAL_ORIGIN + url.pathname + url.search, 301)
+    );
+    return;
+  }
+
+  // Navigation requests : réseau d'abord, cache shell en fallback (hors-ligne)
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(() =>
+        caches.match('/').then((r) => r || fetch(request))
+      )
+    );
+    return;
+  }
+
+  // Tous les autres assets : réseau normal (pas de cache agressif)
+});
 
 /* ── Classify notification payload ──────────────────────────────────────── */
 function classifyPayload(payload) {
-  const action = payload.action || '';
+  // action can be at top level (new format) or nested in data (old format)
+  const action = payload.action || payload.data?.action || '';
   const isCall = action === 'call';
   const isLive = action === 'live' || action === 'session';
   const isFeast = action === 'feast';
@@ -115,8 +163,24 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  const { isCall } = classifyPayload(payload);
+
   event.waitUntil(
     self.registration.showNotification(payload.title, buildOptions(payload))
+      .then(() => {
+        // For incoming calls, also message every open client so it can ring
+        // with audio (works when the PWA is backgrounded but still in memory).
+        if (!isCall) return;
+        return self.clients
+          .matchAll({ type: 'window', includeUncontrolled: true })
+          .then((clients) => {
+            const ringData = {
+              roomId: payload.roomId || payload.data?.roomId || null,
+              title:  payload.title,
+            };
+            clients.forEach((c) => c.postMessage({ type: 'PLAY_RING', payload: ringData }));
+          });
+      })
   );
 });
 

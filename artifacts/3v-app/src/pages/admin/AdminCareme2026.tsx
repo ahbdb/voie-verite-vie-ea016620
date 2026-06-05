@@ -11,8 +11,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Flame, Plus, Edit2, Trash2, Save, X, Eye, Download } from 'lucide-react';
+import { ArrowLeft, Flame, Plus, Edit2, Trash2, Save, X, Eye, Download, Copy, ChevronDown } from 'lucide-react';
 import { caremeData } from '@/data/careme-2026-data';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface CaremeProgram {
   id?: string;
@@ -39,6 +46,8 @@ interface CaremDay {
 const AdminCareme2026 = () => {
   const navigate = useNavigate();
   const { isAdmin, loading } = useAdmin();
+  const [currentKey, setCurrentKey] = useState('careme-2026');
+  const [availableCaremes, setAvailableCaremes] = useState<{page_key: string; title: string | null}[]>([]);
   const [programContent, setProgramContent] = useState<CaremeProgram | null>(null);
   const [formData, setFormData] = useState({
     title: 'Carême 2026',
@@ -49,17 +58,32 @@ const AdminCareme2026 = () => {
   const [editingDay, setEditingDay] = useState<CaremDay | null>(null);
   const [showDayDialog, setShowDayDialog] = useState(false);
   const [previewingDay, setPreviewingDay] = useState<CaremDay | null>(null);
+  const [newCaremeYear, setNewCaremeYear] = useState('');
+  const [showNewCaremeDialog, setShowNewCaremeDialog] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate('/');
   }, [isAdmin, loading, navigate]);
+
+  const loadAvailableCaremes = useCallback(async () => {
+    const { data } = await supabase
+      .from('page_content')
+      .select('page_key, title')
+      .like('page_key', 'careme-%')
+      .order('page_key', { ascending: true });
+    if (data && data.length > 0) setAvailableCaremes(data as any);
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin) loadAvailableCaremes();
+  }, [isAdmin, loadAvailableCaremes]);
 
   const loadContent = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('page_content')
         .select('*')
-        .eq('page_key', 'careme-2026')
+        .eq('page_key', currentKey)
         .single();
       
       if (error && error.code !== 'PGRST116') {
@@ -70,7 +94,7 @@ const AdminCareme2026 = () => {
       if (data) {
         setProgramContent(data as CaremeProgram);
         setFormData({
-          title: data.title || 'Carême 2026',
+          title: data.title || `Carême ${currentKey.replace('careme-', '')}`,
           subtitle: data.subtitle || '40 jours de prière, pénitence et partage'
         });
         const content = (data.content as any) || {};
@@ -109,7 +133,7 @@ const AdminCareme2026 = () => {
 
   useEffect(() => {
     if (isAdmin) loadContent();
-  }, [isAdmin, loadContent]);
+  }, [isAdmin, loadContent, currentKey]);
 
   const handleFormChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -166,7 +190,7 @@ const AdminCareme2026 = () => {
           subtitle: formData.subtitle,
           updated_at: new Date().toISOString()
         })
-        .eq('page_key', 'careme-2026');
+        .eq('page_key', currentKey);
 
       if (!updateError) {
         console.log('✅ [Admin] Day auto-saved to database!');
@@ -200,7 +224,7 @@ const AdminCareme2026 = () => {
             subtitle: formData.subtitle,
             updated_at: new Date().toISOString()
           })
-          .eq('page_key', 'careme-2026');
+          .eq('page_key', currentKey);
 
         if (!updateError) {
           console.log('✅ [Admin] Deletion auto-saved to database!');
@@ -255,7 +279,7 @@ const AdminCareme2026 = () => {
           subtitle: formData.subtitle,
           updated_at: new Date().toISOString()
         })
-        .eq('page_key', 'careme-2026');
+        .eq('page_key', currentKey);
 
       if (!updateError) {
         console.log('✅ [AdminCareme] Direct UPDATE succeeded');
@@ -265,7 +289,7 @@ const AdminCareme2026 = () => {
         
         // Fallback: Try RPC if direct update fails
         const { error: rpcError } = await supabase.rpc('update_page_content_data', {
-          p_page_key: 'careme-2026',
+          p_page_key: currentKey,
           p_content: contentData as any
         });
         
@@ -294,7 +318,7 @@ const AdminCareme2026 = () => {
         const { data: freshData, error: loadError } = await supabase
           .from('page_content')
           .select('*')
-          .eq('page_key', 'careme-2026')
+          .eq('page_key', currentKey)
           .single();
         
         if (loadError) {
@@ -330,9 +354,80 @@ const AdminCareme2026 = () => {
           <ArrowLeft className="h-4 w-4 mr-2" /> Retour
         </Button>
 
-        <h1 className="text-3xl font-bold flex items-center gap-3 mb-6">
-          <Flame className="h-8 w-8 text-violet-700" /> Gestion du Carême 2026
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+            <Flame className="h-7 w-7 text-violet-700" /> Carême
+          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Sélecteur de carême */}
+            <Select value={currentKey} onValueChange={(v) => {
+              setCurrentKey(v);
+              setProgramContent(null);
+              setDaysData([]);
+              setFormData({ title: `Carême ${v.replace('careme-', '')}`, subtitle: '40 jours de prière, pénitence et partage' });
+            }}>
+              <SelectTrigger className="w-[150px] h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableCaremes.length > 0
+                  ? availableCaremes.map(c => (
+                    <SelectItem key={c.page_key} value={c.page_key}>
+                      {c.title || `Carême ${c.page_key.replace('careme-', '')}`}
+                    </SelectItem>
+                  ))
+                  : <SelectItem value="careme-2026">Carême 2026</SelectItem>
+                }
+              </SelectContent>
+            </Select>
+
+            {/* Dupliquer */}
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={async () => {
+              const year = prompt('Dupliquer vers quelle année ?', String(new Date().getFullYear() + 1));
+              if (!year) return;
+              const newKey = `careme-${year}`;
+              const { error } = await supabase.from('page_content').insert({
+                page_key: newKey,
+                title: `Carême ${year}`,
+                subtitle: formData.subtitle,
+                content: { days: daysData },
+              } as any);
+              if (!error) {
+                toast.success(`Carême ${year} créé à partir de ${currentKey.replace('careme-', '')}`);
+                await loadAvailableCaremes();
+                setCurrentKey(newKey);
+              } else {
+                toast.error('Erreur lors de la duplication');
+              }
+            }}>
+              <Copy className="h-3.5 w-3.5" /> Dupliquer
+            </Button>
+
+            {/* Nouveau carême */}
+            <Button size="sm" className="gap-1.5" onClick={async () => {
+              const year = prompt('Année du nouveau carême ?', String(new Date().getFullYear() + 1));
+              if (!year) return;
+              const newKey = `careme-${year}`;
+              const { error } = await supabase.from('page_content').insert({
+                page_key: newKey,
+                title: `Carême ${year}`,
+                subtitle: '40 jours de prière, pénitence et partage',
+                content: { days: [] },
+              } as any);
+              if (!error) {
+                toast.success(`Carême ${year} créé`);
+                await loadAvailableCaremes();
+                setCurrentKey(newKey);
+                setDaysData([]);
+                setFormData({ title: `Carême ${year}`, subtitle: '40 jours de prière, pénitence et partage' });
+              } else {
+                toast.error('Erreur lors de la création (cette année existe peut-être déjà)');
+              }
+            }}>
+              <Plus className="h-3.5 w-3.5" /> Nouveau
+            </Button>
+          </div>
+        </div>
 
         <div className="grid gap-6">
           {/* Section 1: Informations générales */}
