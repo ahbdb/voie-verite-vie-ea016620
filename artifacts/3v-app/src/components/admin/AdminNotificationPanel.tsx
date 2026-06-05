@@ -53,16 +53,13 @@ export const AdminNotificationPanel = () => {
         return;
       }
 
-      // If not scheduled, send immediately
+      // Send immediately via Edge Function (falls back to FCM via GitHub Actions)
       if (!scheduleTime) {
-        const success = await sendBroadcastNotification(broadcast.id);
-
-        if (success) {
-          toast.success(`✅ Notification envoyée à ${getTargetText(targetRole)}`);
-          resetForm();
-        } else {
-          toast.error('Erreur lors de l\'envoi');
-        }
+        await sendBroadcastNotification(broadcast.id);
+        toast.success(
+          `📡 Notification créée ! Envoi FCM en cours via GitHub Actions (< 30 min)`
+        );
+        resetForm();
       } else {
         toast.success(`⏰ Notification programmée pour ${new Date(scheduleTime).toLocaleString('fr-FR')}`);
         resetForm();
@@ -278,7 +275,7 @@ export const AdminNotificationPanel = () => {
                         <span>
                           {notif.is_sent ? '✅ Envoyée' : '⏳ En attente'}
                         </span>
-                        <span>{getTargetText(notif.target_role)}</span>
+                        <span>{getTargetText(notif.target_role ?? null)}</span>
                         <time>
                           {new Date(notif.created_at).toLocaleDateString('fr-FR')}
                         </time>
@@ -292,23 +289,23 @@ export const AdminNotificationPanel = () => {
         </Card>
       )}
 
-      {/* Tips */}
-      <Card className="bg-indigo-50 border-indigo-200">
+      {/* FCM Info */}
+      <Card className="bg-green-50 border-green-200">
         <CardHeader>
-          <CardTitle className="text-sm">💡 Conseils</CardTitle>
+          <CardTitle className="text-sm">📡 Comment fonctionne l'envoi ?</CardTitle>
         </CardHeader>
         <CardContent className="text-sm space-y-2 text-gray-700">
           <p>
-            ✅ <strong>Salutations:</strong> Souhaitez une bonne journée aux utilisateurs chaque matin
+            🔔 <strong>FCM (Firebase)</strong> : Les notifications sont envoyées via Firebase Cloud Messaging — elles arrivent même téléphone fermé, comme WhatsApp.
           </p>
           <p>
-            ✅ <strong>Rappels:</strong> Rappelez aux utilisateurs les événements importants
+            ⏱️ <strong>Délai</strong> : L'envoi FCM se fait automatiquement toutes les 30 minutes par GitHub Actions. Maximum 30 min après votre envoi.
           </p>
           <p>
-            ✅ <strong>Annonces:</strong> Annoncez de nouvelles fonctionnalités ou contenus
+            📅 <strong>Automatiques</strong> : 3 notifications programmées chaque jour (matin 7h, midi 12h, soir 20h) + fêtes liturgiques détectées automatiquement.
           </p>
           <p>
-            ✅ <strong>Persistance:</strong> Les notifications restent jusqu'à ce qu'elles soient lues
+            ✅ <strong>Statut</strong> : Une notification reste «En attente» jusqu'à ce que GitHub Actions la délivre via FCM.
           </p>
         </CardContent>
       </Card>

@@ -1,14 +1,67 @@
 [build]
-  # Build the 3V app from the pnpm monorepo
+  base = "artifacts/3v-app"
   command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/3v-app run build"
-  publish = "artifacts/3v-app/dist/public"
+  publish = "dist/public"
 
 [build.environment]
-  NODE_VERSION = "20"
-  # BASE_PATH defaults to '/' in vite.config.ts — no need to set it here.
+  NODE_VERSION = "22"
   # Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in the Netlify UI
   # under Site Settings → Environment Variables.
 
+# ── Security headers ──────────────────────────────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=self, microphone=self, geolocation=(), payment=(), usb=(), bluetooth=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    X-XSS-Protection = "1; mode=block"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://firebase.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://firebasestorage.googleapis.com https://wsrv.nl https://*.aleteia.org https://aleteia.org https://*.zenit.org https://*.vaticannews.va https://*.la-croix.com https://*.famillechretienne.fr https://*.imedias.eu https://*.ktotv.com; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://firebase.googleapis.com https://fcm.googleapis.com https://api.aelf.org https://calendar.google.com https://api.rss2json.com https://ipapi.co https://*.vaticannews.va https://eglise.catholique.fr https://www.cathobel.be https://www.kath.ch https://www.catholicnewsagency.com https://catholicherald.co.uk https://wsrv.nl; media-src 'self' blob: https://*.supabase.co; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none';"
+
+# HTML jamais mis en cache — l'app doit toujours récupérer le dernier index.html
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Long-term caching for hashed static assets
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Service workers — no cache so updates are immediate
+[[headers]]
+  for = "/notification-sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Service-Worker-Allowed = "/"
+
+[[headers]]
+  for = "/firebase-messaging-sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# ── Edge Functions ────────────────────────────────────────────────────────────
+# og-calls: serves dynamic OG meta tags to social media bots so WhatsApp,
+# Telegram, etc. show a rich preview when a call share link is pasted.
+[[edge_functions]]
+  function = "og-calls"
+  path = "/calls-lives"
+
+# Assistant IA 3V — Claude claude-sonnet-4-6 avec extended thinking
+[[edge_functions]]
+  function = "ai-chat"
+  path = "/api/ai-chat"
+
+# ── Redirects ─────────────────────────────────────────────────────────────────
 [[redirects]]
   from = "/neuvaines/*.pdf"
   to = "/neuvaines/:splat"

@@ -51,7 +51,7 @@ const AdminFAQ = () => {
       .from('faq_items')
       .select('*')
       .order('sort_order', { ascending: true });
-    if (data) setFaqItems(data);
+    if (data) setFaqItems(data as FAQItem[]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

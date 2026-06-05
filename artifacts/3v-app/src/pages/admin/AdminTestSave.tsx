@@ -33,7 +33,7 @@ const AdminTestSave = () => {
       const { data: userRoles, error: roleError } = await supabase
         .from('user_roles')
         .select('*')
-        .eq('user_id', user?.id);
+        .eq('user_id', user?.id ?? '');
       
       console.log('🔍 [Test] User roles check:', userRoles, roleError);
 

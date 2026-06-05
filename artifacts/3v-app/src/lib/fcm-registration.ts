@@ -1,118 +1,111 @@
-import { supabase } from "@/integrations/supabase/client";
-import { VAPID_KEY } from "./firebase-config";
-import i18n from "@/i18n";
+import { supabase } from '@/integrations/supabase/client';
 
-// Use the unified notification service worker to avoid having two SWs
-// competing for the same scope '/', which causes a controllerchange event
-// and triggers page reloads on mobile browsers.
-const NOTIFICATION_SW_PATH = "/notification-sw.js";
+const VAPID_PUBLIC_KEY =
+  (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) ||
+  "BDZP1G3CVzMfjpDGH7MGktPHySL1O1ZqqpP6B5QSgp09f8xu3lN9BLnQ527CZNXIY9q6KoISzbKbmbIAS8_I0AU";
+
+function urlBase64ToUint8Array(b64url: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (b64url.length % 4)) % 4);
+  const b64 = (b64url + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(b64);
+  const buffer = new ArrayBuffer(raw.length);
+  const arr = new Uint8Array(buffer);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
 
 /**
- * Register for push notifications using Web Push API with VAPID key.
- * The subscription is stored in the database and used by the backend
- * to send notifications via FCM.
+ * Register a Web Push subscription for this device and store it via the API.
  */
 export async function registerFCMToken(): Promise<string | null> {
   try {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      console.log("Push notifications not supported");
+      console.log("Web Push not supported on this browser");
       return null;
     }
 
-    // Use the unified notification service worker (not firebase-messaging-sw.js)
-    // so we never have two service workers with scope '/' competing.
-    let registration: ServiceWorkerRegistration;
-    try {
-      registration = await navigator.serviceWorker.register(NOTIFICATION_SW_PATH, { scope: "/" });
-      await navigator.serviceWorker.ready;
-    } catch (err) {
-      // Already registered — grab the existing one
-      try {
-        registration = await navigator.serviceWorker.ready;
-      } catch {
-        console.log("SW registration failed:", err);
-        return null;
-      }
-    }
-
-    // Request notification permission if not yet decided
     if (Notification.permission === "default") {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        console.log("Notification permission denied");
-        return null;
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") return null;
+    }
+    if (Notification.permission !== "granted") return null;
+
+    let swReg: ServiceWorkerRegistration;
+    try {
+      swReg = await navigator.serviceWorker.register("/notification-sw.js", { scope: "/" });
+      await navigator.serviceWorker.ready;
+    } catch {
+      swReg = await navigator.serviceWorker.ready;
+    }
+
+    // Get the current Supabase user
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return null;
+
+    // Check if Supabase already has a valid Web Push JSON token for this user
+    let forceRefresh = false;
+    try {
+      const { data } = await supabase
+        .from('fcm_tokens')
+        .select('token')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (!data?.token) {
+        forceRefresh = true;
+      } else {
+        try {
+          const p = JSON.parse(data.token);
+          if (!p?.endpoint || !p?.keys?.p256dh) forceRefresh = true;
+        } catch { forceRefresh = true; }
       }
+    } catch {
+      forceRefresh = true;
     }
 
-    if (Notification.permission !== "granted") {
-      console.log("Notifications not permitted");
-      return null;
-    }
-
-    // Check for existing subscription
-    let subscription = await registration.pushManager.getSubscription();
-    
-    if (!subscription) {
-      // Subscribe to push with VAPID key
-      subscription = await registration.pushManager.subscribe({
+    let subscription = await swReg.pushManager.getSubscription();
+    if (!subscription || forceRefresh) {
+      if (subscription && forceRefresh) await subscription.unsubscribe();
+      subscription = await swReg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_KEY) as BufferSource,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
     }
 
-    const token = JSON.stringify(subscription);
+    const subJson = JSON.stringify(subscription.toJSON());
 
-    // Save token to database
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.log("User not logged in, skipping token save");
-      return token;
-    }
+    // Upsert the push subscription in Supabase fcm_tokens
+    await supabase.from('fcm_tokens').upsert({
+      user_id: userId,
+      token: subJson,
+      platform: detectPlatform(),
+      device_info: navigator.userAgent.substring(0, 200),
+      language: navigator.language?.substring(0, 2) || "fr",
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Douala",
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,token' });
 
-    const platform = detectPlatform();
-    const lang = i18n.language?.substring(0, 2) || "fr";
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Paris";
-
-    // Upsert token
-    const { error } = await supabase.from("fcm_tokens").upsert(
-      {
-        user_id: user.id,
-        token,
-        platform,
-        device_info: navigator.userAgent.substring(0, 200),
-        language: lang,
-        timezone,
-      },
-      { onConflict: "token" }
-    );
-
-    if (error) {
-      console.error("Error saving FCM token:", error);
-    } else {
-      console.log("✓ Push notification token registered");
-    }
-
-    return token;
+    console.log("✓ Web Push subscription registered");
+    return subJson;
   } catch (err) {
-    console.error("Push registration error:", err);
+    console.log("Push registration error:", err);
     return null;
   }
 }
 
-/**
- * Update the language preference for the current user's FCM tokens
- */
 export async function updateFCMLanguage(lang: string) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return;
     await supabase
-      .from("fcm_tokens")
+      .from('fcm_tokens')
       .update({ language: lang.substring(0, 2) })
-      .eq("user_id", user.id);
+      .eq('user_id', userId);
   } catch (err) {
-    console.error("Error updating FCM language:", err);
+    console.log("Error updating push language:", err);
   }
 }
 
@@ -124,15 +117,4 @@ function detectPlatform(): string {
   if (/Mac/.test(ua)) return "macos";
   if (/Linux/.test(ua)) return "linux";
   return "web";
-}
-
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
 }

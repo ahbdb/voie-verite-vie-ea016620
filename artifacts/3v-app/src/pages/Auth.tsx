@@ -1,361 +1,360 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Mail, Lock, User, Phone, Eye, EyeOff } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 import logo3V from '@/assets/logo-3v.png';
 
-const countryCodes = [
-  { code: '+237', country: 'Cameroun' },
-  { code: '+33', country: 'France' },
-  { code: '+1', country: 'USA/Canada' },
-  { code: '+44', country: 'UK' },
-  { code: '+39', country: 'Italie' },
-  { code: '+34', country: 'Espagne' },
-  { code: '+49', country: 'Allemagne' },
-  { code: '+32', country: 'Belgique' },
-  { code: '+41', country: 'Suisse' },
-  { code: '+225', country: 'Côte d\'Ivoire' },
-  { code: '+221', country: 'Sénégal' },
-  { code: '+243', country: 'RDC' },
-];
+type Gender = 'homme' | 'femme';
 
 const Auth = () => {
-  const { t } = useTranslation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [phoneCountryCode, setPhoneCountryCode] = useState('+237');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const { signIn, signUp, user } = useAuth();
-  const { toast } = useToast();
+  const { user, loading, signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
+  const [mode, setMode]               = useState<'login' | 'signup'>('login');
+  const [signupStep, setSignupStep]   = useState<1 | 2>(1);
+
+  // Login fields
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
+
+  // Signup fields
+  const [firstName, setFirstName]     = useState('');
+  const [lastName, setLastName]       = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [gender, setGender]           = useState<Gender | null>(null);
+
+  const [isLoading, setIsLoading]     = useState(false);
+
   useEffect(() => {
-    if (user) {
+    if (user && !loading) {
       navigate('/');
     }
-  }, [user, navigate]);
+  }, [user, loading, navigate]);
 
+  /* ── Connexion ──────────────────────────────────────────────────────── */
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
-    
-    if (!email.trim() || !password.trim()) {
-      toast({
-        title: t('auth.requiredFields'),
-        description: t('auth.fillAllFields'),
-        variant: "destructive",
-      });
+    if (!email || !password) {
+      toast.error('Veuillez remplir tous les champs');
       return;
     }
-    
-    setLoading(true);
-
-    try {
-       const { error } = await signIn(email.trim(), password);
-
-      if (error) {
-        let errorMessage = t('auth.loginError');
-        if (error.message.includes('Invalid login credentials')) {
-          errorMessage = t('auth.wrongCredentials');
-        } else if (error.message.includes('Email not confirmed')) {
-          errorMessage = t('auth.confirmEmail');
-        } else if (error.message.includes('fetch')) {
-          errorMessage = t('auth.networkError');
-        }
-        
-        toast({
-          title: t('common.error'),
-          description: errorMessage,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: t('auth.loginSuccess'),
-          description: t('auth.welcome'),
-           duration: 2000,
-        });
-        navigate('/');
-      }
-    } catch (err) {
-      toast({
-        title: t('auth.loginError'),
-        description: t('auth.networkError'),
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    setIsLoading(true);
+    const { error } = await signIn(email, password);
+    if (error) {
+      toast.error(error.message || 'Erreur de connexion');
+    } else {
+      toast.success('Connecté avec succès !');
+      navigate('/');
     }
+    setIsLoading(false);
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  /* ── Inscription étape 1 → étape 2 ─────────────────────────────────── */
+  const handleSignupStep1 = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!fullName.trim()) {
-      toast({
-        title: t('common.error'),
-        description: t('auth.enterFullName'),
-        variant: "destructive",
-      });
+    if (!firstName.trim() || !signupEmail.trim() || !signupPassword.trim()) {
+      toast.error('Prénom, email et mot de passe sont obligatoires');
       return;
     }
-
-    if (password !== confirmPassword) {
-      toast({
-        title: t('common.error'),
-        description: t('auth.passwordMismatch'),
-        variant: "destructive",
-      });
+    if (signupPassword.length < 6) {
+      toast.error('Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
-
-    if (password.length < 6) {
-      toast({
-        title: t('common.error'),
-        description: t('auth.passwordTooShort'),
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const { error } = await signUp(
-        email.trim(),
-        password,
-        fullName.trim(),
-        phoneCountryCode,
-        phoneNumber
-      );
-
-      if (error) {
-        let errorMessage = error.message;
-        if (error.message.includes('fetch')) {
-          errorMessage = t('auth.networkError');
-        } else if (error.message.includes('already registered')) {
-          errorMessage = t('auth.emailAlreadyUsed');
-        }
-        
-        toast({
-          title: t('auth.signUpError'),
-          description: errorMessage,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: t('auth.welcomeUser', { name: fullName }),
-          description: t('auth.welcomeMessage'),
-          duration: 2500,
-        });
-
-        try {
-          localStorage.setItem('post_signup_community_v1', '1');
-          localStorage.setItem('post_signup_name_v1', fullName.trim());
-        } catch {
-          // ignore
-        }
-
-        navigate('/');
-      }
-    } catch (err) {
-      toast({
-        title: t('auth.signUpError'),
-        description: t('auth.networkError'),
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    setSignupStep(2);
   };
 
+  /* ── Inscription finale ─────────────────────────────────────────────── */
+  const handleSignUp = async () => {
+    if (!gender) {
+      toast.error('Veuillez indiquer si vous êtes un frère ou une sœur');
+      return;
+    }
+    setIsLoading(true);
+    const { error } = await signUp(signupEmail, signupPassword, firstName.trim(), lastName.trim(), gender);
+    if (error) {
+      toast.error(error.message || "Erreur lors de l'inscription");
+    } else {
+      toast.success('Inscription réussie ! Bienvenue 🙏');
+      navigate('/');
+    }
+    setIsLoading(false);
+  };
+
+  const resetSignup = () => {
+    setSignupStep(1);
+    setFirstName('');
+    setLastName('');
+    setSignupEmail('');
+    setSignupPassword('');
+    setGender(null);
+  };
+
+  /* ── Chargement ─────────────────────────────────────────────────────── */
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+          <p>Chargement…</p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     MODE : CONNEXION
+  ══════════════════════════════════════════════════════════════════════ */
+  if (mode === 'login') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <img src={logo3V} alt="3V Logo" className="w-20 h-20 object-contain" />
+            </div>
+            <CardTitle className="text-2xl font-playfair">3V — Voie, Vérité, Vie</CardTitle>
+            <CardDescription>Connectez-vous à votre parcours biblique</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <form onSubmit={handleSignIn} className="space-y-3">
+              <Input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+              />
+              <Input
+                type="password"
+                placeholder="Mot de passe"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+              />
+              <Button className="w-full" size="lg" type="submit" disabled={isLoading}>
+                {isLoading ? 'Connexion…' : 'Se connecter'}
+              </Button>
+            </form>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-background text-muted-foreground">ou</span>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => { setMode('signup'); resetSignup(); setEmail(''); setPassword(''); }}
+              disabled={isLoading}
+            >
+              Créer un compte
+            </Button>
+
+            <p className="text-center text-sm text-muted-foreground">
+              Association catholique Voie, Vérité, Vie — Cameroun
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     MODE : INSCRIPTION (2 étapes)
+  ══════════════════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <img src={logo3V} alt="3V Logo" className="w-20 h-20 object-contain" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[hsl(220,55%,8%)] to-[hsl(220,55%,12%)] px-4 py-10">
+      <motion.div
+        className="w-full max-w-md"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        {/* En-tête */}
+        <div className="text-center mb-6">
+          <img src={logo3V} alt="3V" className="w-14 h-14 mx-auto mb-3 object-contain" />
+          <h1 className="text-xl font-cinzel font-bold text-white">Créer un compte</h1>
+
+          {/* Indicateur d'étapes */}
+          <div className="flex justify-center gap-2 mt-3">
+            {[1, 2].map((s) => (
+              <div
+                key={s}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  s === signupStep
+                    ? 'w-8 bg-cathedral-gold'
+                    : s < signupStep
+                    ? 'w-4 bg-cathedral-gold/60'
+                    : 'w-4 bg-white/20'
+                }`}
+              />
+            ))}
           </div>
-          <CardTitle className="text-2xl font-playfair">{t('auth.title')}</CardTitle>
-          <CardDescription>{t('auth.subtitle')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">{t('auth.signIn')}</TabsTrigger>
-              <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">{t('auth.email')}</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        </div>
+
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
+          <AnimatePresence mode="wait">
+
+            {/* ── Étape 1 : Identité ───────────────────────────────────── */}
+            {signupStep === 1 && (
+              <motion.form
+                key="step1"
+                initial={{ opacity: 0, x: -24 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -24 }}
+                transition={{ duration: 0.25 }}
+                onSubmit={handleSignupStep1}
+                className="space-y-4"
+              >
+                <p className="text-cathedral-gold font-semibold text-xs uppercase tracking-widest mb-3">
+                  Étape 1 — Identité
+                </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-white/60 text-xs mb-1 block">
+                      Prénom <span className="text-red-400">*</span>
+                    </label>
                     <Input
-                      id="email"
-                      type="email"
-                      placeholder="votre@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
-                      required
+                      placeholder="Jean"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      disabled={isLoading}
+                      className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-white/60 text-xs mb-1 block">Nom</label>
+                    <Input
+                      placeholder="Dupont"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      disabled={isLoading}
+                      className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">{t('auth.password')}</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 pr-10"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
+
+                <div>
+                  <label className="text-white/60 text-xs mb-1 block">
+                    Email <span className="text-red-400">*</span>
+                  </label>
+                  <Input
+                    type="email"
+                    placeholder="jean@exemple.com"
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
+                    disabled={isLoading}
+                    className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                  />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? t('auth.signingIn') : t('auth.signInBtn')}
+
+                <div>
+                  <label className="text-white/60 text-xs mb-1 block">
+                    Mot de passe <span className="text-red-400">*</span>
+                  </label>
+                  <Input
+                    type="password"
+                    placeholder="6 caractères minimum"
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
+                    disabled={isLoading}
+                    className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-cathedral-gold hover:bg-cathedral-gold/90 text-secondary font-cinzel font-bold py-5 rounded-full"
+                >
+                  Suivant →
                 </Button>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fullname">{t('auth.fullName')} *</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="fullname"
-                      type="text"
-                      placeholder={t('contact.yourName')}
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
+
+                <button
+                  type="button"
+                  onClick={() => { setMode('login'); resetSignup(); }}
+                  className="w-full text-white/40 hover:text-white/70 text-sm text-center mt-1 transition-colors"
+                >
+                  ← Retour à la connexion
+                </button>
+              </motion.form>
+            )}
+
+            {/* ── Étape 2 : Genre ─────────────────────────────────────── */}
+            {signupStep === 2 && (
+              <motion.div
+                key="step2"
+                initial={{ opacity: 0, x: 24 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 24 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-5"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <button
+                    type="button"
+                    onClick={() => setSignupStep(1)}
+                    className="text-white/40 hover:text-white/70 transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <p className="text-cathedral-gold font-semibold text-xs uppercase tracking-widest">
+                    Étape 2 — Vous êtes… <span className="text-red-400">*</span>
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">{t('auth.email')} *</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="votre@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('auth.phone')}</Label>
-                  <div className="flex gap-2">
-                    <Select value={phoneCountryCode} onValueChange={setPhoneCountryCode}>
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {countryCodes.map((c) => (
-                          <SelectItem key={c.code} value={c.code}>
-                            {c.code} {c.country}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <div className="relative flex-1">
-                      <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        type="tel"
-                        placeholder="698952526"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">{t('auth.password')} *</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="signup-password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 pr-10"
-                      required
-                      minLength={6}
-                    />
+
+                <div className="grid grid-cols-2 gap-4">
+                  {(['homme', 'femme'] as Gender[]).map((g) => (
                     <button
+                      key={g}
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                      onClick={() => setGender(g)}
+                      className={`
+                        flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 transition-all duration-200
+                        ${gender === g
+                          ? 'border-cathedral-gold bg-cathedral-gold/10 shadow-lg shadow-cathedral-gold/20'
+                          : 'border-white/10 bg-white/5 hover:border-white/30'
+                        }
+                      `}
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <span className="text-4xl">{g === 'homme' ? '👨' : '👩'}</span>
+                      <span className="text-white font-cinzel font-semibold text-lg">
+                        {g === 'homme' ? 'Frère' : 'Sœur'}
+                      </span>
                     </button>
-                  </div>
+                  ))}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">{t('auth.confirmPassword')} *</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="confirm-password"
-                      type={showConfirmPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="pl-10 pr-10"
-                      required
-                      minLength={6}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                    >
-                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? t('auth.signingUp') : t('auth.signUpBtn')}
+
+                <Button
+                  onClick={handleSignUp}
+                  disabled={!gender || isLoading}
+                  className="w-full bg-cathedral-gold hover:bg-cathedral-gold/90 text-secondary font-cinzel font-bold py-5 rounded-full disabled:opacity-40"
+                >
+                  {isLoading ? 'Inscription…' : "S'inscrire 🙏"}
                 </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+
+                {!gender && (
+                  <p className="text-white/40 text-xs text-center">
+                    Veuillez d'abord choisir Frère ou Sœur.
+                  </p>
+                )}
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </div>
+      </motion.div>
     </div>
   );
 };

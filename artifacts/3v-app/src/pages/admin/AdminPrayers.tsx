@@ -42,7 +42,7 @@ const AdminPrayers = () => {
       .from('prayer_requests')
       .select('*')
       .order('created_at', { ascending: false });
-    if (data) setPrayers(data);
+    if (data) setPrayers(data as PrayerRequest[]);
   };
 
   const handleDelete = async (id: string) => {

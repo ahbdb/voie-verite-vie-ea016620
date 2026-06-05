@@ -1,4 +1,5 @@
-import { memo, useState } from 'react';
+import { memo, useState, useCallback } from 'react';
+import { useSpeech } from '@/hooks/useSpeech';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
@@ -26,6 +27,7 @@ const Settings = memo(() => {
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const { speak: ttsSpeak, speaking: ttsSpeaking } = useSpeech();
 
   const [customPrimary, setCustomPrimary] = useState(hslStringToHex(settings.customPrimary));
   const [customAccent, setCustomAccent] = useState(hslStringToHex(settings.customAccent));
@@ -69,17 +71,9 @@ const Settings = memo(() => {
     } finally { setDeletingAccount(false); setDeleteDialogOpen(false); }
   };
 
-  const testVoice = () => {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance('Bonjour, ceci est un test de voix.');
-    const voices = window.speechSynthesis.getVoices();
-    if (settings.selectedVoice) {
-      const voice = voices.find(v => v.voiceURI === settings.selectedVoice);
-      if (voice) utterance.voice = voice;
-    }
-    window.speechSynthesis.speak(utterance);
-  };
+  const testVoice = useCallback(() => {
+    ttsSpeak('Que la grâce et la paix vous soient données. Voici la voix Gemini.');
+  }, [ttsSpeak]);
 
   const handleApplyCustomColors = () => {
     setCustomColors(hexToHsl(customPrimary), hexToHsl(customAccent), hexToHsl(customStained));
@@ -225,9 +219,9 @@ const Settings = memo(() => {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="sm" onClick={testVoice} className="gap-2">
+                <Button variant="outline" size="sm" onClick={testVoice} disabled={ttsSpeaking} className="gap-2">
                   <Volume2 className="w-4 h-4" />
-                  {t('settings.testVoice', 'Tester la voix')}
+                  {ttsSpeaking ? 'Lecture en cours…' : t('settings.testVoice', 'Tester la voix')}
                 </Button>
               </div>
             </Section>

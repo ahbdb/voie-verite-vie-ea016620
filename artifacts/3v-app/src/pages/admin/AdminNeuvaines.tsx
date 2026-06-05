@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { notifyNewNeuvaine } from '@/lib/auto-notification-triggers';
 import AdminPageWrapper from '@/components/admin/AdminPageWrapper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +28,7 @@ interface Neuvaine {
   image_url: string | null;
   is_published: boolean;
   total_days: number;
-  created_at: string;
+  created_at: string | null;
 }
 
 interface DayForm {
@@ -82,6 +83,8 @@ const AdminNeuvaines = () => {
         days: Array.isArray(n.days) ? n.days as any[] : [],
         common_prayers: n.common_prayers || {},
         conclusion: n.conclusion || {},
+        is_published: n.is_published ?? false,
+        total_days: n.total_days ?? 9,
       })));
     }
     setLoading(false);
@@ -142,6 +145,7 @@ const AdminNeuvaines = () => {
       toast.error('Erreur: ' + error.message);
     } else {
       toast.success(editingId ? 'Neuvaine mise à jour !' : 'Neuvaine créée !');
+      if (!editingId) notifyNewNeuvaine(title.trim());
       setEditOpen(false);
       resetForm();
       fetchNeuvaines();

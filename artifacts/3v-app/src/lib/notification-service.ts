@@ -18,30 +18,10 @@ export interface NotificationPayload {
   renotify?: boolean;
 }
 
-const NOTIFICATION_SW_PATH = '/notification-sw.js';
-
 export const registerNotificationServiceWorker = async () => {
-  if (!('serviceWorker' in navigator)) {
-    return null;
-  }
-
-  try {
-    // Remove any competing service worker registrations (e.g. firebase-messaging-sw.js)
-    // that share scope '/' — two SWs on the same scope cause a controllerchange
-    // event which makes mobile browsers reload the page in a loop.
-    const existing = await navigator.serviceWorker.getRegistrations();
-    for (const reg of existing) {
-      const swUrl = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || '';
-      if (swUrl.includes('firebase-messaging-sw')) {
-        await reg.unregister().catch(() => {});
-      }
-    }
-
-    return await navigator.serviceWorker.register(NOTIFICATION_SW_PATH, { scope: '/' });
-  } catch (error) {
-    console.log('Service Worker déjà enregistré ou indisponible:', error);
-    return navigator.serviceWorker.ready;
-  }
+  if (!('serviceWorker' in navigator)) return null;
+  // Use whichever service worker is already registered (Firebase Messaging SW)
+  return navigator.serviceWorker.ready.catch(() => null);
 };
 
 const buildNotificationOptions = (payload: NotificationPayload) => ({
@@ -61,17 +41,67 @@ const buildNotificationOptions = (payload: NotificationPayload) => ({
   },
 });
 
+/**
+ * Shared AudioContext — created lazily and reused across calls.
+ * Call primeNotificationAudio() from a user-gesture handler (e.g. join button)
+ * so the context is already running when a push arrives in a non-gesture context.
+ */
+let _sharedAudioCtx: AudioContext | null = null;
+
+// ── Push-triggered call ring manager ─────────────────────────────────────────
+// Started when the service worker sends PLAY_RING to a backgrounded page.
+let _pushRingTimer: ReturnType<typeof setInterval> | null = null;
+
+export function startPushCallRing(): void {
+  if (_pushRingTimer !== null) return; // already ringing
+  void playAttentionTone();
+  let count = 0;
+  _pushRingTimer = setInterval(() => {
+    count += 1;
+    if (count >= 15) { stopPushCallRing(); return; } // ~37 s max
+    void playAttentionTone();
+  }, 2500);
+}
+
+export function stopPushCallRing(): void {
+  if (_pushRingTimer !== null) {
+    clearInterval(_pushRingTimer);
+    _pushRingTimer = null;
+  }
+}
+
+export function primeNotificationAudio(): void {
+  try {
+    const AC = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AC) return;
+    if (!_sharedAudioCtx || _sharedAudioCtx.state === 'closed') {
+      _sharedAudioCtx = new AC();
+    }
+    if (_sharedAudioCtx.state === 'suspended') {
+      _sharedAudioCtx.resume().catch(() => {});
+    }
+  } catch { /* ignore */ }
+}
+
 export const playAttentionTone = async () => {
   try {
-    const AudioContextConstructor = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextConstructor) return;
+    const AC = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AC) return;
 
-    const context = new AudioContextConstructor();
+    // Reuse primed context if available; otherwise create a new one.
+    if (!_sharedAudioCtx || _sharedAudioCtx.state === 'closed') {
+      _sharedAudioCtx = new AC();
+    }
+    const context = _sharedAudioCtx;
+    if (context.state === 'suspended') {
+      try { await context.resume(); } catch { return; }
+    }
+
     const scheduleBeep = (delay: number, duration: number, frequency: number) => {
       const oscillator = context.createOscillator();
       const gainNode = context.createGain();
 
-      oscillator.type = 'sine';
+      oscillator.type = 'triangle';
       oscillator.frequency.value = frequency;
       gainNode.gain.value = 0.0001;
 
@@ -80,7 +110,7 @@ export const playAttentionTone = async () => {
 
       const startAt = context.currentTime + delay;
       oscillator.start(startAt);
-      gainNode.gain.exponentialRampToValueAtTime(0.08, startAt + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.6, startAt + 0.02);
       gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
       oscillator.stop(startAt + duration + 0.02);
     };
@@ -155,19 +185,7 @@ export const sendNotification = async (payload: NotificationPayload) => {
 };
 
 export const initNotificationsAutomatically = async () => {
-  try {
-    await registerNotificationServiceWorker();
-
-    if ('Notification' in window && Notification.permission === 'default') {
-      try {
-        await Notification.requestPermission();
-      } catch (err) {
-        console.log('Permission de notification non disponible:', err);
-      }
-    }
-  } catch (err) {
-    console.log('Initialisation des notifications échouée:', err);
-  }
+  // Permission and SW registration are handled by registerFCMToken() in NotificationInitializer
 };
 
 export const sendBibleNotification = async (title: string, chapter: string) => {
@@ -305,7 +323,23 @@ export const initNotificationClickHandler = () => {
   (window as any).__notificationClickHandlerInitialized = true;
 
   navigator.serviceWorker.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'NOTIFICATION_CLICK') {
+    if (!event.data) return;
+
+    // ── Service worker sent PLAY_RING (call push arrived while app is backgrounded)
+    if (event.data.type === 'PLAY_RING') {
+      startPushCallRing();
+      return;
+    }
+
+    // ── Service worker relayed SW_HANG_UP (user tapped "Raccrocher" on notification)
+    if (event.data.type === 'SW_HANG_UP') {
+      stopPushCallRing();
+      return;
+    }
+
+    if (event.data.type === 'NOTIFICATION_CLICK') {
+      // Stop any push-triggered ring before navigating
+      stopPushCallRing();
       const { url, action, data } = event.data.payload || {};
 
       // Use explicit URL first (handles meeting URLs properly)

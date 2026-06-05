@@ -47,3 +47,24 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.*.local
+.env.production
+.env.production.local
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Build output
+build/
+.next/
+out/
+
+# Dev/debug artifacts
+attached_assets/
+test-*.js
+*.sql
+!supabase/migrations/*.sql

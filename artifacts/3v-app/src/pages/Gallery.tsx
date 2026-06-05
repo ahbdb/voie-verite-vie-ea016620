@@ -29,7 +29,7 @@ const Gallery = () => {
       const grouped = data.reduce((acc, img) => {
         const key = img.group_name || img.title;
         if (!acc[key]) acc[key] = { name: key, title: img.title, description: img.description, coverImage: img.image_url, images: [] };
-        acc[key].images.push(img);
+        acc[key].images.push(img as GalleryImage);
         return acc;
       }, {} as Record<string, GalleryGroup>);
       setGalleryGroups(Object.values(grouped));

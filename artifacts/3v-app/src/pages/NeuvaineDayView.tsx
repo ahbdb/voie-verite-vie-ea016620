@@ -55,6 +55,7 @@ const NeuvaineDayView = () => {
           days: Array.isArray(data.days) ? (data.days as any[]) : [],
           common_prayers: data.common_prayers || {},
           conclusion: data.conclusion || {},
+          total_days: data.total_days ?? 9,
           translations: (data as any).translations || null
         });
       }

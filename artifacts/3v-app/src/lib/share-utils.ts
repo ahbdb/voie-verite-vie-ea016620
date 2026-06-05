@@ -93,7 +93,7 @@ export const generateShareImage = async (data: SharePreviewData): Promise<Blob |
     footer.innerHTML = `
       <img src="/logo-3v.png" alt="Logo 3V" style="height: 40px;">
       <span style="color: #581c87; font-weight: 600; font-size: 16px; letter-spacing: 0.5px;">VOIE, VÉRITÉ, VIE</span>
-      <span style="color: #666; font-size: 12px;">voie-verite-vie.netlify.app</span>
+      <span style="color: #666; font-size: 12px;">voieveritevie.org</span>
     `;
     
     clonedContent.appendChild(footer);

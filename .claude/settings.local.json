@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep -l \"office\\\\|messe\\\\|laude\\\\|vepre\")",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
+      "Bash(npm install *)",
+      "Bash(pnpm install *)",
+      "Bash(echo \"EXIT: $?\")",
+      "PowerShell(cd \"C:\\\\Users\\\\ahouf\\\\Desktop\\\\voie-verite-vie-ea016620-main\"; $env:COREPACK_INTEGRITY_KEYS = \"0\"; pnpm install --no-frozen-lockfile 2>&1 | Select-Object -Last 20)"
+    ]
+  }
+}

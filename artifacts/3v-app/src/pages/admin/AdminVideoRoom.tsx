@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -6,8 +7,13 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   useAdminVideoRoom,
   type VideoMessageReactionRecord,
+  type PeerStat,
+  type RemoteVideoStream,
 } from '@/hooks/useAdminVideoRoom';
 import { useCallSession } from '@/contexts/CallSessionContext';
+import { useCallKeepAlive } from '@/hooks/useCallKeepAlive';
+import { useCallWakeLock } from '@/hooks/useCallWakeLock';
+import { broadcastNotificationService } from '@/hooks/useBroadcastNotifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -26,6 +32,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import {
+  Activity,
   ArrowLeft,
   Camera,
   Edit2,
@@ -48,39 +55,194 @@ import {
   Wifi,
   WifiOff,
   AlertCircle,
+  Bell,
   CheckCircle2,
+  Clock,
   LogOut,
+  UserCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const QUICK_REACTIONS = ['👍', '❤️', '🙏', '😂', '🔥', '👏'];
+const QUICK_REACTIONS = [
+  '👍', '❤️', '🙏', '😂', '🔥', '👏',
+  '😍', '🥰', '😭', '🤩', '🙌', '💯',
+  '✝️', '⭐', '🕊️', '🌟', '🫶', '💪',
+  '😇', '🤝', '💎', '🌹', '🦋', '🕯️',
+];
+
+// ── Permission denied panel ──────────────────────────────────────────────────
+// Shown when the browser has blocked camera/microphone access.
+// Cannot be fixed programmatically — only the user can unlock it in browser settings.
+
+function detectPlatform() {
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+  const isAndroid = /Android/.test(ua);
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches
+    || (window.navigator as any).standalone === true;
+  if (isIOS && isPWA) return 'ios-pwa';
+  if (isIOS) return 'ios';
+  if (isAndroid) return 'android';
+  return 'desktop';
+}
+
+const PLATFORM_STEPS: Record<string, { title: string; icon: string; steps: string[] }> = {
+  'ios-pwa': {
+    title: 'iPhone / iPad (Application installée)',
+    icon: '📱',
+    steps: [
+      'Ferme cette application',
+      'Ouvre les Réglages iPhone',
+      'Fais défiler vers le bas et tape sur Safari',
+      'Appuie sur « Paramètres des sites web »',
+      'Appuie sur « Appareil photo » puis « Microphone »',
+      'Trouve voieveritevie.org et mets sur Autoriser',
+      "Reviens dans l'application et retente",
+    ],
+  },
+  ios: {
+    title: 'iPhone / iPad (Safari)',
+    icon: '🧭',
+    steps: [
+      'Appuie sur le bouton AA à gauche de la barre d\'adresse',
+      'Sélectionne « Réglages du site web »',
+      'Appuie sur Appareil photo et Microphone',
+      'Sélectionne « Autoriser »',
+      'Recharge la page',
+    ],
+  },
+  android: {
+    title: 'Android (Chrome)',
+    icon: '🤖',
+    steps: [
+      'Appuie sur l\'icône cadenas 🔒 dans la barre d\'adresse',
+      'Sélectionne « Autorisations »',
+      'Active le Microphone et la Caméra',
+      'Recharge la page',
+    ],
+  },
+  desktop: {
+    title: 'Ordinateur (Chrome / Edge / Firefox)',
+    icon: '💻',
+    steps: [
+      'Clique sur l\'icône cadenas 🔒 à gauche de la barre d\'adresse',
+      'Clique sur « Autorisations du site » ou « Les autorisations de ce site »',
+      'Mets Caméra et Microphone sur « Autoriser »',
+      'Recharge la page',
+    ],
+  },
+};
+
+const PermissionDeniedPanel = ({ onRetry, isRetrying }: { onRetry: () => void; isRetrying: boolean }) => {
+  const platform = detectPlatform();
+  const info = PLATFORM_STEPS[platform];
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 py-10 text-center">
+      <div className="mb-4 text-6xl">🔒</div>
+      <h2 className="text-xl font-bold text-white mb-2">Accès micro / caméra bloqué</h2>
+      <p className="text-zinc-400 text-sm max-w-sm mb-8">
+        Votre navigateur a mémorisé un refus. Suivez ces étapes pour autoriser l'accès :
+      </p>
+
+      <div className="w-full max-w-sm bg-zinc-800/80 border border-zinc-700 rounded-2xl p-5 text-left mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-2xl">{info.icon}</span>
+          <span className="text-sm font-semibold text-zinc-200">{info.title}</span>
+        </div>
+        <ol className="space-y-2.5">
+          {info.steps.map((step, i) => (
+            <li key={i} className="flex gap-3 text-sm text-zinc-300">
+              <span className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary text-[11px] font-bold mt-0.5">
+                {i + 1}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <Button
+        onClick={onRetry}
+        disabled={isRetrying}
+        className="rounded-xl px-8 py-3 font-bold bg-primary hover:bg-primary/90"
+      >
+        {isRetrying
+          ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Connexion…</>
+          : <><RotateCcw className="h-4 w-4 mr-2" /> J'ai autorisé — Réessayer</>}
+      </Button>
+    </div>
+  );
+};
 
 // ── Video panel ──────────────────────────────────────────────────────────────
+
+function getSignalQuality(stat?: PeerStat): 'medium' | 'poor' | undefined {
+  if (!stat) return undefined;
+  if (stat.iceState === 'failed' || stat.iceState === 'disconnected') return 'poor';
+  if ((stat.rttMs !== null && stat.rttMs > 400) || stat.audioPacketsLost > 20) return 'poor';
+  if ((stat.rttMs !== null && stat.rttMs > 200) || stat.audioPacketsLost > 5) return 'medium';
+  return undefined;
+}
 
 const VideoPanel = ({
   stream,
   title,
+  avatarUrl,
   muted = false,
   isMutedByAdmin = false,
   isSpeaking = false,
   isLocal = false,
+  reactions = [],
+  onReact,
+  signalQuality,
 }: {
   stream: MediaStream | null;
   title: string;
+  avatarUrl?: string | null;
   muted?: boolean;
   isMutedByAdmin?: boolean;
   isSpeaking?: boolean;
   isLocal?: boolean;
+  reactions?: Array<{ id: number; emoji: string }>;
+  onReact?: (emoji: string) => void;
+  signalQuality?: 'medium' | 'poor';
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const hasVideo = Boolean(stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled));
   const hasAudio = Boolean(stream?.getAudioTracks().some((t) => t.readyState === 'live'));
+  const firstName = title.split(' ')[0];
 
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
+
+  // Attach stream to the dedicated audio element — but only when the stream object
+  // actually changes, to avoid a brief audio cut caused by srcObject reassignment.
+  // If the stream reference is the same (e.g. after an onunmute trigger), just
+  // ensure playback is running without re-attaching.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !stream || isLocal) return;
+    if (audio.srcObject !== stream) {
+      audio.srcObject = stream;
+      audio.play().catch(() => {});
+    } else if (audio.paused) {
+      audio.play().catch(() => {});
+    }
+  }, [stream, isLocal]);
+
+  // Control muted state via DOM directly — React's muted prop doesn't update
+  // reliably on already-playing <audio> elements.
+  useEffect(() => {
+    if (audioRef.current && !isLocal) {
+      audioRef.current.muted = muted || isMutedByAdmin;
+    }
+  }, [muted, isMutedByAdmin, isLocal]);
 
   return (
     <div
@@ -91,29 +253,84 @@ const VideoPanel = ({
           : 'border-border'
       )}
     >
+      {/* Dedicated audio element for remote participants — always mounted so audio
+          plays regardless of whether video is available. The <video> element below
+          is muted to avoid double playback; all sound routes through this element.
+          muted/play state is controlled via DOM refs in the useEffect hooks above. */}
+      {!isLocal && (
+        <audio ref={audioRef} playsInline />
+      )}
+
       <div className="aspect-video bg-zinc-900">
         {stream && hasVideo ? (
           <video
             ref={videoRef}
             autoPlay
             playsInline
-            muted={muted || isMutedByAdmin}
+            muted
             className="h-full w-full object-cover"
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3">
-            <div
-              className={cn(
-                'flex h-14 w-14 items-center justify-center rounded-full text-xl font-bold text-white transition-all',
-                isSpeaking ? 'bg-green-500 scale-110' : 'bg-zinc-700'
-              )}
-            >
-              {title.charAt(0).toUpperCase()}
-            </div>
-            <p className="text-xs font-medium text-zinc-400">{title}</p>
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={title}
+                className={cn(
+                  'h-16 w-16 rounded-full object-cover border-2 transition-all',
+                  isSpeaking ? 'border-green-400 scale-110 shadow-[0_0_0_3px_rgba(74,222,128,0.4)]' : 'border-zinc-600'
+                )}
+              />
+            ) : (
+              <div
+                className={cn(
+                  'flex h-14 w-14 items-center justify-center rounded-full text-xl font-bold text-white transition-all',
+                  isSpeaking ? 'bg-green-500 scale-110' : 'bg-zinc-700'
+                )}
+              >
+                {title.charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Floating emoji reactions — animate upward like WhatsApp */}
+      {reactions.map((r) => (
+        <div
+          key={r.id}
+          className="pointer-events-none absolute bottom-10 left-1/2 -translate-x-1/2 text-3xl select-none"
+          style={{ animation: 'floatUp 3.5s ease-out forwards' }}
+        >
+          {r.emoji}
+        </div>
+      ))}
+
+      {/* Emoji reaction trigger — top-right corner */}
+      {onReact && (
+        <div className="absolute right-2 top-2 z-10">
+          <button
+            onClick={() => setShowEmojiPicker((v) => !v)}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-base backdrop-blur-sm transition-opacity hover:bg-black/70"
+            title="Réagir"
+          >
+            😊
+          </button>
+          {showEmojiPicker && (
+            <div className="absolute right-0 top-9 grid grid-cols-6 gap-1 rounded-xl bg-black/80 p-1.5 backdrop-blur-sm shadow-lg w-max max-h-48 overflow-y-auto">
+              {QUICK_REACTIONS.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => { onReact(emoji); setShowEmojiPicker(false); }}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-xl transition-transform hover:scale-125 active:scale-110"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bottom overlay */}
       <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent px-3 py-2">
@@ -134,10 +351,24 @@ const VideoPanel = ({
             </span>
           )}
           <span className="text-xs font-medium text-white drop-shadow">
-            {title}{isLocal ? ' (Vous)' : ''}
+            {firstName}{isLocal ? ' (Vous)' : ''}
           </span>
         </div>
         <div className="flex items-center gap-1">
+          {signalQuality === 'poor' && (
+            <span title="Connexion faible" className="flex items-end gap-[2px]">
+              <span className="inline-block w-1 rounded-sm bg-red-400" style={{ height: '6px' }} />
+              <span className="inline-block w-1 rounded-sm bg-red-400/30" style={{ height: '9px' }} />
+              <span className="inline-block w-1 rounded-sm bg-red-400/30" style={{ height: '12px' }} />
+            </span>
+          )}
+          {signalQuality === 'medium' && (
+            <span title="Connexion moyenne" className="flex items-end gap-[2px]">
+              <span className="inline-block w-1 rounded-sm bg-yellow-400" style={{ height: '6px' }} />
+              <span className="inline-block w-1 rounded-sm bg-yellow-400" style={{ height: '9px' }} />
+              <span className="inline-block w-1 rounded-sm bg-yellow-400/30" style={{ height: '12px' }} />
+            </span>
+          )}
           {isMutedByAdmin && (
             <span className="flex items-center gap-0.5 rounded-full bg-red-500/80 px-1.5 py-0.5 text-[9px] text-white">
               <VolumeX className="h-2.5 w-2.5" /> sourdine
@@ -154,6 +385,150 @@ const VideoPanel = ({
 
 const formatTime = (v: string) =>
   new Date(v).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+// ── Diagnostic panel ─────────────────────────────────────────────────────────
+
+type ParticipantLike = { user_id: string; display_name: string | null };
+
+const CandidateBadge = ({ type, iceState }: { type: string; iceState?: string }) => {
+  if (type === 'relay')
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-500/20 text-green-400">Relais ✓</span>;
+  if (type === 'srflx')
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400">Direct</span>;
+  if (type === 'host')
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-600/40 text-zinc-300">Local</span>;
+  if (iceState === 'failed')
+    return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">Échec</span>;
+  return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-600/20 text-zinc-500">…</span>;
+};
+
+const DiagnosticPanel = ({
+  peerStats,
+  participants,
+}: {
+  peerStats: Map<string, PeerStat>;
+  participants: ParticipantLike[];
+}) => {
+  const getName = (uid: string) =>
+    participants.find((p) => p.user_id === uid)?.display_name || uid.slice(0, 8) + '…';
+
+  if (peerStats.size === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-14 gap-3 text-zinc-600">
+        <Activity className="h-6 w-6" />
+        <p className="text-xs text-center">Stats disponibles<br />après connexion à un pair</p>
+      </div>
+    );
+  }
+
+  return (
+    <ScrollArea className="flex-1 p-3">
+      <div className="space-y-3">
+        {Array.from(peerStats.values()).map((stat) => (
+          <div key={stat.userId} className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 space-y-2.5">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-white truncate">{getName(stat.userId)}</span>
+              <span className={cn(
+                'text-[10px] font-medium uppercase tracking-wide',
+                stat.iceState === 'connected' ? 'text-green-400' :
+                stat.iceState === 'failed' ? 'text-red-400' :
+                'text-yellow-400'
+              )}>
+                {stat.iceState === 'connected' ? 'Connecté' :
+                 stat.iceState === 'failed' ? 'Échec connexion' :
+                 stat.iceState === 'checking' ? 'Connexion…' :
+                 stat.iceState === 'disconnected' ? 'Reconnexion…' :
+                 stat.iceState}
+              </span>
+            </div>
+
+            {stat.iceState === 'failed' && (
+              <div className="rounded bg-orange-500/10 border border-orange-500/20 px-2 py-1.5 text-[10px] text-orange-300">
+                ⚠️ Connexion impossible avec ce participant — réseau trop restrictif.
+              </div>
+            )}
+
+            {/* Candidate types */}
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div>
+                <p className="text-zinc-500 mb-1">Votre réseau</p>
+                <CandidateBadge type={stat.localCandidateType} iceState={stat.iceState} />
+              </div>
+              <div>
+                <p className="text-zinc-500 mb-1">Réseau distant</p>
+                <CandidateBadge type={stat.remoteCandidateType} iceState={stat.iceState} />
+              </div>
+            </div>
+
+            {/* Metrics */}
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              {stat.rttMs !== null && (
+                <div>
+                  <p className="text-zinc-500 mb-0.5">Latence</p>
+                  <p className={cn(
+                    'font-mono font-semibold',
+                    stat.rttMs < 100 ? 'text-green-400' :
+                    stat.rttMs < 300 ? 'text-yellow-400' : 'text-red-400'
+                  )}>
+                    {stat.rttMs} ms
+                  </p>
+                </div>
+              )}
+              <div>
+                <p className="text-zinc-500 mb-0.5">Qualité audio</p>
+                <p className={cn(
+                  'font-mono',
+                  stat.audioPacketsLost === 0 ? 'text-green-400' :
+                  stat.audioPacketsLost < 20 ? 'text-yellow-400' : 'text-red-400'
+                )}>
+                  {stat.audioPacketsLost === 0 ? '✓ Bonne' :
+                   stat.audioPacketsLost < 20 ? '~ Moyenne' : '✗ Mauvaise'}
+                </p>
+              </div>
+              <div>
+                <p className="text-zinc-500 mb-0.5">Reçu</p>
+                <p className="font-mono text-zinc-300">
+                  {stat.bytesReceived > 1_048_576
+                    ? `${(stat.bytesReceived / 1_048_576).toFixed(1)} MB`
+                    : `${(stat.bytesReceived / 1024).toFixed(0)} KB`}
+                </p>
+              </div>
+              <div>
+                <p className="text-zinc-500 mb-0.5">Envoyé</p>
+                <p className="font-mono text-zinc-300">
+                  {stat.bytesSent > 1_048_576
+                    ? `${(stat.bytesSent / 1_048_576).toFixed(1)} MB`
+                    : `${(stat.bytesSent / 1024).toFixed(0)} KB`}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Legend */}
+        <div className="rounded-lg border border-zinc-800/50 bg-zinc-900/30 p-2.5 space-y-1">
+          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">Légende</p>
+          <div className="space-y-1 text-[10px] text-zinc-500">
+            <div className="flex items-center gap-2">
+              <span className="text-green-400 font-bold">Relais ✓</span>
+              <span>= via serveur intermédiaire (idéal à distance)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-blue-400 font-bold">Direct</span>
+              <span>= connexion directe entre participants</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-zinc-300 font-bold">Local</span>
+              <span>= même réseau Wi-Fi</span>
+            </div>
+          </div>
+          <p className="text-[10px] text-zinc-600 pt-1">Mis à jour en continu</p>
+        </div>
+      </div>
+    </ScrollArea>
+  );
+};
 
 // ── Connection status badge ──────────────────────────────────────────────────
 
@@ -173,20 +548,6 @@ const ConnectionBadge = ({
       </span>
     );
   }
-  if (isConnected && quality === 'reconnecting') {
-    return (
-      <span className="flex items-center gap-1.5 rounded-full bg-orange-500/15 px-2.5 py-1 text-xs font-medium text-orange-400">
-        <Loader2 className="h-3 w-3 animate-spin" /> Reconnexion…
-      </span>
-    );
-  }
-  if (isConnected && quality === 'poor') {
-    return (
-      <span className="flex items-center gap-1.5 rounded-full bg-yellow-500/15 px-2.5 py-1 text-xs font-medium text-yellow-400">
-        <Wifi className="h-3 w-3" /> Connexion faible
-      </span>
-    );
-  }
   if (isConnected) {
     return (
       <span className="flex items-center gap-1.5 rounded-full bg-green-500/15 px-2.5 py-1 text-xs font-medium text-green-500">
@@ -203,34 +564,45 @@ const ConnectionBadge = ({
 
 // ── Main component ───────────────────────────────────────────────────────────
 
-const AdminVideoRoom = () => {
+const AdminVideoRoom = ({ roomId: roomIdProp }: { roomId?: string }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { roomId } = useParams();
+  const { roomId: roomIdParam } = useParams();
+  // When rendered by AlwaysOnCallPage (app-level), roomId comes as a prop.
+  // When rendered directly via a route (legacy), it comes from useParams().
+  const roomId = roomIdProp ?? roomIdParam;
   const { user } = useAuth();
   const { adminRole } = useAdmin();
   const hasManagement = adminRole === 'admin' || adminRole === 'admin_principal';
-  const displayName = user?.user_metadata?.full_name || user?.email || 'Participant';
+  const displayName = user?.name || user?.email || 'Participant';
 
   const callSession = useCallSession();
+  const { primeAudioPlayback } = callSession;
 
   const [draftMessage, setDraftMessage] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [activeTab, setActiveTab] = useState('chat');
+  const [unreadChat, setUnreadChat] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const autoJoinedRef = useRef(false);
   const hardHangUpRef = useRef(false);
+  // Tracks latest remote streams for unmount cleanup (stale closure prevention)
+  const latestRemoteStreamsRef = useRef<RemoteVideoStream[]>([]);
 
   const {
     room, roomType, participants, remoteStreams, messages, reactions,
     localStream, loading, mediaError, micEnabled, cameraEnabled,
     isScreenSharing, isJoining, isConnected, canShareScreen,
-    mutedParticipants, activeSpeakers, connectionQuality,
+    mutedParticipants, activeSpeakers, connectionQuality, peerStats,
+    participantMicState, ejected, emojiReactions,
+    lobbyParticipants, isInLobby, admitParticipant,
     requestJoin, toggleMicrophone, toggleCamera, flipCamera,
     startScreenShare, stopScreenShare,
     sendMessage, editMessage, deleteMessage, toggleReaction,
-    muteParticipant, leaveRoom, endRoom, softLeave,
+    muteParticipant, ejectParticipant, sendEmojiReaction,
+    leaveRoom, endRoom, heartbeat, softLeave, triggerHardLeave,
   } = useAdminVideoRoom({
     roomId,
     userId: user?.id,
@@ -253,19 +625,32 @@ const AdminVideoRoom = () => {
 
     callSession.setHangUpFn(async () => {
       hardHangUpRef.current = true;
+      triggerHardLeave();
       await leaveRoom();
       callSession.endCallSession();
-      navigate(hasManagement ? '/admin/video' : '/');
+      navigate('/');
+    });
+
+    callSession.setEndRoomFn(async () => {
+      hardHangUpRef.current = true;
+      triggerHardLeave();
+      await endRoom();
+      callSession.endCallSession();
+      navigate('/');
     });
 
     callSession.setMicToggleFn(toggleMicrophone);
 
     return () => {
       callSession.setHangUpFn(null);
-      callSession.setMicToggleFn(null);
+      callSession.setEndRoomFn(null);
       if (hardHangUpRef.current) {
+        // Hard hang-up: clear mic fn and end session
+        callSession.setMicToggleFn(null);
         callSession.endCallSession();
       }
+      // Soft leave: intentionally keep setMicToggleFn alive so FloatingCallBanner
+      // can still toggle the microphone while the user browses other pages.
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room, roomId, hasManagement]);
@@ -280,20 +665,109 @@ const AdminVideoRoom = () => {
   useEffect(() => { callSession.notifyMic(micEnabled); }, [micEnabled, callSession]);
   useEffect(() => { callSession.notifyParticipants(participants.length); }, [participants.length, callSession]);
 
-  // ── Auto-join on mount (WhatsApp-style: no intermediate "join" prompt) ─────
+  // ── Keep-alive when user navigates away without hanging up ────────────────
+  // Shows a persistent OS notification ("appel en cours") when the page is hidden
+  // and sends periodic DB heartbeats to keep the participant row active.
+  useCallKeepAlive({
+    isConnected,
+    roomId,
+    roomTitle: room?.title,
+    onHeartbeat: heartbeat,
+  });
+
+  // ── Screen Wake Lock — prevents phone screen from sleeping during call ────
+  // Android PWA: keeps screen on so Chrome stays in foreground audio mode.
+  useCallWakeLock(isConnected);
+
+  // Keep latest remote streams accessible at unmount time
+  useEffect(() => { latestRemoteStreamsRef.current = remoteStreams; }, [remoteStreams]);
+
+  // ── Automatic background audio on any navigation away ───────────────────────
+  // Fires on EVERY unmount (back button, link tap, route change). If it is not
+  // a hard hang-up, hand remote streams to the context so the user keeps hearing
+  // others while browsing other pages (liturgical texts, chapelet, etc.).
+  useEffect(() => {
+    return () => {
+      if (!hardHangUpRef.current) {
+        const streams = latestRemoteStreamsRef.current.map((rs) => rs.stream).filter(Boolean);
+        if (streams.length > 0) callSession.setBackgroundStreams(streams);
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Clear background audio when this page is active ────────────────────────
+  // Delayed by 300 ms so BackgroundAudio elements in CallSessionContext stay alive
+  // until the VideoPanel <video> elements have had time to attach the same streams,
+  // preventing a brief audio dropout on soft-leave return.
+  useEffect(() => {
+    const t = window.setTimeout(() => callSession.clearBackgroundStreams(), 300);
+    return () => window.clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
+
+  // ── Prime audio on mount (unlocks autoplay without touching camera/mic) ────
+  // requestJoin() is NOT called here because on installed PWA (iOS/Android),
+  // getUserMedia MUST originate from a direct user tap — a useEffect does not
+  // satisfy the browser's user-gesture requirement and the call gets denied.
 
   useEffect(() => {
-    if (autoJoinedRef.current) return;
     if (!roomId || !user?.id) return;
-    // Wait until the room record is loaded, then auto-join
     if (!room && !loading) return;
-    autoJoinedRef.current = true;
-    void requestJoin();
-  }, [room, loading, roomId, user?.id, requestJoin]);
+    primeAudioPlayback();
+  }, [room, loading, roomId, user?.id, primeAudioPlayback]);
+
+  // ── Admin ejected this user from the call ────────────────────────────────
+  useEffect(() => {
+    if (!ejected) return;
+    hardHangUpRef.current = true;
+    callSession.endCallSession();
+    toast.error('Vous avez été éjecté de cette session par un administrateur.');
+    navigate('/');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ejected]);
+
+  // ── Auto-eject all participants when admin ends the room ──────────────────
+  // The hook's Supabase subscription updates `room.status` for everyone in real
+  // time. When it becomes 'ended', non-admin participants navigate away too.
+  useEffect(() => {
+    if (room?.status !== 'ended') return;
+    // The admin who clicked "Terminer" already navigated away via handleEndRoom,
+    // so hardHangUpRef is true for them — skip to avoid double-navigation.
+    if (hardHangUpRef.current) return;
+    // For all other participants: do a hard leave and navigate home.
+    triggerHardLeave();
+    callSession.endCallSession();
+    toast.info('Cette réunion a été terminée par l\'administrateur.');
+    navigate('/');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.status]);
+
+  // ── Soft-leave when user closes/refreshes the browser tab ────────────────
+  // The component unmount already defaults to soft-leave; this catches the case
+  // where the page is unloaded before React's cleanup runs (e.g., browser close).
+  useEffect(() => {
+    const handleUnload = () => {
+      // Already a no-op since default unmount = soft leave.
+      // We explicitly ensure hardLeaveRef stays false on accidental close.
+      hardHangUpRef.current = false;
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+    // Increment unread badge when chat tab is not active
+    if (activeTab !== 'chat') setUnreadChat((n) => n + 1);
+  }, [messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Map userId → avatar_url for quick lookup in VideoPanel
+  const participantAvatarMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    participants.forEach((p) => { if (p.avatar_url) map.set(p.user_id, p.avatar_url); });
+    return map;
+  }, [participants]);
 
   const reactionsByMessage = useMemo(() => {
     return reactions.reduce<Record<string, Record<string, VideoMessageReactionRecord[]>>>((acc, r) => {
@@ -306,34 +780,79 @@ const AdminVideoRoom = () => {
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/meeting/${roomId}`);
+      const url = `${window.location.origin}/meeting/${roomId}`;
+      if (!room) {
+        await navigator.clipboard.writeText(url);
+        toast.success('Lien copié !');
+        return;
+      }
+      const ref = room.started_at ? new Date(room.started_at) : new Date();
+      const dateStr = ref.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const timeStr = ref.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const typeLabel = room.room_type === 'audio' ? '🎙 Appel audio' : '📹 Réunion vidéo';
+      const lines = [
+        '✝ VOIE · VÉRITÉ · VIE',
+        '',
+        `📌 ${room.title}`,
+        `📅 ${dateStr} à ${timeStr}`,
+        typeLabel,
+      ];
+      if (room.description?.trim()) lines.push('', room.description.trim());
+      lines.push('', `🔗 Rejoindre : ${url}`);
+      await navigator.clipboard.writeText(lines.join('\n'));
       toast.success('Lien copié !');
     } catch { toast.error('Copie impossible'); }
   };
 
-  /** Soft leave — navigates away but keeps audio flowing to remote peers. */
+  /** Admin re-rings all participants without restarting the session. */
+  const handleReRing = async () => {
+    if (!room || !roomId) return;
+    try {
+      const typeLabel = room.room_type === 'audio' ? 'audio' : 'vidéo';
+      await broadcastNotificationService.sendToAll(
+        `📞 ${room.title}`,
+        `Appel ${typeLabel} en cours — rejoignez maintenant !`,
+        'call',
+        undefined,
+        `/meeting/${roomId}`,
+      );
+      toast.success('Sonnerie envoyée à tous');
+    } catch {
+      toast.error('Envoi de la sonnerie échoué');
+    }
+  };
+
+  /** Soft leave — navigates away but keeps audio flowing in both directions.
+   *  Background audio transfer happens automatically via the unmount effect. */
   const handleSoftLeave = () => {
     hardHangUpRef.current = false;
-    softLeave(); // marks hook: skip full cleanup on unmount
-    navigate(hasManagement ? '/admin/video' : '/');
+    softLeave();
+    navigate('/');
   };
 
   /** Hard hang-up — disconnects fully and clears context. */
   const handleHardHangUp = async () => {
     hardHangUpRef.current = true;
+    triggerHardLeave();
     await leaveRoom();
     callSession.endCallSession();
-    navigate(hasManagement ? '/admin/video' : '/');
+    navigate('/');
   };
 
   /** Admin end-room — confirmation required. */
   const handleEndRoom = async () => {
-    hardHangUpRef.current = true;
-    await endRoom();
-    callSession.endCallSession();
-    toast.success('Réunion terminée pour tous');
-    navigate('/admin/video');
-    setShowEndConfirm(false);
+    try {
+      hardHangUpRef.current = true;
+      triggerHardLeave();
+      await endRoom();
+      callSession.endCallSession();
+      toast.success('Réunion terminée pour tous');
+      navigate('/');
+      setShowEndConfirm(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Impossible de terminer la réunion';
+      toast.error(msg);
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -362,18 +881,40 @@ const AdminVideoRoom = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="min-h-screen flex flex-col bg-zinc-950">
         <Navigation />
-        <main className="container mx-auto flex flex-1 items-center justify-center px-4 py-24">
-          <Card className="max-w-md">
-            <CardHeader>
-              <CardTitle>Connexion requise</CardTitle>
-              <CardDescription>Connecte-toi pour rejoindre la réunion.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild><Link to="/auth">Se connecter</Link></Button>
-            </CardContent>
-          </Card>
+        <main className="flex-1 flex items-center justify-center px-4 py-24">
+          <div className="w-full max-w-md text-center space-y-8">
+            {/* Icon */}
+            <div className="flex justify-center">
+              <div className="h-20 w-20 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+                <Radio className="h-9 w-9 text-primary animate-pulse" />
+              </div>
+            </div>
+
+            {/* Heading */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-widest text-primary/70">Voie · Vérité · Vie</p>
+              <h1 className="text-2xl font-bold text-white font-cinzel">Vous êtes invité à rejoindre une réunion</h1>
+              <p className="text-zinc-400 text-sm leading-relaxed">
+                Cette réunion est réservée aux membres de l'association 3V. Connectez-vous ou créez un compte gratuit pour y participer.
+              </p>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex flex-col gap-3">
+              <Button asChild size="lg" className="w-full">
+                <Link to={`/auth?redirect=/meeting/${roomId}`}>Se connecter</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+                <Link to={`/auth?mode=signup&redirect=/meeting/${roomId}`}>Créer un compte gratuitement</Link>
+              </Button>
+            </div>
+
+            <p className="text-xs text-zinc-600">
+              En rejoignant, vous acceptez de participer dans le respect de la communauté 3V.
+            </p>
+          </div>
         </main>
       </div>
     );
@@ -402,6 +943,20 @@ const AdminVideoRoom = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950">
+      {room && (
+        <Helmet>
+          <title>{room.title} — Voie Vérité Vie</title>
+          <meta property="og:title" content={room.title} />
+          <meta property="og:description" content={room.description || `Rejoignez la ${room.room_type === 'audio' ? 'réunion audio' : 'réunion vidéo'} sur Voie Vérité Vie`} />
+          <meta property="og:type" content="website" />
+          <meta property="og:url" content={`${window.location.origin}/meeting/${roomId}`} />
+          <meta property="og:site_name" content="Voie Vérité Vie" />
+          <meta name="twitter:card" content="summary" />
+          <meta name="twitter:title" content={room.title} />
+          <meta name="twitter:description" content={room.description || `Rejoignez la réunion sur Voie Vérité Vie`} />
+        </Helmet>
+      )}
+
       <Navigation />
 
       {/* ── End-room confirmation dialog ─────────────────────────────────── */}
@@ -470,8 +1025,16 @@ const AdminVideoRoom = () => {
           </div>
         </div>
 
-        {/* Media error banner */}
-        {mediaError && (
+        {/* Permission denied — full instructions */}
+        {mediaError === 'PERMISSION_DENIED' && (
+          <PermissionDeniedPanel
+            onRetry={() => { primeAudioPlayback(); autoJoinedRef.current = false; void requestJoin(); }}
+            isRetrying={isJoining}
+          />
+        )}
+
+        {/* Other media errors */}
+        {mediaError && mediaError !== 'PERMISSION_DENIED' && (
           <div className="flex items-center gap-2 bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5 text-sm text-amber-400">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span className="flex-1">{mediaError}</span>
@@ -480,7 +1043,7 @@ const AdminVideoRoom = () => {
                 size="sm"
                 variant="outline"
                 className="h-7 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
-                onClick={() => { autoJoinedRef.current = false; void requestJoin(); }}
+                onClick={() => { primeAudioPlayback(); autoJoinedRef.current = false; void requestJoin(); }}
                 disabled={isJoining}
               >
                 <RotateCcw className="h-3 w-3 mr-1" /> Réessayer
@@ -489,8 +1052,46 @@ const AdminVideoRoom = () => {
           </div>
         )}
 
-        {/* Auto-join loading state */}
-        {(isJoining || (loading && !isConnected)) && !mediaError && (
+        {/* Loading room data */}
+        {loading && !isConnected && !isJoining && !mediaError && (
+          <div className="flex flex-col items-center justify-center gap-3 py-12 px-4 text-center">
+            <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+              <Loader2 className="h-7 w-7 text-primary animate-spin" />
+            </div>
+            <p className="text-zinc-400 text-sm">Chargement de la salle…</p>
+          </div>
+        )}
+
+        {/* Join button — getUserMedia must come from a direct user tap on PWA */}
+        {!loading && !isConnected && !isJoining && !mediaError && room && (
+          <div className="flex flex-col items-center justify-center gap-4 py-16 px-4 text-center">
+            <div className="h-20 w-20 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+              {roomType === 'audio'
+                ? <Mic className="h-9 w-9 text-primary" />
+                : <Video className="h-9 w-9 text-primary" />}
+            </div>
+            <div className="space-y-1">
+              <p className="text-white font-semibold text-lg">{room.title}</p>
+              <p className="text-zinc-400 text-sm">
+                {roomType === 'audio'
+                  ? 'Appuyez pour activer votre microphone et rejoindre.'
+                  : 'Appuyez pour activer votre micro et caméra et rejoindre.'}
+              </p>
+            </div>
+            <Button
+              size="lg"
+              className="gap-2 px-8 text-base"
+              onClick={() => { primeAudioPlayback(); void requestJoin(); }}
+            >
+              {roomType === 'audio'
+                ? <><Mic className="h-5 w-5" /> Rejoindre l'appel</>
+                : <><Video className="h-5 w-5" /> Rejoindre la réunion</>}
+            </Button>
+          </div>
+        )}
+
+        {/* Joining in progress */}
+        {isJoining && !mediaError && (
           <div className="flex flex-col items-center justify-center gap-3 py-12 px-4 text-center">
             <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
               <Loader2 className="h-7 w-7 text-primary animate-spin" />
@@ -505,11 +1106,22 @@ const AdminVideoRoom = () => {
         {/* Video + sidebar grid — shown once connected or streams available */}
         {(isConnected || remoteStreams.length > 0 || localStream) && (
           <div className="flex-1 grid gap-0 lg:grid-cols-[1fr_360px] overflow-hidden">
-            {/* Video area */}
-            <section className="p-4 overflow-y-auto">
+            {/* Video area — with optional flyer as background */}
+            <section
+              className="p-4 overflow-y-auto relative"
+              style={room?.flyer_url ? {
+                backgroundImage: `url(${room.flyer_url})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              } : undefined}
+            >
+              {/* Semi-transparent overlay so videos remain readable over flyer */}
+              {room?.flyer_url && (
+                <div className="absolute inset-0 bg-zinc-950/70 pointer-events-none" />
+              )}
               <div
                 className={cn(
-                  'grid gap-3',
+                  'relative z-10 grid gap-3',
                   remoteStreams.length === 0 ? 'grid-cols-1 max-w-lg mx-auto' :
                   remoteStreams.length === 1 ? 'grid-cols-1 sm:grid-cols-2' :
                   remoteStreams.length <= 3 ? 'grid-cols-2' :
@@ -520,39 +1132,73 @@ const AdminVideoRoom = () => {
                   <VideoPanel
                     stream={localStream}
                     title={displayName}
+                    avatarUrl={user?.id ? participantAvatarMap.get(user.id) : null}
                     muted
                     isLocal
                     isSpeaking={activeSpeakers.has(user?.id || '')}
+                    reactions={emojiReactions.get(user?.id || '') || []}
+                    onReact={(emoji) => void sendEmojiReaction(emoji)}
                   />
                 )}
-                {remoteStreams.map((rs) => (
-                  <VideoPanel
-                    key={rs.userId}
-                    stream={rs.stream}
-                    title={rs.displayName}
-                    isMutedByAdmin={mutedParticipants.has(rs.userId)}
-                    isSpeaking={activeSpeakers.has(rs.userId)}
-                  />
-                ))}
-                {isConnected && remoteStreams.length === 0 && (
+                {remoteStreams
+                  .filter((rs) => !lobbyParticipants.has(rs.userId))
+                  .map((rs) => (
+                    <VideoPanel
+                      key={rs.userId}
+                      stream={rs.stream}
+                      title={rs.displayName}
+                      avatarUrl={participantAvatarMap.get(rs.userId)}
+                      isMutedByAdmin={mutedParticipants.has(rs.userId)}
+                      isSpeaking={activeSpeakers.has(rs.userId)}
+                      reactions={[]}
+                      onReact={(emoji) => void sendEmojiReaction(emoji)}
+                      signalQuality={getSignalQuality(peerStats.get(rs.userId))}
+                    />
+                  ))}
+                {isConnected && remoteStreams.filter(rs => !lobbyParticipants.has(rs.userId)).length === 0 && !isInLobby && (
                   <div className="flex aspect-video flex-col items-center justify-center rounded-xl border border-dashed border-zinc-700 gap-2 text-zinc-600">
                     <Wifi className="h-6 w-6" />
                     <span className="text-sm">En attente de participants…</span>
                   </div>
                 )}
               </div>
+
+              {/* Overlay lobby — l'utilisateur éjecté attend la validation d'un admin */}
+              {isInLobby && isConnected && (
+                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-zinc-950/92 backdrop-blur-sm gap-5 text-center px-6">
+                  <div className="h-16 w-16 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                    <Clock className="h-8 w-8 text-amber-400 animate-pulse" />
+                  </div>
+                  <div className="space-y-2 max-w-sm">
+                    <p className="text-white font-semibold text-lg">En attente de validation</p>
+                    <p className="text-zinc-400 text-sm leading-relaxed">
+                      Un administrateur doit approuver votre réentrée dans cette session.
+                      Votre micro et caméra seront réactivés dès votre admission.
+                    </p>
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* Sidebar */}
             <aside className="border-l border-zinc-800 bg-zinc-900 flex flex-col overflow-hidden">
-              <Tabs defaultValue="chat" className="flex flex-col flex-1 overflow-hidden">
-                <TabsList className="grid w-full grid-cols-2 rounded-none border-b border-zinc-800 bg-transparent h-10 shrink-0">
+              <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v === 'chat') setUnreadChat(0); }} className="flex flex-col flex-1 overflow-hidden">
+                <TabsList className={`grid w-full rounded-none border-b border-zinc-800 bg-transparent h-10 shrink-0 ${adminRole === 'admin_principal' ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   <TabsTrigger value="chat" className="rounded-none text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-500">
-                    💬 Chat
+                    💬 Chat{unreadChat > 0 && (
+                      <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                        {unreadChat > 99 ? '99+' : unreadChat}
+                      </span>
+                    )}
                   </TabsTrigger>
                   <TabsTrigger value="participants" className="rounded-none text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-500">
-                    👥 Participants ({participants.length})
+                    👥 ({participants.length})
                   </TabsTrigger>
+                  {adminRole === 'admin_principal' && (
+                    <TabsTrigger value="diagnostic" className="rounded-none text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-500">
+                      📶 Réseau
+                    </TabsTrigger>
+                  )}
                 </TabsList>
 
                 <TabsContent value="chat" className="flex-1 flex flex-col overflow-hidden m-0 data-[state=inactive]:hidden">
@@ -680,14 +1326,48 @@ const AdminVideoRoom = () => {
                 </TabsContent>
 
                 <TabsContent value="participants" className="flex-1 overflow-y-auto m-0 p-3 data-[state=inactive]:hidden">
+                  {/* Salle d'attente — admins uniquement */}
+                  {hasManagement && lobbyParticipants.size > 0 && (
+                    <div className="mb-3">
+                      <p className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <Clock className="h-3 w-3" /> Salle d'attente ({lobbyParticipants.size})
+                      </p>
+                      <div className="space-y-1.5">
+                        {Array.from(lobbyParticipants).map((uid) => {
+                          const lobbyP = participants.find(pt => pt.user_id === uid);
+                          const lobbyName = lobbyP?.display_name || 'Participant';
+                          return (
+                            <div key={uid} className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-xs font-bold text-amber-300">
+                                  {lobbyName.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-sm text-white">{lobbyName}</span>
+                              </div>
+                              <Button
+                                size="sm"
+                                className="h-7 px-3 text-xs bg-green-600 hover:bg-green-500 text-white"
+                                onClick={() => void admitParticipant(uid)}
+                              >
+                                <UserCheck className="h-3.5 w-3.5 mr-1" /> Admettre
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3 mb-1 h-px bg-zinc-800" />
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                    {participants.length === 0 ? (
+                    {participants.filter(p => !lobbyParticipants.has(p.user_id)).length === 0 ? (
                       <p className="py-12 text-center text-xs text-zinc-600">Aucun participant actif</p>
                     ) : (
-                      participants.map((p) => {
+                      participants.filter(p => !lobbyParticipants.has(p.user_id)).map((p) => {
                         const isSelf = p.user_id === user.id;
                         const isMuted = mutedParticipants.has(p.user_id);
                         const speaking = activeSpeakers.has(p.user_id);
+                        const micOn = participantMicState.get(p.user_id) ?? true;
 
                         return (
                           <div
@@ -727,19 +1407,38 @@ const AdminVideoRoom = () => {
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
+                              {/* Mic status indicator — visible to everyone */}
+                              <span title={micOn ? 'Micro actif' : 'Micro coupé'}>
+                                {micOn
+                                  ? <Mic className="h-3.5 w-3.5 text-green-400" />
+                                  : <MicOff className="h-3.5 w-3.5 text-red-400" />}
+                              </span>
                               {hasManagement && !isSelf && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className={cn(
-                                    'h-7 w-7',
-                                    isMuted ? 'text-red-400 hover:text-red-300' : 'text-zinc-400 hover:text-white'
-                                  )}
-                                  onClick={() => muteParticipant(p.user_id)}
-                                  title={isMuted ? 'Rétablir le son' : 'Mettre en sourdine'}
-                                >
-                                  {isMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
-                                </Button>
+                                <>
+                                  {/* Admin mute / unmute */}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={cn(
+                                      'h-7 w-7',
+                                      isMuted ? 'text-red-400 hover:text-red-300' : 'text-zinc-400 hover:text-white'
+                                    )}
+                                    onClick={() => void muteParticipant(p.user_id)}
+                                    title={isMuted ? 'Rétablir le son (admin)' : 'Mettre en sourdine (admin)'}
+                                  >
+                                    {isMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                                  </Button>
+                                  {/* Eject participant */}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-orange-400 hover:text-orange-300"
+                                    onClick={() => void ejectParticipant(p.user_id)}
+                                    title="Éjecter ce participant"
+                                  >
+                                    <LogOut className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>
                               )}
                             </div>
                           </div>
@@ -748,6 +1447,10 @@ const AdminVideoRoom = () => {
                     )}
                   </div>
                 </TabsContent>
+
+                <TabsContent value="diagnostic" className="flex-1 flex flex-col overflow-hidden m-0 data-[state=inactive]:hidden">
+                  <DiagnosticPanel peerStats={peerStats} participants={participants} />
+                </TabsContent>
               </Tabs>
             </aside>
           </div>
@@ -755,121 +1458,138 @@ const AdminVideoRoom = () => {
       </main>
 
       {/* ── Floating bottom control bar ────────────────────────────────────── */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-2 bg-zinc-900/95 backdrop-blur border-t border-zinc-800 px-4 py-3">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-900/95 backdrop-blur border-t border-zinc-800">
         {isConnected ? (
-          <>
-            {/* Mic */}
-            <button
-              onClick={toggleMicrophone}
-              className={cn(
-                'flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors min-w-[56px]',
-                micEnabled
-                  ? 'bg-zinc-800 text-white hover:bg-zinc-700'
-                  : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-              )}
-              title={micEnabled ? 'Couper le micro' : 'Activer le micro'}
-            >
-              {micEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-              <span className="text-[9px] font-medium">{micEnabled ? 'Micro' : 'Muet'}</span>
-            </button>
+          <div className="flex items-center justify-between px-3 py-2 gap-2 max-w-3xl mx-auto">
 
-            {/* Camera (video only) */}
-            {roomType !== 'audio' && (
+            {/* ── Groupe 1 : Contrôles média ───────────────────────────── */}
+            <div className="flex items-center gap-1.5">
+              {/* Micro */}
               <button
-                onClick={toggleCamera}
+                onClick={toggleMicrophone}
+                title={micEnabled ? 'Couper le micro' : 'Activer le micro'}
                 className={cn(
-                  'flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors min-w-[56px]',
-                  cameraEnabled
+                  'flex flex-col items-center gap-0.5 rounded-2xl px-3 py-2 min-w-[52px] transition-all',
+                  micEnabled
                     ? 'bg-zinc-800 text-white hover:bg-zinc-700'
-                    : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                    : 'bg-red-500/20 text-red-400 ring-1 ring-red-500/40 hover:bg-red-500/30'
                 )}
-                title={cameraEnabled ? 'Couper la caméra' : 'Activer la caméra'}
               >
-                {cameraEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-                <span className="text-[9px] font-medium">{cameraEnabled ? 'Caméra' : 'Cam. off'}</span>
+                {micEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+                <span className="text-[9px] font-semibold tracking-wide">{micEnabled ? 'Micro' : 'Muet'}</span>
               </button>
-            )}
 
-            {/* Flip camera (mobile) */}
-            {roomType !== 'audio' && (
-              <button
-                onClick={() => void flipCamera()}
-                className="flex flex-col items-center gap-1 rounded-xl bg-zinc-800 px-3 py-2 text-white hover:bg-zinc-700 transition-colors min-w-[56px]"
-                title="Retourner la caméra"
-              >
-                <SwitchCamera className="h-5 w-5" />
-                <span className="text-[9px] font-medium">Retourner</span>
-              </button>
-            )}
+              {/* Caméra */}
+              {roomType !== 'audio' && (
+                <button
+                  onClick={toggleCamera}
+                  title={cameraEnabled ? 'Couper la caméra' : 'Activer la caméra'}
+                  className={cn(
+                    'flex flex-col items-center gap-0.5 rounded-2xl px-3 py-2 min-w-[52px] transition-all',
+                    cameraEnabled
+                      ? 'bg-zinc-800 text-white hover:bg-zinc-700'
+                      : 'bg-red-500/20 text-red-400 ring-1 ring-red-500/40 hover:bg-red-500/30'
+                  )}
+                >
+                  {cameraEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+                  <span className="text-[9px] font-semibold tracking-wide">{cameraEnabled ? 'Caméra' : 'Off'}</span>
+                </button>
+              )}
 
-            {/* Screen share */}
-            {canShareScreen && (
-              <button
-                onClick={() => void handleToggleScreenShare()}
-                className={cn(
-                  'flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors min-w-[56px]',
-                  isScreenSharing
-                    ? 'bg-primary/20 text-primary hover:bg-primary/30'
-                    : 'bg-zinc-800 text-white hover:bg-zinc-700'
-                )}
-                title={isScreenSharing ? 'Arrêter le partage' : 'Partager l\'écran'}
-              >
-                {isScreenSharing ? <MonitorX className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />}
-                <span className="text-[9px] font-medium">{isScreenSharing ? 'Arrêter' : 'Partager'}</span>
-              </button>
-            )}
+              {/* Flip caméra (mobile) */}
+              {roomType !== 'audio' && (
+                <button
+                  onClick={() => void flipCamera()}
+                  title="Retourner la caméra"
+                  className="flex flex-col items-center gap-0.5 rounded-2xl bg-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-700 hover:text-white transition-all min-w-[52px]"
+                >
+                  <SwitchCamera className="h-5 w-5" />
+                  <span className="text-[9px] font-semibold tracking-wide">Flip</span>
+                </button>
+              )}
 
-            {/* Participants count */}
-            <div className="flex flex-col items-center gap-1 rounded-xl bg-zinc-800/50 px-3 py-2 text-zinc-500 min-w-[56px]">
-              <span className="text-base font-bold text-zinc-300">{participants.length}</span>
-              <span className="text-[9px] font-medium">Participants</span>
+              {/* Partage d'écran */}
+              {canShareScreen && (
+                <button
+                  onClick={() => void handleToggleScreenShare()}
+                  title={isScreenSharing ? "Arrêter le partage" : "Partager l'écran"}
+                  className={cn(
+                    'flex flex-col items-center gap-0.5 rounded-2xl px-3 py-2 min-w-[52px] transition-all',
+                    isScreenSharing
+                      ? 'bg-sky-500/20 text-sky-400 ring-1 ring-sky-500/40 hover:bg-sky-500/30'
+                      : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                  )}
+                >
+                  {isScreenSharing ? <MonitorX className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />}
+                  <span className="text-[9px] font-semibold tracking-wide">{isScreenSharing ? 'Arrêter' : 'Écran'}</span>
+                </button>
+              )}
             </div>
 
-            <div className="w-px h-8 bg-zinc-700 mx-1" />
+            {/* ── Centre : compteur participants ───────────────────────── */}
+            <div className="flex flex-col items-center gap-0 px-2">
+              <span className="text-sm font-bold text-white leading-none">{participants.length}</span>
+              <span className="text-[9px] text-zinc-500 font-medium">en ligne</span>
+            </div>
 
-            {/* End (admin) */}
-            {hasManagement && (
+            {/* ── Groupe 2 : Actions + Quitter ─────────────────────────── */}
+            <div className="flex items-center gap-1.5">
+              {/* Sonner (admin) */}
+              {hasManagement && (
+                <button
+                  onClick={() => void handleReRing()}
+                  title="Sonner à nouveau pour inviter les absents"
+                  className="flex flex-col items-center gap-0.5 rounded-2xl bg-amber-500/15 px-3 py-2 text-amber-400 ring-1 ring-amber-500/30 hover:bg-amber-500/25 transition-all min-w-[52px]"
+                >
+                  <Bell className="h-5 w-5" />
+                  <span className="text-[9px] font-semibold tracking-wide">Sonner</span>
+                </button>
+              )}
+
+              {/* Quitter en douceur (reste dans l'appel, navigue ailleurs) */}
               <button
-                onClick={() => setShowEndConfirm(true)}
-                className="flex flex-col items-center gap-1 rounded-xl bg-red-500 px-3 py-2 text-white hover:bg-red-600 transition-colors min-w-[56px]"
-                title="Terminer la réunion pour tous"
+                onClick={handleSoftLeave}
+                title="Naviguer ailleurs sans raccrocher — l'appel continue"
+                className="flex flex-col items-center gap-0.5 rounded-2xl bg-zinc-800 px-3 py-2 text-zinc-300 hover:bg-zinc-700 hover:text-white transition-all min-w-[52px]"
               >
-                <Radio className="h-5 w-5" />
-                <span className="text-[9px] font-medium">Terminé</span>
+                <LogOut className="h-5 w-5" />
+                <span className="text-[9px] font-semibold tracking-wide">Quitter</span>
               </button>
-            )}
 
-            {/* Soft leave — stay in call */}
-            <button
-              onClick={handleSoftLeave}
-              className="flex flex-col items-center gap-1 rounded-xl bg-zinc-700 px-3 py-2 text-white hover:bg-zinc-600 transition-colors min-w-[56px]"
-              title="Naviguer ailleurs sans raccrocher"
-            >
-              <LogOut className="h-5 w-5" />
-              <span className="text-[9px] font-medium">Quitter</span>
-            </button>
+              {/* Raccrocher (déconnecte cet utilisateur uniquement) */}
+              <button
+                onClick={() => void handleHardHangUp()}
+                title="Raccrocher — quitter l'appel définitivement"
+                className="flex flex-col items-center gap-0.5 rounded-2xl bg-red-600/20 px-3 py-2 text-red-400 ring-1 ring-red-500/40 hover:bg-red-600/40 hover:text-red-300 transition-all min-w-[52px]"
+              >
+                <PhoneOff className="h-5 w-5" />
+                <span className="text-[9px] font-semibold tracking-wide">Raccrocher</span>
+              </button>
 
-            {/* Hard hang-up */}
-            <button
-              onClick={() => void handleHardHangUp()}
-              className="flex flex-col items-center gap-1 rounded-xl bg-red-600 px-3 py-2 text-white hover:bg-red-700 transition-colors min-w-[56px]"
-              title="Raccrocher"
-            >
-              <PhoneOff className="h-5 w-5" />
-              <span className="text-[9px] font-medium">Raccrocher</span>
-            </button>
-          </>
+              {/* Terminer pour TOUS (admin uniquement — bouton le plus dangereux) */}
+              {hasManagement && (
+                <button
+                  onClick={() => setShowEndConfirm(true)}
+                  title="Terminer la réunion pour tous les participants"
+                  className="flex flex-col items-center gap-0.5 rounded-2xl bg-red-600 px-3 py-2 text-white hover:bg-red-500 transition-all min-w-[52px] shadow-lg shadow-red-900/30"
+                >
+                  <Radio className="h-5 w-5" />
+                  <span className="text-[9px] font-semibold tracking-wide">Terminer</span>
+                </button>
+              )}
+            </div>
+          </div>
         ) : (
-          /* Still joining / connecting */
-          <div className="flex items-center gap-2 text-zinc-500 text-sm">
+          /* En cours de connexion */
+          <div className="flex items-center justify-center gap-2 px-4 py-3 text-zinc-500 text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
-            {isJoining ? 'Connexion au micro/caméra…' : 'Connexion à la salle…'}
+            <span>{isJoining ? 'Connexion au micro/caméra…' : 'Connexion à la salle…'}</span>
             {mediaError && (
               <Button
                 size="sm"
                 variant="outline"
                 className="ml-2 h-8 border-zinc-700 text-zinc-300"
-                onClick={() => { autoJoinedRef.current = false; void requestJoin(); }}
+                onClick={() => { primeAudioPlayback(); autoJoinedRef.current = false; void requestJoin(); }}
                 disabled={isJoining}
               >
                 <RotateCcw className="h-3.5 w-3.5 mr-1" /> Réessayer

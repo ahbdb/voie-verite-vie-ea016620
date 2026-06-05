@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Phone, PhoneOff, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCallSession } from '@/contexts/CallSessionContext';
 
 const SESSION_KEY = '3v-active-call-room';
 
@@ -25,6 +26,7 @@ export const ActiveCallBanner = ({
   onLeave,
 }: ActiveCallBannerProps) => {
   const navigate = useNavigate();
+  const { primeAudioPlayback } = useCallSession();
   const [elapsed, setElapsed] = useState(0);
   const [startTime] = useState(() => Date.now());
 
@@ -52,7 +54,7 @@ export const ActiveCallBanner = ({
         'cursor-pointer select-none',
         'transition-all duration-200',
       )}
-      onClick={() => navigate(`/meeting/${roomId}`)}
+      onClick={() => { primeAudioPlayback(); navigate(`/meeting/${roomId}`); }}
       role="button"
       aria-label="Revenir à l'appel"
     >

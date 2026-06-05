@@ -71,7 +71,7 @@ const AdminAI = () => {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              L'assistant IA utilise Google Gemini pour répondre aux questions bibliques et spirituelles.
+              L'assistant IA de Voie-Vérité-Vie répond aux questions bibliques et spirituelles.
             </p>
           </CardContent>
         </Card>

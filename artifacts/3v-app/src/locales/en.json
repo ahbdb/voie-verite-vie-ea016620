@@ -53,7 +53,13 @@
     "darkMode": "Dark mode",
     "reduceText": "Reduce text",
     "enlargeText": "Enlarge text",
-    "callsAndLives": "Calls & Lives"
+    "callsAndLives": "Calls & Lives",
+    "documents3v": "3V Documents",
+    "masseOffice": "Mass & Office",
+    "testimonials": "Testimonials",
+    "chapelet": "Rosary",
+    "dailyPrayer": "Daily Prayer",
+    "donations": "Donations"
   },
   "nav": {
     "main": "Main",
@@ -694,7 +700,35 @@
     "nameRequiredDesc": "Please enter your name.",
     "donationSaved": "Donation recorded!",
     "donationSavedDesc": "Thank you for your generosity. You will be redirected to WhatsApp to finalize your donation.",
-    "donationError": "An error occurred. Please try again."
+    "donationError": "An error occurred. Please try again.",
+    "copied": "✅ Copied!",
+    "copiedField": "{{field}} copied.",
+    "copyError": "Error",
+    "copyErrorDesc": "Unable to copy.",
+    "copy": "Copy",
+    "qrTitle": "Transfer via my banking app",
+    "qrDesc": "Scan the QR code with your banking app — all details are pre-filled, just enter the amount.",
+    "qrCodeTitle": "Transfer QR code",
+    "qrHowTitle": "📱 How to scan?",
+    "qrStep1": "Open your banking app",
+    "qrStep2": "Look for \"Transfer\" or \"Scan a QR\"",
+    "qrStep3": "Scan this code — details appear automatically",
+    "qrStep4": "Enter the amount and confirm",
+    "qrCompat": "Compatible with most European banking apps (SEPA).",
+    "orManualTransfer": "or manual transfer",
+    "bankDetails": "Bank details — Revolut",
+    "beneficiary": "Beneficiary",
+    "address": "Address",
+    "bank": "Bank",
+    "communication": "💡 Reference: Donation — 3V",
+    "or": "or",
+    "mobileMoney": "Mobile Money / WhatsApp",
+    "mobileMoneyDesc": "For a donation via Orange Money, MTN or any other Mobile Money.",
+    "whatsappBtn": "Contact via WhatsApp",
+    "thanks": "Thank you for your generosity 🙏 — May God bless you!",
+    "floatingBtn": "Donate",
+    "floatingAriaLabel": "Support the 3V association",
+    "whatsappMsg": "Hello! I would like to make a donation to the Voie, Vérité, Vie (3V) association."
   },
   "postSignup": {
     "securityNote": "For security reasons, we cannot add you \"automatically\" to WhatsApp/YouTube. However, here are the official links in one click."
@@ -706,10 +740,17 @@
     "chapterCountPlural": "{{count}} chapters",
     "chaptersToRead": "Chapters to read",
     "howToContinue": "How to continue",
-    "tipClickChapter": "Click on a chapter above to read the verses",
-    "tipTakeTime": "Take your time — it's a spiritual journey",
-    "tipMeditate": "Meditate on what God is telling you",
-    "tipMarkComplete": "Come back to mark this day as completed"
+    "tipClickChapter": "Click a chapter above to read the verses",
+    "tipTakeTime": "Take your time — it is a spiritual journey",
+    "tipMeditate": "Meditate on what God is saying to you",
+    "tipMarkComplete": "Come back to mark this day as completed",
+    "backToList": "Chapter list",
+    "chapterOf": "Chapter {{current}} of {{total}}",
+    "prevChapter": "Previous",
+    "nextChapter": "Next",
+    "markAndQuiz": "Done — Take the quiz",
+    "doQuiz": "Take the quiz",
+    "startReading": "Start reading"
   },
   "bibleBookSelector": {
     "searchPlaceholder": "Search for a Bible book...",
@@ -848,8 +889,41 @@
       "users": "Users",
       "usersDesc": "Manage users",
       "neuvaines": "Novenas",
-      "neuvinesDesc": "Manage novenas"
+      "neuvinesDesc": "Manage novenas",
+      "testimonials": "Testimonials",
+      "testimonialsDesc": "Moderate testimonials",
+      "donations": "Donations",
+      "donationsDesc": "Track and confirm donations",
+      "feastDays": "Christian Feast Days",
+      "feastDaysDesc": "Manage feasts and solemnities of the liturgical calendar",
+      "chapelet": "Rosary",
+      "chapeletDesc": "Overview of rosary mysteries and prayers",
+      "dailyPrayer": "Daily Prayer",
+      "dailyPrayerDesc": "Preview today's Gospel and prayer time slots",
+      "news": "News",
+      "newsDesc": "Manage association and Church news"
     },
+    "accessDenied": "Access denied",
+    "principalOnly": "This page is reserved for the Principal Admin",
+    "backToAdmin": "Back to administration",
+    "manageTitle": "Administrator Management",
+    "principalOnlyPage": "Page reserved for the Principal Admin",
+    "nameCol": "Name",
+    "emailCol": "Email",
+    "roleCol": "Role",
+    "actionsCol": "Actions",
+    "notSpecified": "Not specified",
+    "you": "(You)",
+    "moderatorLabel": "Moderator",
+    "removeAdminRights": "Remove admin rights",
+    "removeAdminConfirm": "Are you sure you want to remove this person from the administrators?",
+    "remove": "Remove",
+    "roleUpdated": "Role updated",
+    "updateError": "Error updating role",
+    "adminDeleted": "Admin removed",
+    "deleteError2": "Error deleting",
+    "cannotModifyCreator": "Cannot modify the role of the app creator",
+    "cannotRemoveCreator": "Cannot remove admin rights from the app creator",
     "homePage": {
       "title": "Home Page Management",
       "content": "Home page content",
@@ -1092,6 +1166,161 @@
       "totalViewers": "Total views",
       "manageSessions": "Session management",
       "noSessions": "No sessions to manage."
+    }
+  },
+  "documents3v": {
+    "title": "3V Documents",
+    "subtitle": "Find all the official documents of the Voie-Vérité-Vie Movement here — founding documents, regulations and forms.",
+    "view": "View",
+    "download": "Download",
+    "footer": "These documents form the official canonical corpus of the Voie-Vérité-Vie Movement. Founder-Moderator: AHOUFACK DYLANNE BAUDOUIN — Douala, Cameroon.",
+    "category": {
+      "fondateurs": "Founding Documents",
+      "reglements": "Regulations",
+      "adhesion": "Membership",
+      "gouvernance": "Governance"
+    },
+    "badge": {
+      "fondateur": "Founding",
+      "spirituel": "Spiritual",
+      "reglementaire": "Regulatory",
+      "adhesion": "Membership",
+      "gouvernance": "Governance"
+    },
+    "statuts": {
+      "title": "3V Statutes",
+      "description": "The canonical reference document of the association — 15 Titles, 136 Articles. Defines the legal nature, identity, governance and foundations of the Movement."
+    },
+    "reglementInterieur": {
+      "title": "Internal Regulations",
+      "description": "Specifies the practical operation of 3V in application of the Statutes — 14 Titles, 85 Articles. Governs membership, bodies, activities and financial life."
+    },
+    "regleDeVie": {
+      "title": "Rule of Life",
+      "description": "The inner face of 3V — 10 Chapters, 55 Articles. Concretely translates the pillars of spiritual life for each member: prayer, penance, formation and service."
+    },
+    "texteCharisme": {
+      "title": "Text of the Charism",
+      "description": "Founding document n°5 expounding the nature, sources and expressions of 3V's charism — 7 Chapters. A gift of the Holy Spirit for the edification of the Body of Christ."
+    },
+    "acteFondation": {
+      "title": "Act of Foundation",
+      "description": "Founding document n°3 — official act of creation of the Movement on January 1, 2024 in Douala, feast of Mary Mother of God. 5 Parts, 22 Articles."
+    },
+    "reglementNumerique": {
+      "title": "Digital Internal Regulations",
+      "description": "Governs 3V's digital presence: official platforms, editorial policy, member conduct online and data protection — 6 Titles, 39 Articles."
+    },
+    "formulairesAdhesion": {
+      "title": "Membership Application Dossier",
+      "description": "Official forms to join the Movement: active member, family member, associate brother/sister, parental consent and temporary leave of absence."
+    },
+    "memorandumRevision": {
+      "title": "2033 Revision Memorandum",
+      "description": "Guidance document for the ordinary revision of the Statutes scheduled for 2033 — five years after the formal adoption of 2028. Institutional memory of 3V."
+    }
+  },
+  "chapelet": {
+    "title": "The Holy Rosary",
+    "subtitle": "Guided contemplative prayer, mystery by mystery",
+    "badge": "Rosary Prayer",
+    "start": "Begin the Rosary",
+    "restart": "Start over",
+    "autoRead": "Auto-read",
+    "listen": "Listen",
+    "stop": "Stop",
+    "next": "Next",
+    "previous": "Previous",
+    "mysteryOf": "Mystery {{n}}",
+    "fruit": "Spiritual fruit",
+    "scripture": "Gospel passage",
+    "joyful": "Joyful Mysteries",
+    "luminous": "Luminous Mysteries",
+    "sorrowful": "Sorrowful Mysteries",
+    "glorious": "Glorious Mysteries",
+    "joyfulDesc": "Monday & Saturday",
+    "luminousDesc": "Thursday",
+    "sorrowfulDesc": "Tuesday & Friday",
+    "gloriousDesc": "Wednesday & Sunday",
+    "chooseSet": "Choose mysteries",
+    "progress": "Progress",
+    "step": "Step {{current}} of {{total}}",
+    "done": "Rosary complete!",
+    "doneDesc": "May the Virgin Mary intercede for you and for all those you prayed for.",
+    "doneVerse": "« Hail Mary, full of grace »",
+    "newChapelet": "New rosary",
+    "resumeTitle": "Session in progress",
+    "resume": "Resume"
+  },
+  "dailyPrayer": {
+    "title": "Daily Prayer",
+    "subtitle": "Sanctify every hour through prayer",
+    "badge": "Liturgy of the Hours",
+    "gospelOfDay": "Gospel of the Day",
+    "liturgicalDay": "Liturgical feast",
+    "loadingGospel": "Loading the Gospel...",
+    "gospelError": "Unable to load today's Gospel.",
+    "morning": "Morning Prayers",
+    "midday": "Midday Prayers",
+    "evening": "Evening Prayers",
+    "night": "Night Prayers",
+    "listen": "Listen",
+    "stop": "Stop",
+    "readAll": "Read all",
+    "liturgicalZone": "Liturgical zone"
+  },
+  "testimonials": {
+    "title": "Testimonials",
+    "subtitle": "The wonders God works in our lives",
+    "badge": "Graces received",
+    "share": "Share my testimony",
+    "formTitle": "My testimony",
+    "titleField": "Title",
+    "titlePlaceholder": "E.g.: Miraculous healing after a novena...",
+    "story": "Your story",
+    "storyPlaceholder": "Tell what God has done in your life...",
+    "category": "Category",
+    "firstName": "Your first name",
+    "firstNamePlaceholder": "First name (optional)",
+    "anonymous": "Publish anonymously",
+    "submit": "Send",
+    "submitting": "Sending...",
+    "cancel": "Cancel",
+    "modNotice": "Your testimony will be reviewed by a moderator before publication.",
+    "submitSuccess": "Testimony sent! It will be published after review. Thank you ❤️",
+    "submitError": "Error while sending.",
+    "filterAll": "All",
+    "empty": "Be the first to share",
+    "emptyDesc": "No testimonies published yet. Your story can encourage the whole community.",
+    "emptyFilter": "No testimonials in this category",
+    "emptyFilterDesc": "Try another category or come back soon.",
+    "categories": {
+      "guerison": "Healing",
+      "conversion": "Conversion",
+      "famille": "Family",
+      "travail": "Work",
+      "foi": "Faith",
+      "autre": "Other"
+    }
+  },
+  "dons": {
+    "title": "Donations & Offerings",
+    "subtitle": "Your generosity allows the 3V community to grow and evangelise.",
+    "badge": "Support the mission",
+    "verse": "\"Each of you should give what you have decided in your heart to give, not reluctantly or under compulsion, for God loves a cheerful giver.\"",
+    "verseRef": "2 Corinthians 9:7",
+    "verse2": "\"Whoever sows generously will also reap generously.\"",
+    "verseRef2": "2 Corinthians 9:6",
+    "causeTitle": "For which cause?",
+    "causes": {
+      "general": "General support",
+      "generalDesc": "For the functioning of the 3V community",
+      "jeunesse": "Youth & Formation",
+      "jeunesseDesc": "Activities and retreats for young people",
+      "evangelisation": "Evangelisation",
+      "evangelisationDesc": "Missions and outreach",
+      "pauvres": "Help for the poor",
+      "pauvresDesc": "Solidarity with those most in need"
     }
   }
 }

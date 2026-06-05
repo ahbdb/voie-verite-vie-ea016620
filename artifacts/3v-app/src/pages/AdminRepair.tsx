@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,39 +42,36 @@ export default function AdminRepairPage() {
     setResult(null);
 
     try {
-      // 1. Get session
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
+      // 1. Get current user
+      const userRes = await fetch('/api/auth/user', { credentials: 'include' });
+      let userData: any = null;
+      if (userRes.ok) {
+        try { userData = await userRes.json(); } catch { /* non-JSON response */ }
+      }
+      const currentUser = userData?.user;
+
+      if (!currentUser) {
         setResult({
           success: false,
-          message: '❌ Not logged in. Please login first.',
+          message: '❌ Not logged in or API unavailable. Please login first.',
         });
         setLoading(false);
         return;
       }
 
-      // 2. Query user_roles
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('user_id', session.user.id);
-
-      if (rolesError) {
-        setResult({
-          success: false,
-          message: `❌ Database error: ${rolesError.message}`,
-        });
-        setLoading(false);
-        return;
+      // 2. Query admin role
+      const roleRes = await fetch('/api/auth/admin-role', { credentials: 'include' });
+      let roleData: any = null;
+      if (roleRes.ok) {
+        try { roleData = await roleRes.json(); } catch { /* non-JSON response */ }
       }
+      const currentRole = roleData?.role as string | null;
 
-      const currentRole = (roles && roles.length > 0 ? roles[0].role : null) as string | null;
       const details = {
-        userId: session.user.id,
-        email: session.user.email,
+        userId: currentUser.id,
+        email: currentUser.email,
         currentRole: currentRole,
-        foundRoles: roles?.length || 0,
+        foundRoles: currentRole ? 1 : 0,
       };
 
       if (currentRole === 'admin_principal') {
