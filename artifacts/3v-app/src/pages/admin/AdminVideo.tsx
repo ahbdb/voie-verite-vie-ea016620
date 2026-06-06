@@ -182,7 +182,7 @@ const AdminVideo = () => {
         const selectedIds = callMode === 'select' ? Array.from(selectedUserIds) : undefined;
 
         // Web Push — reaches devices even when app is closed/background
-        void supabase.functions.invoke('send-push', {
+        void supabase.functions.invoke('send-push-notification', {
           body: {
             title: notifTitle,
             body: notifBody,
@@ -235,7 +235,7 @@ const AdminVideo = () => {
       const meetingPath = `/meeting/${roomId}`;
 
       // Web Push — reaches devices even when app is closed/background
-      void supabase.functions.invoke('send-push', {
+      void supabase.functions.invoke('send-push-notification', {
         body: {
           title: notifTitle,
           body: notifBody,
