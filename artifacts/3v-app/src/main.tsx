@@ -55,8 +55,14 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import './i18n'
+import { initNativePush, isNative } from './lib/native-push'
 
 debugService.log('React dependencies loaded', 'info', 'main');
+
+// Native push (iOS/Android via Capacitor) — no-op sur le web
+if (isNative()) {
+  initNativePush().catch((err) => debugService.logError(err, 'native-push'));
+}
 
 try {
   const root = document.getElementById("root");
