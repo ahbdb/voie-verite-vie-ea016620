@@ -8,6 +8,34 @@ import { supabase } from '@/integrations/supabase/client';
 
 export const isNative = () => Capacitor.isNativePlatform();
 
+const CALL_CHANNEL_ID = 'incoming_calls';
+
+/**
+ * Crée un canal Android haute priorité pour les appels :
+ * - Importance MAX → bypass le mode silencieux/Ne-pas-déranger (avec autorisation)
+ * - Sonnerie d'appel système (URI alarm)
+ * - Vibration longue continue
+ * - Visibilité sur écran verrouillé
+ */
+async function ensureCallChannel() {
+  if (Capacitor.getPlatform() !== 'android') return;
+  try {
+    await LocalNotifications.createChannel({
+      id: CALL_CHANNEL_ID,
+      name: 'Appels entrants 3V',
+      description: 'Sonnerie pour les appels et lives 3V',
+      importance: 5, // IMPORTANCE_MAX → full-screen intent, son fort
+      visibility: 1, // PUBLIC sur écran verrouillé
+      sound: 'beep.wav',
+      vibration: true,
+      lights: true,
+      lightColor: '#D4AF37',
+    });
+  } catch (err) {
+    console.warn('[native-push] createChannel failed', err);
+  }
+}
+
 async function registerTokenWithBackend(token: string, platform: string) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -33,6 +61,7 @@ export async function initNativePush() {
       granted = req.receive === 'granted';
     }
     await LocalNotifications.requestPermissions();
+    await ensureCallChannel();
 
     if (!granted) {
       console.warn('[native-push] push permission denied');
@@ -61,6 +90,7 @@ export async function initNativePush() {
           title: notif.title || '3V',
           body: notif.body || '',
           sound: isCall ? 'beep.wav' : undefined,
+          channelId: isCall ? CALL_CHANNEL_ID : undefined,
           extra: notif.data,
           ongoing: isCall,
           autoCancel: !isCall,
