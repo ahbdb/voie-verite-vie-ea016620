@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 export const isNative = () => Capacitor.isNativePlatform();
 
 const CALL_CHANNEL_ID = 'incoming_calls';
+let nativePushInitialized = false;
+let lastNativeToken: string | null = null;
 
 /**
  * Crée un canal Android haute priorité pour les appels :
@@ -50,7 +52,8 @@ async function registerTokenWithBackend(token: string, platform: string) {
 }
 
 export async function initNativePush() {
-  if (!isNative()) return;
+  if (!isNative() || nativePushInitialized) return;
+  nativePushInitialized = true;
 
   try {
     // 1. Permissions (push + local notifications)
@@ -68,17 +71,25 @@ export async function initNativePush() {
       return;
     }
 
-    // 2. Register with APNs/FCM
-    await PushNotifications.register();
-
+    // 2. Listeners must be installed BEFORE register(), otherwise the native token can be missed.
     PushNotifications.addListener('registration', (token) => {
       console.log('[native-push] token:', token.value);
+      lastNativeToken = token.value;
       void registerTokenWithBackend(token.value, Capacitor.getPlatform());
+    });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user && lastNativeToken) {
+        void registerTokenWithBackend(lastNativeToken, Capacitor.getPlatform());
+      }
     });
 
     PushNotifications.addListener('registrationError', (err) => {
       console.error('[native-push] registration error', err);
     });
+
+    // Register with APNs/FCM after listeners and auth retry are ready.
+    await PushNotifications.register();
 
     // 3. Foreground notification → show local notification with sound + vibrate
     PushNotifications.addListener('pushNotificationReceived', async (notif) => {
