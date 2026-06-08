@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { buildNotificationPayload } from "./index.ts";
+import { buildNotificationPayload } from "./payload.ts";
 
 Deno.test("call payload → high-priority contract (locked screen / silent mode ready)", () => {
   const { json, isCall } = buildNotificationPayload({
