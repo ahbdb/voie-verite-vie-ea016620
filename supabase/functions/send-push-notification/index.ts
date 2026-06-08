@@ -149,6 +149,30 @@ interface PushSubscription {
   keys: { p256dh: string; auth: string };
 }
 
+/**
+ * Pure builder for the Web Push notification payload.
+ * Exported for unit testing — guarantees the call-notification contract:
+ *   - action === "call" (or "live") → high urgency, requireInteraction, aggressive vibrate
+ *   - falls back to safe defaults for general notifications
+ */
+export function buildNotificationPayload(payload: PushPayload): { json: string; isCall: boolean } {
+  const isCall = payload.action === "call" || payload.action === "live";
+  const json = JSON.stringify({
+    notification: {
+      title: payload.title,
+      body: payload.body,
+      icon: payload.icon || "/icon-192x192.png",
+      badge: payload.badge || "/badge-72x72.png",
+      tag: payload.tag || `push-${Date.now()}`,
+      requireInteraction: payload.requireInteraction ?? isCall,
+      vibrate: payload.vibrate || (isCall ? [400, 200, 400, 200, 600] : [200, 100, 200]),
+      action: payload.action || "general",
+      data: { url: payload.url || "/", action: payload.action || "general" },
+    },
+  });
+  return { json, isCall };
+}
+
 async function sendOne(tokenJson: string, payload: PushPayload): Promise<{ status: number; ok: boolean }> {
   let sub: PushSubscription;
   try { sub = JSON.parse(tokenJson) as PushSubscription; } catch { return { status: 0, ok: false }; }
