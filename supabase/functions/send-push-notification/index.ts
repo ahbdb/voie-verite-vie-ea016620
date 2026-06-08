@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-import { buildNotificationPayload } from "./payload.ts";
+import { buildNativeFcmMessage, buildNotificationPayload } from "./payload.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +16,7 @@ const FALLBACK_VAPID_PRIVATE_KEY = "D1ktZQBYTUY6rCSctUvT93VIwfUAQj3AeiTIoyZY1ZU"
 const VAPID_PUBLIC_KEY = cleanEnv(Deno.env.get("VAPID_PUBLIC_KEY")) || FALLBACK_VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = cleanEnv(Deno.env.get("VAPID_PRIVATE_KEY")) || FALLBACK_VAPID_PRIVATE_KEY;
 const VAPID_SUBJECT = "mailto:contact@voie-verite-vie.com";
+const FIREBASE_SERVICE_ACCOUNT_JSON = cleanEnv(Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON"));
 
 interface PushPayload {
   title: string;
@@ -202,6 +203,71 @@ async function sendOne(tokenJson: string, payload: PushPayload): Promise<{ statu
   }
 }
 
+let cachedFcmToken: { value: string; expiresAt: number } | null = null;
+
+async function getFcmAccessToken(): Promise<{ token: string; projectId: string }> {
+  if (!FIREBASE_SERVICE_ACCOUNT_JSON) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON");
+  const serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT_JSON);
+  const projectId = serviceAccount.project_id as string;
+  const clientEmail = serviceAccount.client_email as string;
+  const privateKeyPem = (serviceAccount.private_key as string).replace(/\\n/g, "\n");
+  if (cachedFcmToken && cachedFcmToken.expiresAt > Date.now() + 60_000) {
+    return { token: cachedFcmToken.value, projectId };
+  }
+
+  const enc = new TextEncoder();
+  const now = Math.floor(Date.now() / 1000);
+  const assertion = `${b64url(enc.encode(JSON.stringify({ alg: "RS256", typ: "JWT" })))}.${b64url(enc.encode(JSON.stringify({
+    iss: clientEmail,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600,
+  })))}`;
+  const pkcs8 = decodePem(privateKeyPem);
+  const key = await crypto.subtle.importKey("pkcs8", pkcs8, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+  const signature = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, enc.encode(assertion)));
+  const signedJwt = `${assertion}.${b64url(signature)}`;
+
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: signedJwt }),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(`FCM auth failed: ${JSON.stringify(body)}`);
+  cachedFcmToken = { value: body.access_token, expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000 };
+  return { token: cachedFcmToken.value, projectId };
+}
+
+function decodePem(pem: string): ArrayBuffer {
+  const b64 = pem.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, "");
+  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)).buffer;
+}
+
+async function sendNativeFcm(token: string, payload: PushPayload): Promise<{ status: number; ok: boolean }> {
+  try {
+    const { token: accessToken, projectId } = await getFcmAccessToken();
+    const { message } = buildNativeFcmMessage(payload, token);
+    const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+    if (!res.ok) console.error("FCM send failed:", res.status, await res.text());
+    else await res.text();
+    return { status: res.status, ok: res.ok };
+  } catch (err) {
+    console.error("sendNativeFcm error:", err);
+    return { status: 0, ok: false };
+  }
+}
+
+async function sendRegisteredToken(token: string, payload: PushPayload): Promise<{ status: number; ok: boolean }> {
+  const trimmed = token.trim();
+  return trimmed.startsWith("{") ? sendOne(trimmed, payload) : sendNativeFcm(trimmed, payload);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -268,7 +334,7 @@ Deno.serve(async (req) => {
     let sent = 0, failed = 0;
     const expired: string[] = [];
     for (const t of tokens) {
-      const r = await sendOne(t.token, payload);
+      const r = await sendRegisteredToken(t.token, payload);
       if (r.ok) { sent++; } else { failed++; if (r.status === 404 || r.status === 410) expired.push(t.token); }
     }
     if (expired.length) await supabase.from("fcm_tokens").delete().in("token", expired);
