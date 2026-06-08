@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { buildNotificationPayload } from "./payload.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -149,27 +150,13 @@ interface PushSubscription {
   keys: { p256dh: string; auth: string };
 }
 
+
 async function sendOne(tokenJson: string, payload: PushPayload): Promise<{ status: number; ok: boolean }> {
   let sub: PushSubscription;
   try { sub = JSON.parse(tokenJson) as PushSubscription; } catch { return { status: 0, ok: false }; }
   if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) return { status: 0, ok: false };
 
-  const isCall = payload.action === "call" || payload.action === "live";
-
-  const notifJson = JSON.stringify({
-    notification: {
-      title: payload.title,
-      body: payload.body,
-      icon: payload.icon || "/icon-192x192.png",
-      badge: payload.badge || "/badge-72x72.png",
-      tag: payload.tag || `push-${Date.now()}`,
-      requireInteraction: payload.requireInteraction ?? isCall,
-      vibrate: payload.vibrate || (isCall ? [400, 200, 400, 200, 600] : [200, 100, 200]),
-      // action at top level so notification-sw.js classifyPayload can read it
-      action: payload.action || "general",
-      data: { url: payload.url || "/", action: payload.action || "general" },
-    },
-  });
+  const { json: notifJson, isCall } = buildNotificationPayload(payload);
 
   try {
     const [body, auth] = await Promise.all([
