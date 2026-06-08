@@ -9,11 +9,12 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-// VAPID keys — generated for Voie-Vérité-Vie push notifications
-const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") ??
-  "BDZP1G3CVzMfjpDGH7MGktPHySL1O1ZqqpP6B5QSgp09f8xu3lN9BLnQ527CZNXIY9q6KoISzbKbmbIAS8_I0AU";
-const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") ??
-  "D1ktZQBYTUY6rCSctUvT93VIwfUAQj3AeiTIoyZY1ZU";
+// VAPID keys — generated for Voie-Vérité-Vie push notifications.
+// Some secret managers store copied values with quotes/newlines; normalize before use.
+const FALLBACK_VAPID_PUBLIC_KEY = "BDZP1G3CVzMfjpDGH7MGktPHySL1O1ZqqpP6B5QSgp09f8xu3lN9BLnQ527CZNXIY9q6KoISzbKbmbIAS8_I0AU";
+const FALLBACK_VAPID_PRIVATE_KEY = "D1ktZQBYTUY6rCSctUvT93VIwfUAQj3AeiTIoyZY1ZU";
+const VAPID_PUBLIC_KEY = cleanEnv(Deno.env.get("VAPID_PUBLIC_KEY")) || FALLBACK_VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = cleanEnv(Deno.env.get("VAPID_PRIVATE_KEY")) || FALLBACK_VAPID_PRIVATE_KEY;
 const VAPID_SUBJECT = "mailto:contact@voie-verite-vie.com";
 
 interface PushPayload {
@@ -38,6 +39,11 @@ interface PushPayload {
 function b64url(data: Uint8Array): string {
   return btoa(String.fromCharCode(...data))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+function cleanEnv(value: string | undefined): string | undefined {
+  const trimmed = value?.trim().replace(/^['"]|['"]$/g, "");
+  return trimmed || undefined;
 }
 
 function decodeB64url(s: string): Uint8Array {
@@ -118,6 +124,22 @@ function derToRaw(der: Uint8Array): Uint8Array {
   return raw;
 }
 
+async function importVapidSigningKey(publicKey: string, privateKey: string): Promise<CryptoKey> {
+  const pubBytes = decodeB64url(publicKey);
+  if (pubBytes.length !== 65 || pubBytes[0] !== 4 || decodeB64url(privateKey).length !== 32) {
+    throw new Error("Invalid VAPID key shape");
+  }
+  const x = b64url(pubBytes.slice(1, 33));
+  const y = b64url(pubBytes.slice(33, 65));
+  return crypto.subtle.importKey(
+    "jwk",
+    { kty: "EC", crv: "P-256", d: privateKey, x, y, key_ops: ["sign"], ext: true },
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["sign"],
+  );
+}
+
 async function vapidAuthHeader(endpoint: string): Promise<string> {
   const audience = new URL(endpoint).origin;
   const now = Math.floor(Date.now() / 1000);
@@ -128,21 +150,19 @@ async function vapidAuthHeader(endpoint: string): Promise<string> {
   const c = b64url(enc.encode(JSON.stringify(claims)));
   const unsigned = `${h}.${c}`;
 
-  const pubBytes = decodeB64url(VAPID_PUBLIC_KEY);
-  const x = b64url(pubBytes.slice(1, 33));
-  const y = b64url(pubBytes.slice(33, 65));
-
-  const signingKey = await crypto.subtle.importKey(
-    "jwk",
-    { kty: "EC", crv: "P-256", d: VAPID_PRIVATE_KEY, x, y, key_ops: ["sign"], ext: true },
-    { name: "ECDSA", namedCurve: "P-256" },
-    false,
-    ["sign"],
-  );
+  let publicKey = VAPID_PUBLIC_KEY;
+  let signingKey: CryptoKey;
+  try {
+    signingKey = await importVapidSigningKey(VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  } catch (err) {
+    console.error("Configured VAPID key rejected, using bundled fallback:", err);
+    publicKey = FALLBACK_VAPID_PUBLIC_KEY;
+    signingKey = await importVapidSigningKey(FALLBACK_VAPID_PUBLIC_KEY, FALLBACK_VAPID_PRIVATE_KEY);
+  }
 
   const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, signingKey, enc.encode(unsigned)));
   const rawSig = sig.length === 64 ? sig : derToRaw(sig);
-  return `vapid t=${unsigned}.${b64url(rawSig)}, k=${VAPID_PUBLIC_KEY}`;
+  return `vapid t=${unsigned}.${b64url(rawSig)}, k=${publicKey}`;
 }
 
 interface PushSubscription {
