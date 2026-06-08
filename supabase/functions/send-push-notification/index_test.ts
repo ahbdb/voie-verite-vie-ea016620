@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { buildNotificationPayload } from "./payload.ts";
+import { buildNativeFcmMessage, buildNotificationPayload } from "./payload.ts";
 
 Deno.test("call payload → high-priority contract (locked screen / silent mode ready)", () => {
   const { json, isCall } = buildNotificationPayload({
@@ -47,4 +47,21 @@ Deno.test("explicit overrides win over defaults", () => {
   assertEquals(n.vibrate, [100]);
   assertEquals(n.tag, "custom-tag");
   assertEquals(n.icon, "/x.png");
+});
+
+Deno.test("native Android call payload uses incoming_calls high-priority channel", () => {
+  const { message, isCall } = buildNativeFcmMessage({
+    title: "Appel entrant",
+    body: "3V vous appelle",
+    action: "call",
+    url: "/meeting/room-1",
+  }, "native-token");
+
+  assert(isCall);
+  assertEquals(message.android.priority, "HIGH");
+  assertEquals(message.android.notification.channel_id, "incoming_calls");
+  assertEquals(message.android.notification.notification_priority, "PRIORITY_MAX");
+  assertEquals(message.android.notification.visibility, "PUBLIC");
+  assertEquals(message.android.notification.sound, "beep");
+  assertEquals(message.data.action, "call");
 });
