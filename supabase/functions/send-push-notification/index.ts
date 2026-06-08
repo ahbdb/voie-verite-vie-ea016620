@@ -12,9 +12,8 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // VAPID keys — generated for Voie-Vérité-Vie push notifications.
 // Some secret managers store copied values with quotes/newlines; normalize before use.
 const FALLBACK_VAPID_PUBLIC_KEY = "BDZP1G3CVzMfjpDGH7MGktPHySL1O1ZqqpP6B5QSgp09f8xu3lN9BLnQ527CZNXIY9q6KoISzbKbmbIAS8_I0AU";
-const FALLBACK_VAPID_PRIVATE_KEY = "D1ktZQBYTUY6rCSctUvT93VIwfUAQj3AeiTIoyZY1ZU";
 const VAPID_PUBLIC_KEY = cleanEnv(Deno.env.get("VAPID_PUBLIC_KEY")) || FALLBACK_VAPID_PUBLIC_KEY;
-const VAPID_PRIVATE_KEY = cleanEnv(Deno.env.get("VAPID_PRIVATE_KEY")) || FALLBACK_VAPID_PRIVATE_KEY;
+const VAPID_PRIVATE_KEY = cleanEnv(Deno.env.get("VAPID_PRIVATE_KEY"));
 const VAPID_SUBJECT = "mailto:contact@voie-verite-vie.com";
 const FIREBASE_SERVICE_ACCOUNT_JSON = cleanEnv(Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON"));
 
@@ -150,20 +149,13 @@ async function vapidAuthHeader(endpoint: string): Promise<string> {
   const h = b64url(enc.encode(JSON.stringify(header)));
   const c = b64url(enc.encode(JSON.stringify(claims)));
   const unsigned = `${h}.${c}`;
+  if (!VAPID_PRIVATE_KEY) throw new Error("Missing VAPID_PRIVATE_KEY");
 
-  let publicKey = VAPID_PUBLIC_KEY;
-  let signingKey: CryptoKey;
-  try {
-    signingKey = await importVapidSigningKey(VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-  } catch (err) {
-    console.error("Configured VAPID key rejected, using bundled fallback:", err);
-    publicKey = FALLBACK_VAPID_PUBLIC_KEY;
-    signingKey = await importVapidSigningKey(FALLBACK_VAPID_PUBLIC_KEY, FALLBACK_VAPID_PRIVATE_KEY);
-  }
+  const signingKey = await importVapidSigningKey(VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
   const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, signingKey, enc.encode(unsigned)));
   const rawSig = sig.length === 64 ? sig : derToRaw(sig);
-  return `vapid t=${unsigned}.${b64url(rawSig)}, k=${publicKey}`;
+  return `vapid t=${unsigned}.${b64url(rawSig)}, k=${VAPID_PUBLIC_KEY}`;
 }
 
 interface PushSubscription {
