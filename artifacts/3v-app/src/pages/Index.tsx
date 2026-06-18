@@ -7,6 +7,8 @@ import HeroSection from '@/components/HeroSection';
 import MissionSection from '@/components/MissionSection';
 import { CTASection } from '@/components/HomeSections';
 import VersetDuJour from '@/components/VersetDuJour';
+import NewsMagazine from '@/components/NewsMagazine';
+import { useArticles } from '@/hooks/useArticles';
 import PostSignupCommunityModal from '@/components/PostSignupCommunityModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -614,6 +616,11 @@ const SectionHeader = ({ icon, title, subtitle, href, linkLabel, external }: {
 
 // ── Main page ──────────────────────────────────────────────────────────────────
 
+const NewsMagazineWrapper = ({ isAdmin }: { isAdmin: boolean }) => {
+  const { articles, loading } = useArticles(40);
+  return <NewsMagazine articles={articles} loading={loading} isAdmin={isAdmin} />;
+};
+
 const Index = () => {
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -650,7 +657,7 @@ const Index = () => {
       <main>
         <HeroSection />
         <QuickLinksBar />
-        <AssociationNewsSection isAdmin={isAdmin} />
+        <NewsMagazineWrapper isAdmin={isAdmin} />
         <MissionSection />
         <CTASection />
       </main>

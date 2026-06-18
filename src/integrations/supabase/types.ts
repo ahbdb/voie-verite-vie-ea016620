@@ -892,6 +892,57 @@ export type Database = {
           },
         ]
       }
+      rss_articles: {
+        Row: {
+          author_name: string | null
+          broken_check_count: number
+          category: string
+          created_at: string
+          excerpt: string | null
+          external_url: string
+          id: string
+          image_url: string | null
+          is_broken: boolean
+          last_seen_at: string
+          published_at: string
+          source: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_name?: string | null
+          broken_check_count?: number
+          category?: string
+          created_at?: string
+          excerpt?: string | null
+          external_url: string
+          id?: string
+          image_url?: string | null
+          is_broken?: boolean
+          last_seen_at?: string
+          published_at?: string
+          source: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author_name?: string | null
+          broken_check_count?: number
+          category?: string
+          created_at?: string
+          excerpt?: string | null
+          external_url?: string
+          id?: string
+          image_url?: string | null
+          is_broken?: boolean
+          last_seen_at?: string
+          published_at?: string
+          source?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       scheduled_sessions: {
         Row: {
           access_password: string | null
