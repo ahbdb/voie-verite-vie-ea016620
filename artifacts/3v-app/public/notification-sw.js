@@ -5,8 +5,8 @@ const CACHE_NAME = 'vvv-shell-v4';
 const SHELL_URLS = ['/', '/manifest.json', '/icon-192x192.png', '/badge-72x72.png'];
 
 self.addEventListener('install', (e) => {
-  // Ne PAS appeler skipWaiting() ici — on attend que l'app le demande via SKIP_WAITING
-  // pour éviter qu'un rechargement surprise interrompe l'utilisateur.
+  // Force le SW à prendre le contrôle immédiatement (correctif redirection preview)
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_URLS).catch(() => {}))
   );
