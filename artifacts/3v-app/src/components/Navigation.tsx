@@ -260,7 +260,7 @@ const Navigation = () => {
             </span>
           </Link>
 
-          <div className="hidden lg:flex items-center gap-2">
+          <div className="hidden xl:flex items-center gap-2">
             {siteLinks.map((category) => {
               const visibleItems = category.items.filter((i) => i.showInNav !== false);
               const categoryIsActive = visibleItems.some((item) => isPathActive(item.href));
@@ -269,7 +269,7 @@ const Navigation = () => {
                 <div key={category.id} className="group relative">
                   <button
                     className={
-                      'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors duration-150 rounded-full border ' +
+                      'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors duration-150 rounded-full border whitespace-nowrap flex-shrink-0 ' +
                       (categoryIsActive
                         ? 'text-primary border-primary/40 bg-primary/10'
                         : 'text-muted-foreground border-transparent hover:text-primary hover:border-border hover:bg-muted/40')
@@ -308,7 +308,7 @@ const Navigation = () => {
             })}
           </div>
 
-          <div className="hidden lg:flex items-center gap-2">
+          <div className="hidden xl:flex items-center gap-2">
             <Button onClick={openSearch} variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" title={t('common.search')}>
               <Search className="w-4 h-4" />
             </Button>
@@ -367,7 +367,7 @@ const Navigation = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-0.5 lg:hidden">
+          <div className="flex items-center gap-0.5 xl:hidden">
             <Button onClick={openSearch} variant="ghost" size="icon" className="h-8 w-8" title={t('common.search')}>
               <Search className="w-4 h-4" />
             </Button>

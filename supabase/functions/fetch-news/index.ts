@@ -8,8 +8,8 @@ const corsHeaders = {
 
 interface RssSource { name: string; url: string }
 
-// Sources RSS catholiques francophones
-const RSS_SOURCES: RssSource[] = [
+// Sources RSS catholiques francophones — assignées par catégorie
+const RSS_SOURCES: (RssSource & { category: string })[] = [
   { name: 'Aleteia',            url: 'https://fr.aleteia.org/feed/' },
   { name: 'Vatican News',       url: 'https://www.vaticannews.va/fr.rss.xml' },
   { name: 'La Croix',           url: 'https://www.la-croix.com/RSS/UNIVERS-RELIGION' },
@@ -18,7 +18,7 @@ const RSS_SOURCES: RssSource[] = [
   { name: 'KTO',                url: 'https://www.ktotv.com/rss.xml' },
   { name: 'Zenit',              url: 'https://fr.zenit.org/feed/' },
   { name: 'Radio Vatican',      url: 'https://www.vaticannews.va/fr/podcast/rss-news-fr.xml' },
-]
+].map(s => ({ ...s, category: 'church' }))
 
 // ── XML helpers (no external dependency) ──────────────────────────────────────
 
@@ -82,15 +82,9 @@ serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
   )
 
-  // Récupérer les URLs déjà connues pour éviter les doublons
-  const { data: existing } = await supabase
-    .from('news_posts')
-    .select('external_url')
-    .not('external_url', 'is', null)
-    .limit(2000)
-  const knownUrls = new Set((existing ?? []).map((r: any) => r.external_url as string))
-
-  let totalInserted = 0
+  const now = new Date().toISOString()
+  let totalUpserted = 0
+  let totalSeen = 0
   const errors: string[] = []
 
   await Promise.allSettled(RSS_SOURCES.map(async (src) => {
@@ -102,44 +96,36 @@ serve(async (req) => {
       if (!res.ok) { errors.push(`${src.name}: HTTP ${res.status}`); return }
 
       const xml = await res.text()
-      const items = parseItems(xml)
+      const items = parseItems(xml).slice(0, 15)
+      if (items.length === 0) return
 
-      const rows = items
-        .filter(i => !knownUrls.has(i.link))
-        .slice(0, 10)
-        .map(i => ({
-          title:        i.title.slice(0, 255),
-          excerpt:      i.excerpt || null,
-          content:      null,
-          image_url:    i.image || null,
-          external_url: i.link,
-          category:     'church',
-          author_name:  src.name,
-          is_published: true,
-          featured:     false,
-          published_at: i.pubDate ? new Date(i.pubDate).toISOString() : new Date().toISOString(),
-        }))
+      const rows = items.map(i => ({
+        source:        src.name,
+        title:         i.title.slice(0, 500),
+        excerpt:       i.excerpt || null,
+        image_url:     i.image || null,
+        external_url:  i.link,
+        category:      src.category,
+        author_name:   src.name,
+        published_at:  i.pubDate ? new Date(i.pubDate).toISOString() : now,
+        last_seen_at:  now,
+        is_broken:     false,
+        broken_check_count: 0,
+      }))
 
-      if (rows.length > 0) {
-        const { error } = await supabase.from('news_posts').insert(rows)
-        if (error) errors.push(`${src.name}: ${error.message}`)
-        else { totalInserted += rows.length; rows.forEach(r => knownUrls.add(r.external_url)) }
-      }
+      const { error } = await supabase
+        .from('rss_articles')
+        .upsert(rows, { onConflict: 'external_url', ignoreDuplicates: false })
+
+      if (error) errors.push(`${src.name}: ${error.message}`)
+      else { totalUpserted += rows.length; totalSeen += rows.length }
     } catch (e) {
       errors.push(`${src.name}: ${e instanceof Error ? e.message : String(e)}`)
     }
   }))
 
-  // Nettoyage : supprimer les articles 'church' de plus de 30 jours
-  const cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()
-  await supabase
-    .from('news_posts')
-    .delete()
-    .eq('category', 'church')
-    .lt('published_at', cutoff)
-
   return new Response(
-    JSON.stringify({ success: true, inserted: totalInserted, errors }),
+    JSON.stringify({ success: true, upserted: totalUpserted, seen: totalSeen, errors }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
   )
 })
