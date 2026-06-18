@@ -1,7 +1,7 @@
 /* ── Notification + PWA Service Worker — Voie Vérité Vie ────────────────── */
 
 const CANONICAL_ORIGIN = 'https://voieveritevie.org';
-const CACHE_NAME = 'vvv-shell-v3';
+const CACHE_NAME = 'vvv-shell-v4';
 const SHELL_URLS = ['/', '/manifest.json', '/icon-192x192.png', '/badge-72x72.png'];
 
 self.addEventListener('install', (e) => {
@@ -29,8 +29,17 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Si l'utilisateur est sur l'ancien domaine → rediriger vers le nouveau
-  if (url.origin !== CANONICAL_ORIGIN && request.mode === 'navigate') {
+  // Hôtes autorisés (production + previews Lovable de développement)
+  const isAllowedOrigin =
+    url.origin === CANONICAL_ORIGIN ||
+    url.hostname.endsWith('.lovableproject.com') ||
+    url.hostname.endsWith('.lovable.app') ||
+    url.hostname.endsWith('.lovable.dev') ||
+    url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1';
+
+  // Si l'utilisateur est sur l'ancien domaine (et PAS sur une preview) → rediriger vers le nouveau
+  if (!isAllowedOrigin && request.mode === 'navigate') {
     event.respondWith(
       Response.redirect(CANONICAL_ORIGIN + url.pathname + url.search, 301)
     );
