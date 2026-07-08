@@ -322,7 +322,7 @@ const AdminNews = () => {
 
     // ── Étape 2 : fetch client + RPC SECURITY DEFINER ───────────────────────
     const { data: existing } = await db.from('news_posts').select('external_url').not('external_url', 'is', null);
-    const existingUrls = new Set((existing || []).map((p: any) => p.external_url as string));
+    const existingUrls: Set<string> = new Set((existing || []).map((p: any) => p.external_url as string));
 
     const RSS_SOURCES = [
       { url: 'https://fr.aleteia.org/feed/',                    name: 'Aleteia'            },
