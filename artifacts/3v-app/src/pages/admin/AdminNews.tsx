@@ -637,6 +637,16 @@ const AdminNews = () => {
                 placeholder="messe, jeunesse, Cameroun…" className="mt-1 rounded-lg" />
             </div>
 
+            {/* Pays cible */}
+            <div>
+              <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Pays cible (optionnel)</Label>
+              <Input value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value.toUpperCase() }))}
+                placeholder="FR, CM, IT… (vide = visible partout)" maxLength={2} className="mt-1 rounded-lg uppercase" />
+              <p className="text-[10px] text-muted-foreground/70 mt-1">
+                Code ISO à 2 lettres. Laisser vide pour un article visible dans le monde entier.
+              </p>
+            </div>
+
             {/* Toggles */}
             <div className="flex gap-6">
               <div className="flex items-center gap-2">
