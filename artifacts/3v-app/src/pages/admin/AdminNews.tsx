@@ -11,13 +11,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   Plus, Pencil, Trash2, Loader2, Newspaper, Eye, EyeOff,
   Star, StarOff, Image as ImageIcon, Link2, Video, ArrowLeft,
-  Upload, Download,
+  Upload, Download, Filter, CalendarX, CheckSquare, Square, Globe2, MapPin,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +39,8 @@ interface NewsPost {
   external_url: string | null;
   published_at: string;
   created_at: string;
+  country?: string | null;
+  _source?: 'db' | 'rss';
 }
 
 const EMPTY_FORM = {
@@ -52,6 +55,7 @@ const EMPTY_FORM = {
   featured: false,
   tags: '',
   external_url: '',
+  country: '',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -73,13 +77,89 @@ const AdminNews = () => {
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Filtres & sélection ──
+  const [filterCat, setFilterCat] = useState<string>('all');
+  const [filterSource, setFilterSource] = useState<'all' | 'db' | 'rss'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [purging, setPurging] = useState(false);
+
   const loadPosts = async () => {
-    const { data } = await db.from('news_posts').select('*').order('published_at', { ascending: false });
-    setPosts(data || []);
+    const [{ data: dbRows }, { data: rssRows }] = await Promise.all([
+      db.from('news_posts').select('*').order('published_at', { ascending: false }),
+      db.from('rss_articles').select('id,title,excerpt,image_url,external_url,category,author_name,published_at,country,is_broken').order('published_at', { ascending: false }).limit(500),
+    ]);
+    const merged: NewsPost[] = [
+      ...((dbRows ?? []).map((r: any) => ({ ...r, _source: 'db' as const }))),
+      ...((rssRows ?? []).map((r: any) => ({
+        ...r, content: null, video_url: null, tags: null,
+        is_published: !r.is_broken, featured: false,
+        created_at: r.published_at, _source: 'rss' as const,
+      }))),
+    ].sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+    setPosts(merged);
+    setSelected(new Set());
     setLoading(false);
   };
 
   useEffect(() => { void loadPosts(); }, []);
+
+  // ── Liste filtrée ──
+  const filtered = posts.filter(p => {
+    if (filterCat !== 'all' && p.category !== filterCat) return false;
+    if (filterSource !== 'all' && p._source !== filterSource) return false;
+    if (filterStatus === 'published' && !p.is_published) return false;
+    if (filterStatus === 'draft' && p.is_published) return false;
+    if (dateFrom && new Date(p.published_at) < new Date(dateFrom)) return false;
+    if (dateTo && new Date(p.published_at) > new Date(dateTo + 'T23:59:59')) return false;
+    return true;
+  });
+
+  const toggleOne = (id: string) => setSelected(s => {
+    const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
+  const toggleAll = () => {
+    if (selected.size === filtered.length) setSelected(new Set());
+    else setSelected(new Set(filtered.map(p => p.id)));
+  };
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Supprimer définitivement ${selected.size} article(s) ?`)) return;
+    const ids = [...selected];
+    const dbIds  = ids.filter(id => posts.find(p => p.id === id)?._source === 'db');
+    const rssIds = ids.filter(id => posts.find(p => p.id === id)?._source === 'rss');
+    if (dbIds.length)  await db.from('news_posts').delete().in('id', dbIds);
+    if (rssIds.length) await db.from('rss_articles').delete().in('id', rssIds);
+    toast.success(`${ids.length} article(s) supprimé(s)`);
+    void loadPosts();
+  };
+
+  const bulkSetPublished = async (val: boolean) => {
+    if (selected.size === 0) return;
+    const ids = [...selected].filter(id => posts.find(p => p.id === id)?._source === 'db');
+    if (ids.length === 0) { toast.info('Sélection RSS : action non disponible'); return; }
+    await db.from('news_posts').update({ is_published: val }).in('id', ids);
+    toast.success(`${ids.length} article(s) ${val ? 'publiés' : 'dépubliés'}`);
+    void loadPosts();
+  };
+
+  const purgeByDate = async () => {
+    if (!dateTo && !dateFrom) { toast.error('Définissez une plage de dates d\'abord.'); return; }
+    const count = filtered.length;
+    if (count === 0) { toast.info('Aucun article ne correspond aux filtres.'); return; }
+    if (!confirm(`Supprimer les ${count} article(s) filtrés (période ${dateFrom || '…'} → ${dateTo || '…'}) ?`)) return;
+    setPurging(true);
+    const dbIds  = filtered.filter(p => p._source === 'db').map(p => p.id);
+    const rssIds = filtered.filter(p => p._source === 'rss').map(p => p.id);
+    if (dbIds.length)  await db.from('news_posts').delete().in('id', dbIds);
+    if (rssIds.length) await db.from('rss_articles').delete().in('id', rssIds);
+    toast.success(`${count} article(s) supprimé(s)`);
+    setPurging(false);
+    void loadPosts();
+  };
 
   const openCreate = () => {
     setEditingId(null);
@@ -88,6 +168,10 @@ const AdminNews = () => {
   };
 
   const openEdit = (post: NewsPost) => {
+    if (post._source === 'rss') {
+      toast.info('Les articles RSS sont en lecture seule. Supprimez-les si besoin.');
+      return;
+    }
     setEditingId(post.id);
     setForm({
       title: post.title,
@@ -101,6 +185,7 @@ const AdminNews = () => {
       featured: post.featured,
       tags: (post.tags || []).join(', '),
       external_url: post.external_url || '',
+      country: post.country || '',
     });
     setDialogOpen(true);
   };
@@ -120,6 +205,7 @@ const AdminNews = () => {
       featured: form.featured,
       tags: form.tags ? form.tags.split(',').map(s => s.trim()).filter(Boolean) : [],
       external_url: form.external_url.trim() || null,
+      country: form.country.trim().toUpperCase() || null,
     };
 
     if (editingId) {
@@ -137,18 +223,22 @@ const AdminNews = () => {
   };
 
   const togglePublish = async (post: NewsPost) => {
+    if (post._source === 'rss') return;
     await db.from('news_posts').update({ is_published: !post.is_published }).eq('id', post.id);
     void loadPosts();
   };
 
   const toggleFeatured = async (post: NewsPost) => {
+    if (post._source === 'rss') return;
     await db.from('news_posts').update({ featured: !post.featured }).eq('id', post.id);
     void loadPosts();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer cet article ?')) return;
-    await db.from('news_posts').delete().eq('id', id);
+    const p = posts.find(x => x.id === id);
+    const table = p?._source === 'rss' ? 'rss_articles' : 'news_posts';
+    await db.from(table).delete().eq('id', id);
     toast.success('Supprimé');
     void loadPosts();
   };
