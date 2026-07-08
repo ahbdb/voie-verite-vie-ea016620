@@ -617,8 +617,13 @@ const SectionHeader = ({ icon, title, subtitle, href, linkLabel, external }: {
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 const NewsMagazineWrapper = ({ isAdmin }: { isAdmin: boolean }) => {
-  const { articles, loading } = useArticles(40);
-  return <NewsMagazine articles={articles} loading={loading} isAdmin={isAdmin} />;
+  const { movement, universal, local, loading, userCountry } = useArticles(30);
+  return (
+    <NewsMagazine
+      movement={movement} universal={universal} local={local}
+      loading={loading} isAdmin={isAdmin} userCountry={userCountry}
+    />
+  );
 };
 
 const Index = () => {
