@@ -1,101 +1,96 @@
-## Constat actuel
+# Refonte Actualités & Audit — Voie Vérité Vie
 
-Capture de la home en 950px : la barre de navigation est **cassée** (les libellés « Main », « Spiritual Practices », « Community »… s'affichent verticalement, une lettre par ligne). La section Actualités existante (carrousel auto-scroll de cartes 280-300px) fonctionne mais reste discrète, sans hiérarchie éditoriale, et accumule les articles RSS sans nettoyage.
+## 1. Nouveau design de la section Actualités (accueil)
 
-## 1. Redesign de la page d'accueil
+Remplacement complet de `NewsMagazine.tsx` par un layout plus vivant et éditorial :
 
-Aesthetic conservée (memory) : **Cathédrale moderne** — navy `--background`, gold accent, Cinzel pour titres, flattened UI, `py-6 md:py-10`, pas d'animations symboliques complexes.
+- **Bandeau "À la une" pleine largeur** (hero d'article) : 1 grand visuel 16/9 avec dégradé cathédrale, titre Cinzel, badge catégorie + badge origine (🕊️ 3V / ⛪ Vatican / 📍 Pays), autoplay carrousel discret sur 2-3 vedettes.
+- **Rail horizontal "Notre mouvement 3V"** (scroll-snap) — priorité absolue aux articles insérés en admin (`news_posts`).
+- **Grille "Église universelle"** — Vatican, Aleteia, La Croix… (2 colonnes desktop / 1 mobile, cartes 4/5 avec image).
+- **Grille "Église locale — {pays}"** — filtrée sur le pays de l'utilisateur.
+- **Fallback image intelligent** : si `image_url` absent, on tente `og:image` scrapé côté fonction ; sinon visuel généré depuis un dégradé cathédrale + icône catégorie (jamais de carte "vide").
+- Placeholder image proxy `wsrv.nl` avec `onError` → visuel gradient (déjà en place, amélioré).
 
-Nouvelle composition verticale, du plus chaud au plus froid :
+## 2. Ciblage géographique des actualités
 
-```text
-┌─────────────────────────────────────────────┐
-│  HEADER fixe — fix wrap des libellés nav    │
-├─────────────────────────────────────────────┤
-│  HERO compact                               │
-│   logo + « Voie, Vérité, Vie » + verset     │
-│   2 CTA (Rejoindre / Découvrir)             │
-│   indicateur liturgique en chip             │
-├─────────────────────────────────────────────┤
-│  PROCHAINE ACTIVITÉ (carte unique large)    │
-│   pulse badge si live/imminente             │
-├─────────────────────────────────────────────┤
-│  ACTUALITÉS — nouveau layout magazine       │
-│   ┌──────────────┬───────────────┐          │
-│   │              │  mini card 1  │          │
-│   │   FEATURED   ├───────────────┤          │
-│   │   (image     │  mini card 2  │          │
-│   │   plein-     ├───────────────┤          │
-│   │   cadre)     │  mini card 3  │          │
-│   └──────────────┴───────────────┘          │
-│   + grille 3 colonnes en-dessous (6 cartes) │
-│   + tabs catégories sticky                  │
-├─────────────────────────────────────────────┤
-│  PRATIQUES SPIRITUELLES (4 tuiles bento)    │
-│   Bible / Chapelet / Neuvaines / Lectio     │
-├─────────────────────────────────────────────┤
-│  COMMUNAUTÉ (Forum prières + Témoignages)   │
-│   2 colonnes, aperçu live                   │
-├─────────────────────────────────────────────┤
-│  CTA final (don / contact)                  │
-└─────────────────────────────────────────────┘
+**Schéma** (migration) :
+- `rss_articles.country TEXT` (nullable = universel, ex. `FR`, `CM`, `IT`)
+- `news_posts.country TEXT` (nullable = universel — les articles du mouvement sont mondiaux par défaut)
+- Index `(country, published_at desc)` sur les deux tables.
+
+**Sources RSS étendues par pays** (côté `fetch-news`) :
+```
+Universel   : Vatican News FR, Aleteia FR, Zenit
+France      : La Croix, Famille Chrétienne, iMédia, KTO
+Italie      : Vatican News IT, Avvenire, ACI Stampa
+Cameroun    : Cameroun Catholique, SCEAM
+Côte d'Ivoire, Sénégal, RDC : diocèses locaux disponibles
+Belgique    : Cathobel
+Suisse      : cath.ch
+Canada      : Radio VM, ECDQ
+```
+Chaque source est taguée avec un `country` (ou `null` = universel). Le `fetch-news` insère le pays dans `rss_articles.country`.
+
+**Hook `useArticles`** repensé :
+- Reçoit `country` (depuis `profiles.country` de l'utilisateur connecté, sinon fallback détection navigateur `navigator.language`).
+- Retourne 3 groupes triés : `movement` (news_posts), `universal` (rss country=null), `local` (rss country = pays user).
+- Fusion, dédoublonnage par `external_url`.
+
+## 3. Admin — suppression massive & par plage de dates
+
+Refonte `AdminNews.tsx` :
+- **Checkbox par ligne** + checkbox "tout sélectionner".
+- **Barre d'action flottante** quand ≥1 sélection : `Supprimer (N)`, `Dépublier (N)`, `Publier (N)`, `Mettre à la une (N)`.
+- **Filtres en haut** : catégorie, pays, statut (publié/brouillon), source (`news_posts` vs `rss_articles`), **plage de dates** (from/to).
+- **Bouton "Supprimer par filtre"** : supprime tout ce qui matche les filtres actifs (confirmation modale explicite avec nb d'items).
+- Une seule confirmation → une seule requête (`.in('id', ids)` ou `.lte/.gte('published_at')`).
+- L'admin peut supprimer aussi bien dans `news_posts` que dans `rss_articles` depuis la même vue unifiée.
+
+## 4. Auto-suppression accélérée
+
+Nouvelle politique côté `cleanup-articles` (cron 30 min au lieu de 24 h) :
+- **rss_articles > 2 jours** → suppression physique dès qu'il y a au moins 20 articles plus récents dans la même catégorie/pays (garantit qu'on ne vide pas quand rien de neuf n'arrive).
+- **rss_articles absents du flux depuis 24 h** → suppression.
+- **Lien 404/410** → suppression immédiate (au lieu de 3 échecs).
+- **news_posts** : jamais supprimé auto (seulement dépublié après 90 j, comme aujourd'hui).
+- Cron reprogrammé toutes les **30 min** ; `fetch-news` déclenche `cleanup-articles` en fin d'exécution pour purge immédiate après ingestion.
+
+## 5. Audit & corrections diverses
+
+**Notifications** :
+- Vérifier que `send-push-notification` reçoit bien les tokens (le fix précédent a corrigé le SW en preview mais pas la production Android).
+- Ajouter log d'échec côté `fcm_tokens` (colonne `last_error`) — déjà présente ? Sinon migration.
+- Notifier automatiquement les articles `featured=true` du mouvement 3V (edge trigger à l'insert).
+
+**Incohérences détectées à corriger** :
+- `NewsMagazine` : dédoublonnage manquant quand un article DB partage un `external_url` avec un rss (fait dans `useArticles`, mais pas re-vérifié après filtrage catégorie).
+- Images RSS iMédia/Vatican souvent absentes : ajouter parsing `<media:content>`, `<itunes:image>`, `<image><url>` dans `fetch-news`.
+- `AdminNews.tsx` — l'appel `handleImportRss` fait un fallback client qui écrit dans `news_posts` (mauvaise table), doit écrire dans `rss_articles`.
+- Bouton "Gérer" en tant qu'admin sur la home : lien direct vers `/admin/news` ✅ (OK).
+
+## Détails techniques
+
+**Migration SQL** (à valider) :
+```sql
+ALTER TABLE public.rss_articles ADD COLUMN IF NOT EXISTS country TEXT;
+ALTER TABLE public.news_posts   ADD COLUMN IF NOT EXISTS country TEXT;
+CREATE INDEX IF NOT EXISTS idx_rss_country_pub  ON public.rss_articles(country, published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_news_country_pub ON public.news_posts(country, published_at DESC);
 ```
 
-Détails visuels :
-- **Header nav fix** : `whitespace-nowrap` + `flex-shrink-0` + menu burger dès `< lg` pour éviter l'écrasement actuel.
-- **Hero** : retire le carrousel d'activité du hero (descend en section dédiée), affine le verset.
-- **Section Actualités magazine** :
-  - 1 carte vedette `aspect-[4/5]` avec overlay gradient navy→transparent + titre Cinzel sur l'image + badge gold catégorie
-  - 3 mini-cartes verticales empilées à droite (image carrée + titre + meta)
-  - En dessous : grille 3 cols × 2 lignes de cartes uniformes
-  - Tabs catégorie sticky `top-16` en pill navy/gold
-  - Sur mobile : stack vertical, vedette pleine largeur puis 1 col de cartes
-  - Animation hover : léger lift + glow gold subtil (déjà dans le DS)
-- **Bento Pratiques** : 4 tuiles avec icône gold, fond navy-deep, hover glow.
+**Fichiers touchés** (~10) :
+- `supabase/migrations/…_articles_country.sql` (nouveau)
+- `supabase/functions/fetch-news/index.ts` (sources+country+meilleur parsing image)
+- `supabase/functions/cleanup-articles/index.ts` (règles serrées)
+- `artifacts/3v-app/src/hooks/useArticles.ts` (groupes 3V/universel/local)
+- `artifacts/3v-app/src/components/NewsMagazine.tsx` (nouveau design 3 sections)
+- `artifacts/3v-app/src/pages/admin/AdminNews.tsx` (multi-sélection, filtres, purge)
+- `artifacts/3v-app/src/pages/Index.tsx` (branchement country)
+- Cron: reprogrammation via `supabase--insert`.
 
-## 2. Pipeline de collecte des articles
+Aucune donnée existante perdue (colonnes ajoutées nullables).
 
-Edge function existante `fetch-news` consolidée et nettoyée :
+## Ce qui n'est PAS inclus (à confirmer si besoin)
 
-- **Sources DB** : `news_posts` (CRUD admin existant) — reste source de vérité éditoriale.
-- **Sources RSS** : agrégées dans une nouvelle table `rss_articles` (cache serveur) au lieu d'être refetch côté client à chaque visite. Avantages : moins de CORS, plus rapide, déduplication centralisée, base pour l'auto-suppression.
-- **Cron** : `pg_cron` toutes les 30 min → invoque `fetch-news` qui :
-  1. Récupère les flux (Aleteia, iMédia Afrique, Famille Chrétienne)
-  2. Upsert par `external_url` dans `rss_articles`
-  3. Marque `last_seen_at = now()` pour chaque article présent dans le flux courant
-  4. Vérifie HEAD sur `external_url` des articles non vus depuis 24h → flag `is_broken`
-- **Côté client** : `useEffect` requête `rss_articles` + `news_posts` via un seul fetch Supabase, fusion + tri par `published_at`, plus de `fetch RSS` côté navigateur.
-
-## 3. Auto-suppression (triple critère)
-
-Nouveau cron `cleanup-articles` quotidien (02:00 UTC) :
-
-| Critère | Action | Cible |
-|---|---|---|
-| Article RSS absent du flux source depuis 7 jours (`last_seen_at < now() - 7d`) | DELETE | `rss_articles` uniquement |
-| `external_url` retourne 404/410 OU image cassée 3 vérifications consécutives | `is_broken = true` → DELETE après 7j | `rss_articles` + `news_posts` (dépublié, pas supprimé pour DB) |
-| Article publié il y a plus de 90 jours ET `featured = false` ET pas modifié récemment | DELETE | `rss_articles` ; `news_posts` archivé (`is_published = false`) |
-
-Les articles DB éditoriaux ne sont **jamais supprimés physiquement**, seulement dépubliés — l'admin garde l'historique.
-
-## 4. Détails techniques
-
-- **Migration SQL** : `rss_articles` (id, source, title, excerpt, image_url, external_url unique, category, published_at, last_seen_at, broken_check_count, is_broken, created_at) + GRANT select anon/authenticated + RLS public read, service_role write.
-- **Edge functions** :
-  - `fetch-news` (modif) : ingestion + marquage last_seen + check HEAD
-  - `cleanup-articles` (nouveau) : applique les 3 règles, retourne stats
-- **Cron** via `supabase--insert` (SQL avec project URL + anon key, pas migration).
-- **Client** : nouveau composant `<NewsMagazine />` dans `src/components/`, remplace `<AssociationNewsSection />` dans `Index.tsx`. Hook `useArticles()` centralisé.
-- **Header** : patch `Header.tsx` (whitespace + responsive breakpoints).
-- **Admin** : ajout d'un onglet « Articles RSS » dans `AdminNews` pour voir le cache, forcer un refresh, supprimer manuellement.
-
-## Livrables
-
-1. Migration `rss_articles` + GRANT + RLS
-2. `fetch-news` mis à jour + `cleanup-articles` déployée
-3. 2 cron jobs (`fetch-news` 30min, `cleanup-articles` 1×/jour)
-4. Composants `NewsMagazine`, `useArticles`, refonte `Index.tsx` complète
-5. Fix `Header.tsx` (nav cassée)
-6. Onglet admin RSS
-
-Estimation : ~15 fichiers touchés/créés. Pas de rupture de données existantes (news_posts intact).
+- Redesign du reste de la page d'accueil (hero, mission, activités) — reste tel quel.
+- Réécriture complète du système de notifications push — seulement audit + corrections ponctuelles. Un chantier complet devra être demandé séparément.

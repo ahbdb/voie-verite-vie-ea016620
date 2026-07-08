@@ -6,19 +6,35 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface RssSource { name: string; url: string }
+interface RssSource { name: string; url: string; category: string; country: string | null }
 
-// Sources RSS catholiques francophones — assignées par catégorie
-const RSS_SOURCES: (RssSource & { category: string })[] = [
-  { name: 'Aleteia',            url: 'https://fr.aleteia.org/feed/' },
-  { name: 'Vatican News',       url: 'https://www.vaticannews.va/fr.rss.xml' },
-  { name: 'La Croix',           url: 'https://www.la-croix.com/RSS/UNIVERS-RELIGION' },
-  { name: 'Famille Chrétienne', url: 'https://www.famillechretienne.fr/feed/' },
-  { name: 'iMédia',             url: 'https://www.imedias.eu/feed/' },
-  { name: 'KTO',                url: 'https://www.ktotv.com/rss.xml' },
-  { name: 'Zenit',              url: 'https://fr.zenit.org/feed/' },
-  { name: 'Radio Vatican',      url: 'https://www.vaticannews.va/fr/podcast/rss-news-fr.xml' },
-].map(s => ({ ...s, category: 'church' }))
+// country=null → article universel (Vatican / église globale)
+// country=XX   → actualité locale du pays
+const RSS_SOURCES: RssSource[] = [
+  // ── Universel (Vatican & agences internationales) ──
+  { name: 'Vatican News',       url: 'https://www.vaticannews.va/fr.rss.xml',            category: 'church', country: null },
+  { name: 'Radio Vatican',      url: 'https://www.vaticannews.va/fr/podcast/rss-news-fr.xml', category: 'church', country: null },
+  { name: 'Aleteia',            url: 'https://fr.aleteia.org/feed/',                     category: 'church', country: null },
+  { name: 'Zenit',              url: 'https://fr.zenit.org/feed/',                       category: 'church', country: null },
+  { name: 'iMédia',             url: 'https://www.imedias.eu/feed/',                     category: 'church', country: null },
+  // ── France ──
+  { name: 'La Croix',           url: 'https://www.la-croix.com/RSS/UNIVERS-RELIGION',    category: 'church', country: 'FR' },
+  { name: 'Famille Chrétienne', url: 'https://www.famillechretienne.fr/feed/',           category: 'church', country: 'FR' },
+  { name: 'KTO',                url: 'https://www.ktotv.com/rss.xml',                    category: 'church', country: 'FR' },
+  // ── Italie ──
+  { name: 'Vatican News IT',    url: 'https://www.vaticannews.va/it.rss.xml',            category: 'church', country: 'IT' },
+  { name: 'ACI Stampa',         url: 'https://www.acistampa.com/rss',                    category: 'church', country: 'IT' },
+  // ── Belgique ──
+  { name: 'Cathobel',           url: 'https://www.cathobel.be/feed/',                    category: 'church', country: 'BE' },
+  // ── Suisse ──
+  { name: 'cath.ch',            url: 'https://www.cath.ch/feed/',                        category: 'church', country: 'CH' },
+  // ── Espagne / Portugal ──
+  { name: 'Aleteia ES',         url: 'https://es.aleteia.org/feed/',                     category: 'church', country: 'ES' },
+  { name: 'Aleteia PT',         url: 'https://pt.aleteia.org/feed/',                     category: 'church', country: 'PT' },
+  // ── Anglophone ──
+  { name: 'Catholic News Agency', url: 'https://www.catholicnewsagency.com/rss/news.xml', category: 'church', country: 'US' },
+  { name: 'Catholic Herald',    url: 'https://catholicherald.co.uk/feed/',               category: 'church', country: 'GB' },
+]
 
 // ── XML helpers (no external dependency) ──────────────────────────────────────
 
@@ -56,6 +72,9 @@ function findImage(item: string, desc: string): string {
     extractAttr(item, 'enclosure', 'url') ||
     extractAttr(item, 'media:content', 'url') ||
     extractAttr(item, 'media:thumbnail', 'url') ||
+    extractAttr(item, 'itunes:image', 'href') ||
+    (item.match(/<image>[\s\S]*?<url>([\s\S]*?)<\/url>[\s\S]*?<\/image>/i) || [])[1] ||
+    (item.match(/<content:encoded[^>]*>[\s\S]*?<img[^>]+src=["']([^"']+)["']/i) || [])[1] ||
     (desc.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] ||
     ''
   )
@@ -111,6 +130,7 @@ serve(async (req) => {
         last_seen_at:  now,
         is_broken:     false,
         broken_check_count: 0,
+        country:       src.country,
       }))
 
       const { error } = await supabase

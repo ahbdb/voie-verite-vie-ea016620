@@ -580,6 +580,7 @@ export type Database = {
           author_name: string | null
           category: string
           content: string | null
+          country: string | null
           created_at: string
           excerpt: string | null
           external_url: string | null
@@ -598,6 +599,7 @@ export type Database = {
           author_name?: string | null
           category?: string
           content?: string | null
+          country?: string | null
           created_at?: string
           excerpt?: string | null
           external_url?: string | null
@@ -616,6 +618,7 @@ export type Database = {
           author_name?: string | null
           category?: string
           content?: string | null
+          country?: string | null
           created_at?: string
           excerpt?: string | null
           external_url?: string | null
@@ -897,6 +900,7 @@ export type Database = {
           author_name: string | null
           broken_check_count: number
           category: string
+          country: string | null
           created_at: string
           excerpt: string | null
           external_url: string
@@ -913,6 +917,7 @@ export type Database = {
           author_name?: string | null
           broken_check_count?: number
           category?: string
+          country?: string | null
           created_at?: string
           excerpt?: string | null
           external_url: string
@@ -929,6 +934,7 @@ export type Database = {
           author_name?: string | null
           broken_check_count?: number
           category?: string
+          country?: string | null
           created_at?: string
           excerpt?: string | null
           external_url?: string
