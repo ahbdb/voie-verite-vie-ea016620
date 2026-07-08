@@ -392,7 +392,10 @@ const AdminNews = () => {
               <h1 className="font-cinzel text-2xl font-bold text-foreground flex items-center gap-2">
                 <Newspaper className="h-5 w-5 text-primary" /> Actualités
               </h1>
-              <p className="text-sm text-muted-foreground mt-0.5">{posts.length} article{posts.length !== 1 ? 's' : ''}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {filtered.length} / {posts.length} article{posts.length !== 1 ? 's' : ''}
+                {selected.size > 0 && ` · ${selected.size} sélectionné(s)`}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -406,24 +409,97 @@ const AdminNews = () => {
           </div>
         </div>
 
+        {/* ── Filtres & purge ── */}
+        <div className="mb-4 rounded-2xl border border-border/60 bg-card p-3 md:p-4 space-y-3">
+          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+            <Filter className="h-3.5 w-3.5" /> Filtres
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            <Select value={filterCat} onValueChange={setFilterCat}>
+              <SelectTrigger className="rounded-lg h-9 text-xs"><SelectValue placeholder="Catégorie" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes catégories</SelectItem>
+                {Object.entries(CATEGORY_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterSource} onValueChange={(v: any) => setFilterSource(v)}>
+              <SelectTrigger className="rounded-lg h-9 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes sources</SelectItem>
+                <SelectItem value="db">🕊️ Mouvement 3V</SelectItem>
+                <SelectItem value="rss">🌐 Flux RSS</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
+              <SelectTrigger className="rounded-lg h-9 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous statuts</SelectItem>
+                <SelectItem value="published">Publiés</SelectItem>
+                <SelectItem value="draft">Brouillons</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder="Du" className="rounded-lg h-9 text-xs" />
+            <Input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   placeholder="Au" className="rounded-lg h-9 text-xs" />
+          </div>
+          <div className="flex items-center gap-2 flex-wrap pt-1">
+            <Button size="sm" variant="ghost" onClick={() => {
+              setFilterCat('all'); setFilterSource('all'); setFilterStatus('all');
+              setDateFrom(''); setDateTo('');
+            }} className="rounded-lg text-xs">Réinitialiser</Button>
+            <div className="flex-1" />
+            <Button size="sm" variant="destructive" onClick={purgeByDate} disabled={purging || filtered.length === 0}
+              className="rounded-lg gap-1.5 text-xs">
+              {purging ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarX className="h-3.5 w-3.5" />}
+              Supprimer les {filtered.length} article(s) filtré(s)
+            </Button>
+          </div>
+        </div>
+
+        {/* ── Barre d'actions multi-sélection ── */}
+        {selected.size > 0 && (
+          <div className="sticky top-20 z-30 mb-4 rounded-xl border border-primary/40 bg-primary/8 backdrop-blur px-4 py-2.5 flex items-center gap-2 flex-wrap shadow-lg shadow-primary/10">
+            <span className="text-xs font-semibold text-foreground">{selected.size} sélectionné(s)</span>
+            <div className="flex-1" />
+            <Button size="sm" variant="ghost" onClick={() => bulkSetPublished(true)}  className="rounded-lg gap-1 text-xs h-8"><Eye    className="h-3.5 w-3.5" /> Publier</Button>
+            <Button size="sm" variant="ghost" onClick={() => bulkSetPublished(false)} className="rounded-lg gap-1 text-xs h-8"><EyeOff className="h-3.5 w-3.5" /> Dépublier</Button>
+            <Button size="sm" variant="destructive" onClick={bulkDelete} className="rounded-lg gap-1 text-xs h-8"><Trash2 className="h-3.5 w-3.5" /> Supprimer</Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} className="rounded-lg text-xs h-8">Annuler</Button>
+          </div>
+        )}
+
         {/* List */}
         {loading ? (
           <div className="space-y-3">
             {[1,2,3].map(i => <div key={i} className="h-20 rounded-2xl bg-muted/30 animate-pulse" />)}
           </div>
-        ) : posts.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="text-center py-20 rounded-2xl border border-dashed border-border/60">
             <Newspaper className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground mb-4">Aucun article. Créez le premier !</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              {posts.length === 0 ? 'Aucun article. Créez le premier !' : 'Aucun article ne correspond aux filtres.'}
+            </p>
             <Button onClick={openCreate} className="rounded-xl gap-2"><Plus className="h-4 w-4" /> Créer</Button>
           </div>
         ) : (
+          <>
+          <div className="flex items-center gap-2 mb-2 px-2">
+            <button onClick={toggleAll} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground">
+              {selected.size === filtered.length && filtered.length > 0
+                ? <CheckSquare className="h-4 w-4 text-primary" />
+                : <Square className="h-4 w-4" />}
+              Tout sélectionner
+            </button>
+          </div>
           <div className="space-y-3">
-            {posts.map(post => (
+            {filtered.map(post => (
               <div key={post.id} className={cn(
                 'flex items-start gap-4 rounded-2xl border p-4 transition-all',
-                post.is_published ? 'border-border/60 bg-card' : 'border-border/30 bg-muted/20 opacity-60'
+                selected.has(post.id) ? 'border-primary/60 bg-primary/5'
+                  : post.is_published ? 'border-border/60 bg-card' : 'border-border/30 bg-muted/20 opacity-60'
               )}>
+                <div className="pt-1">
+                  <Checkbox checked={selected.has(post.id)} onCheckedChange={() => toggleOne(post.id)} />
+                </div>
                 {/* Thumbnail */}
                 <div className="shrink-0 w-16 h-16 rounded-xl overflow-hidden bg-muted border border-border/40">
                   {post.image_url
@@ -434,6 +510,10 @@ const AdminNews = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <Badge variant="outline" className="text-[10px]">{CATEGORY_LABELS[post.category]}</Badge>
+                    {post._source === 'rss'
+                      ? <Badge className="text-[10px] bg-slate-500/20 text-slate-300 border-slate-500/30"><Globe2 className="h-2.5 w-2.5 mr-1" /> RSS</Badge>
+                      : <Badge className="text-[10px] bg-primary/20 text-primary border-primary/30">🕊️ 3V</Badge>}
+                    {post.country && <Badge variant="outline" className="text-[10px]"><MapPin className="h-2.5 w-2.5 mr-1" />{post.country}</Badge>}
                     {post.featured && <Badge className="text-[10px] bg-cathedral-gold/20 text-cathedral-gold border-cathedral-gold/30">★ À la une</Badge>}
                     {!post.is_published && <Badge variant="secondary" className="text-[10px]">Brouillon</Badge>}
                   </div>
@@ -446,6 +526,7 @@ const AdminNews = () => {
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
+                  {post._source === 'db' && <>
                   <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" title={post.featured ? 'Retirer de la une' : 'Mettre à la une'} onClick={() => toggleFeatured(post)}>
                     {post.featured ? <Star className="h-3.5 w-3.5 text-cathedral-gold fill-cathedral-gold" /> : <StarOff className="h-3.5 w-3.5 text-muted-foreground" />}
                   </Button>
@@ -455,6 +536,7 @@ const AdminNews = () => {
                   <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg" onClick={() => openEdit(post)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
+                  </>}
                   <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-destructive hover:text-destructive" onClick={() => handleDelete(post.id)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -462,6 +544,7 @@ const AdminNews = () => {
               </div>
             ))}
           </div>
+          </>
         )}
       </div>
 
