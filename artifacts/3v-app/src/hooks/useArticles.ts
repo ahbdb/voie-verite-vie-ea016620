@@ -23,6 +23,58 @@ export interface Article {
 
 const db = supabase as any;
 
+const ENTITY_MAP: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  laquo: '«', raquo: '»', hellip: '…', mdash: '—', ndash: '–',
+  lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', bull: '•', middot: '·',
+  eacute: 'é', egrave: 'è', ecirc: 'ê', euml: 'ë', agrave: 'à', acirc: 'â',
+  ccedil: 'ç', icirc: 'î', iuml: 'ï', ocirc: 'ô', ugrave: 'ù', ucirc: 'û',
+  Eacute: 'É', Egrave: 'È', Ccedil: 'Ç', Agrave: 'À', AElig: 'Æ', aelig: 'æ',
+};
+
+function decodeText(value?: string | null): string | null {
+  if (!value) return value ?? null;
+  let previous = value;
+  for (let i = 0; i < 3; i += 1) {
+    const next = previous
+      .replace(/&#x([0-9a-fA-F]+);?/g, (_, h) => {
+        try { return String.fromCodePoint(parseInt(h, 16)); } catch { return ''; }
+      })
+      .replace(/&#(\d+);?/g, (_, d) => {
+        try { return String.fromCodePoint(parseInt(d, 10)); } catch { return ''; }
+      })
+      .replace(/&([a-zA-Z][a-zA-Z0-9]+);/g, (m, name) => ENTITY_MAP[name] ?? m);
+    if (next === previous) break;
+    previous = next;
+  }
+  return previous.replace(/\s+/g, ' ').trim();
+}
+
+function imageFromExternalUrl(url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.endsWith('aleteia.org')) {
+      const slug = parsed.pathname.replace(/^\//, '').replace(/\/$/, '');
+      if (slug) return `https://aleteia.org/api/og-image?locale=fr&slug=${encodeURIComponent(slug)}`;
+    }
+  } catch { return null; }
+  return null;
+}
+
+function normalizeArticle(row: any, source: Article['source'], origin: ArticleOrigin): Article {
+  return {
+    ...row,
+    title: decodeText(row.title) || 'Actualité',
+    excerpt: decodeText(row.excerpt),
+    content: decodeText(row.content),
+    image_url: row.image_url || imageFromExternalUrl(row.external_url),
+    source,
+    origin,
+    featured: source === 'rss' ? false : row.featured,
+  } as Article;
+}
+
 const COUNTRY_MAP: Record<string, string> = {
   'cameroun': 'CM', 'cameroon': 'CM', 'france': 'FR', 'belgique': 'BE', 'belgium': 'BE',
   'suisse': 'CH', 'switzerland': 'CH', 'italie': 'IT', 'italy': 'IT',
@@ -93,17 +145,17 @@ export function useArticles(limit = 30) {
     const known = new Set<string>();
     const mv: Article[] = (dbRows ?? []).map((r: any) => {
       if (r.external_url) known.add(r.external_url);
-      return { ...r, source: 'db', origin: 'movement' } as Article;
+      return normalizeArticle(r, 'db', 'movement');
     });
     const uni: Article[] = (rssUniversal ?? [])
       .filter((r: any) => !known.has(r.external_url))
       .map((r: any) => {
         known.add(r.external_url);
-        return { ...r, source: 'rss', origin: 'universal', featured: false } as Article;
+        return normalizeArticle(r, 'rss', 'universal');
       });
     const loc: Article[] = (rssLocal ?? [])
       .filter((r: any) => !known.has(r.external_url))
-      .map((r: any) => ({ ...r, source: 'rss', origin: 'local', featured: false } as Article));
+      .map((r: any) => normalizeArticle(r, 'rss', 'local'));
 
     setMovement(mv);
     setUniversal(uni);

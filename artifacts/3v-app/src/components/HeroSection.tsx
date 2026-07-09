@@ -255,7 +255,31 @@ async function detectCountryCode(): Promise<{ code: string; name: string }> {
 }
 
 function stripHtml(html: string) {
-  return html.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim();
+  return decodeText(html.replace(/<[^>]*>/g, ' '));
+}
+
+function decodeText(value?: string | null): string {
+  if (!value) return '';
+  const named: Record<string, string> = {
+    amp: '&', nbsp: ' ', quot: '"', apos: "'", laquo: '«', raquo: '»', hellip: '…',
+    mdash: '—', ndash: '–', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”',
+    eacute: 'é', egrave: 'è', ecirc: 'ê', agrave: 'à', acirc: 'â', ccedil: 'ç',
+    icirc: 'î', iuml: 'ï', ocirc: 'ô', ugrave: 'ù', ucirc: 'û', Eacute: 'É', Ccedil: 'Ç',
+  };
+  let text = value;
+  for (let i = 0; i < 3; i += 1) {
+    const next = text
+      .replace(/&#x([0-9a-fA-F]+);?/g, (_, h) => {
+        try { return String.fromCodePoint(parseInt(h, 16)); } catch { return ''; }
+      })
+      .replace(/&#(\d+);?/g, (_, d) => {
+        try { return String.fromCodePoint(parseInt(d, 10)); } catch { return ''; }
+      })
+      .replace(/&([a-zA-Z][a-zA-Z0-9]+);/g, (m, name) => named[name] ?? m);
+    if (next === text) break;
+    text = next;
+  }
+  return text.replace(/\s+/g, ' ').trim();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -326,39 +350,52 @@ const HeroNewsCarousel = () => {
       if (all.length > 0) setLoading(false);
 
       // ── 4. Actualités monde catholique ───────────────────────────────────────
-      const worldItems = await fetchRssItems(RSS_WORLD, 3);
-      for (const w of worldItems) {
-        all.push({
-          key: `world-${w.link}`,
-          type: 'world',
-          badge: '🌍 Monde catholique',
-          badgeIcon: '🌍',
-          title: w.title,
-          excerpt: stripHtml(w.description || '').slice(0, 140) || undefined,
-          href: w.link,
-          isExternal: true,
-        });
-      }
+      try {
+        const { data: worldRows } = await (supabase as any)
+          .from('rss_articles')
+          .select('id,title,excerpt,external_url')
+          .eq('is_broken', false)
+          .is('country', null)
+          .order('published_at', { ascending: false })
+          .limit(3);
+        for (const w of (worldRows || [])) {
+          all.push({
+            key: `world-${w.id}`,
+            type: 'world',
+            badge: '🌍 Monde catholique',
+            badgeIcon: '🌍',
+            title: decodeText(w.title),
+            excerpt: decodeText(w.excerpt).slice(0, 140) || undefined,
+            href: w.external_url,
+            isExternal: true,
+          });
+        }
+      } catch {}
 
       // ── 5. Actualités locales ────────────────────────────────────────────────
       const geo = await detectCountryCode();
-      const localUrl = RSS_BY_COUNTRY[geo.code];
-      if (localUrl && localUrl !== RSS_WORLD) {
-        const localItems = await fetchRssItems(localUrl, 2);
-        for (const l of localItems) {
+      try {
+        const { data: localRows } = await (supabase as any)
+          .from('rss_articles')
+          .select('id,title,excerpt,external_url')
+          .eq('is_broken', false)
+          .eq('country', geo.code)
+          .order('published_at', { ascending: false })
+          .limit(2);
+        for (const l of (localRows || [])) {
           all.push({
-            key: `local-${l.link}`,
+            key: `local-${l.id}`,
             type: 'local',
             badge: `📍 ${geo.name}`,
             badgeIcon: '📍',
-            title: l.title,
-            excerpt: stripHtml(l.description || '').slice(0, 140) || undefined,
-            href: l.link,
+            title: decodeText(l.title),
+            excerpt: decodeText(l.excerpt).slice(0, 140) || undefined,
+            href: l.external_url,
             isExternal: true,
             country: geo.name,
           });
         }
-      }
+      } catch {}
 
       // Fallback si vraiment rien
       if (all.length === 0) {

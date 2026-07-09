@@ -56,10 +56,10 @@ const NAMED_ENTITIES: Record<string, string> = {
 function decodeEntities(s: string): string {
   if (!s) return ''
   return s
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => {
+    .replace(/&#x([0-9a-fA-F]+);?/g, (_, h) => {
       try { return String.fromCodePoint(parseInt(h, 16)) } catch { return '' }
     })
-    .replace(/&#(\d+);/g, (_, d) => {
+    .replace(/&#(\d+);?/g, (_, d) => {
       try { return String.fromCodePoint(parseInt(d, 10)) } catch { return '' }
     })
     .replace(/&([a-zA-Z]+);/g, (m, name) => NAMED_ENTITIES[name] ?? m)
@@ -80,6 +80,14 @@ function extractTag(xml: string, tag: string): string {
   return decodeEntities(m[1].replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim()
 }
 
+function extractRawTag(xml: string, tag: string): string {
+  const cdata = extractCdata(xml, tag)
+  if (cdata) return cdata.trim()
+  const re = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\/${tag}>`, 'i')
+  const m = xml.match(re)
+  return m ? m[1].trim() : ''
+}
+
 function extractAttr(xml: string, tag: string, attr: string): string {
   const re = new RegExp(`<${tag}[^>]*\\s${attr}=["']([^"']+)["'][^>]*>`, 'i')
   const m = xml.match(re)
@@ -87,18 +95,37 @@ function extractAttr(xml: string, tag: string, attr: string): string {
 }
 
 function stripHtml(html: string): string {
-  return decodeEntities(html.replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim()
+  return decodeEntities(html
+    .replace(/<a\s+class=["']excerpt-read-more["'][\s\S]*?<\/a>/gi, '')
+    .replace(/The post[\s\S]*?appeared first on[\s\S]*?\.?$/i, '')
+    .replace(/<[^>]*>/g, ' '))
+    .replace(/\bTout lire…?\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
-function findImage(item: string, desc: string): string {
+function imageFromArticleLink(link: string): string {
+  try {
+    const u = new URL(link)
+    if (u.hostname.endsWith('aleteia.org')) {
+      const slug = u.pathname.replace(/^\//, '').replace(/\/$/, '')
+      if (slug) return `https://aleteia.org/api/og-image?locale=fr&slug=${encodeURIComponent(slug)}`
+    }
+  } catch { /* ignore */ }
+  return ''
+}
+
+function findImage(item: string, rawDescription: string, link: string): string {
   const raw = (
     extractAttr(item, 'enclosure', 'url') ||
     extractAttr(item, 'media:content', 'url') ||
     extractAttr(item, 'media:thumbnail', 'url') ||
     extractAttr(item, 'itunes:image', 'href') ||
     (item.match(/<image>[\s\S]*?<url>([\s\S]*?)<\/url>[\s\S]*?<\/image>/i) || [])[1] ||
+    (item.match(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["']/i) || [])[1] ||
     (item.match(/<content:encoded[^>]*>[\s\S]*?<img[^>]+src=["']([^"']+)["']/i) || [])[1] ||
-    (desc.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] ||
+    (rawDescription.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] ||
+    imageFromArticleLink(link) ||
     ''
   )
   return decodeEntities(raw).trim()
@@ -108,10 +135,12 @@ function parseItems(xml: string) {
   return (xml.match(/<item>([\s\S]*?)<\/item>/gi) || []).map(raw => {
     const title = extractTag(raw, 'title')
     const link  = extractTag(raw, 'link') || extractAttr(raw, 'link', 'href')
-    const desc  = extractTag(raw, 'description')
+    const rawDesc = extractRawTag(raw, 'description')
+    const rawContent = extractRawTag(raw, 'content:encoded')
+    const desc  = stripHtml(rawDesc || rawContent)
     const pubDate = extractTag(raw, 'pubDate') || extractTag(raw, 'published')
-    const image = findImage(raw, desc)
-    return { title, link, excerpt: stripHtml(desc).slice(0, 350), pubDate, image }
+    const image = findImage(raw, `${rawDesc}\n${rawContent}`, link)
+    return { title, link, excerpt: desc.slice(0, 350), pubDate, image }
   }).filter(i => i.title && i.link)
 }
 
