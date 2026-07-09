@@ -43,6 +43,9 @@ function ArtImg({ src, alt, className }: { src: string | null; alt: string; clas
   const proxied = proxyImg(src);
   const raw = src ? src.replace(/&amp;/g, '&').trim() : null;
   const url = stage === 0 ? proxied : stage === 1 ? raw : null;
+
+  useEffect(() => { setStage(0); }, [src]);
+
   if (!url || stage === 2) return <GradientFallback className={className} />;
   return (
     <img
