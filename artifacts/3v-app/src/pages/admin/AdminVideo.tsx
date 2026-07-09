@@ -161,7 +161,7 @@ const AdminVideo = () => {
 
       // Créer une actualité si un flyer est fourni
       if (flyerUrl) {
-        await supabase.from('news_posts').insert({
+        await (supabase as any).from('news_posts').insert({
           title: formData.title.trim(),
           excerpt: formData.description.trim() || `${formData.roomType === 'audio' ? 'Appel audio' : 'Appel vidéo'} en direct`,
           image_url: flyerUrl,
@@ -170,7 +170,7 @@ const AdminVideo = () => {
           featured: false,
           published_at: new Date().toISOString(),
           author_name: user?.email || 'Admin',
-        } as any).catch(() => {});
+        }).then(() => {}, () => {});
       }
 
       const meetingPath = `/meeting/${data.id}`;
