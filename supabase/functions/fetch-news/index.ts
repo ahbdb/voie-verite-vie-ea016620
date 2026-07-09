@@ -38,23 +38,46 @@ const RSS_SOURCES: RssSource[] = [
 
 // ── XML helpers (no external dependency) ──────────────────────────────────────
 
+// Comprehensive HTML entity decoder — handles named + numeric (dec + hex) refs
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  laquo: '«', raquo: '»', copy: '©', reg: '®', trade: '™',
+  hellip: '…', mdash: '—', ndash: '–', lsquo: '‘', rsquo: '’',
+  ldquo: '“', rdquo: '”', bull: '•', middot: '·', euro: '€',
+  agrave: 'à', acirc: 'â', auml: 'ä', aring: 'å', aelig: 'æ',
+  ccedil: 'ç', egrave: 'è', eacute: 'é', ecirc: 'ê', euml: 'ë',
+  igrave: 'ì', iacute: 'í', icirc: 'î', iuml: 'ï', ntilde: 'ñ',
+  ograve: 'ò', oacute: 'ó', ocirc: 'ô', ouml: 'ö', oslash: 'ø',
+  ugrave: 'ù', uacute: 'ú', ucirc: 'û', uuml: 'ü', yuml: 'ÿ',
+  Agrave: 'À', Acirc: 'Â', Ccedil: 'Ç', Eacute: 'É', Egrave: 'È',
+  Ecirc: 'Ê', Icirc: 'Î', Ocirc: 'Ô', Ucirc: 'Û',
+}
+
+function decodeEntities(s: string): string {
+  if (!s) return ''
+  return s
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => {
+      try { return String.fromCodePoint(parseInt(h, 16)) } catch { return '' }
+    })
+    .replace(/&#(\d+);/g, (_, d) => {
+      try { return String.fromCodePoint(parseInt(d, 10)) } catch { return '' }
+    })
+    .replace(/&([a-zA-Z]+);/g, (m, name) => NAMED_ENTITIES[name] ?? m)
+}
+
 function extractCdata(xml: string, tag: string): string {
-  const re = new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, 'i')
+  const re = new RegExp(`<${tag}(?:\\s[^>]*)?>\\s*<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>\\s*<\\/${tag}>`, 'i')
   const m = xml.match(re)
   return m ? m[1].trim() : ''
 }
 
 function extractTag(xml: string, tag: string): string {
   const cdata = extractCdata(xml, tag)
-  if (cdata) return cdata
-  const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i')
+  if (cdata) return decodeEntities(cdata.replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim()
+  const re = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i')
   const m = xml.match(re)
   if (!m) return ''
-  return m[1]
-    .replace(/<[^>]*>/g, '')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&#8217;/g, '’')
-    .trim()
+  return decodeEntities(m[1].replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim()
 }
 
 function extractAttr(xml: string, tag: string, attr: string): string {
@@ -68,7 +91,7 @@ function stripHtml(html: string): string {
 }
 
 function findImage(item: string, desc: string): string {
-  return (
+  const raw = (
     extractAttr(item, 'enclosure', 'url') ||
     extractAttr(item, 'media:content', 'url') ||
     extractAttr(item, 'media:thumbnail', 'url') ||
@@ -78,6 +101,7 @@ function findImage(item: string, desc: string): string {
     (desc.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] ||
     ''
   )
+  return decodeEntities(raw).trim()
 }
 
 function parseItems(xml: string) {
