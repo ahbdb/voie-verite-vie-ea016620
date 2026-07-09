@@ -21,9 +21,12 @@ const CATEGORY_BADGE: Record<string, string> = {
 
 function proxyImg(url: string | null): string | null {
   if (!url) return null;
-  const clean = url.replace(/&amp;/g, '&');
+  const clean = url.replace(/&amp;/g, '&').trim();
+  if (!/^https?:\/\//i.test(clean)) return null;
   if (clean.includes('supabase') || clean.includes('localhost')) return clean;
-  return `https://wsrv.nl/?url=${encodeURIComponent(clean)}&w=1200&output=webp&q=82`;
+  // strip protocol for wsrv (it prefers domain-only)
+  const bare = clean.replace(/^https?:\/\//i, '');
+  return `https://wsrv.nl/?url=${encodeURIComponent(bare)}&w=1200&output=webp&q=82&default=1`;
 }
 
 function GradientFallback({ className }: { className?: string }) {
@@ -36,12 +39,20 @@ function GradientFallback({ className }: { className?: string }) {
 }
 
 function ArtImg({ src, alt, className }: { src: string | null; alt: string; className?: string }) {
-  const [err, setErr] = useState(false);
-  const url = proxyImg(src);
-  if (!url || err) return <GradientFallback className={className} />;
+  const [stage, setStage] = useState<0 | 1 | 2>(0); // 0 = proxied, 1 = raw, 2 = fail
+  const proxied = proxyImg(src);
+  const raw = src ? src.replace(/&amp;/g, '&').trim() : null;
+  const url = stage === 0 ? proxied : stage === 1 ? raw : null;
+  if (!url || stage === 2) return <GradientFallback className={className} />;
   return (
-    <img src={url} alt={alt} loading="lazy" onError={() => setErr(true)}
-      className={cn('w-full h-full object-cover', className)} />
+    <img
+      src={url}
+      alt={alt}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setStage(s => (s === 0 && raw ? 1 : 2))}
+      className={cn('w-full h-full object-cover', className)}
+    />
   );
 }
 
