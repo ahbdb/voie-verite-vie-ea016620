@@ -64,7 +64,7 @@ function extractAttr(xml: string, tag: string, attr: string): string {
 }
 
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+  return decodeEntities(html.replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim()
 }
 
 function findImage(item: string, desc: string): string {
