@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { Helmet } from 'react-helmet-async';
 import Navigation from '@/components/Navigation';
 import HeroSection from '@/components/HeroSection';
 import MissionSection from '@/components/MissionSection';
@@ -658,6 +659,28 @@ const Index = () => {
 
   return (
     <div className="min-h-screen">
+      <Helmet>
+        <title>Voie, Vérité, Vie (3V) — Communauté catholique, lecture biblique et actualités</title>
+        <meta name="description" content="3V (Voie, Vérité, Vie) : communauté catholique en ligne. Actualités catholiques quotidiennes, lecture biblique guidée, prière communautaire, appels & lives, témoignages et neuvaines." />
+        <meta name="keywords" content="voie vérité vie, 3V, catholique, actualités catholiques, lecture biblique, communauté chrétienne, prière, neuvaine, aleteia, vatican news, cathobel" />
+        <link rel="canonical" href="https://voie-verite-vie.lovable.app/" />
+        <meta property="og:title" content="Voie, Vérité, Vie (3V) — Communauté catholique en ligne" />
+        <meta property="og:description" content="Actualités catholiques, lecture biblique quotidienne, prière et vie communautaire." />
+        <meta property="og:url" content="https://voie-verite-vie.lovable.app/" />
+        <meta property="og:type" content="website" />
+        <script type="application/ld+json">{JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": "Voie, Vérité, Vie (3V)",
+          "url": "https://voie-verite-vie.lovable.app/",
+          "inLanguage": ["fr", "en", "it"],
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://voie-verite-vie.lovable.app/actualites?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        })}</script>
+      </Helmet>
       <Navigation />
       <main>
         <HeroSection />
