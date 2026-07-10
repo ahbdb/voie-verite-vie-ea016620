@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Users, ArrowRight, BookOpen, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, ArrowRight, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Sparkles, Heart, Newspaper } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import bibleBooksData from '@/data/bible-books.json';
@@ -285,7 +285,16 @@ function decodeText(value?: string | null): string {
 // ══════════════════════════════════════════════════════════════════════════════
 // Carrousel Actualités
 // ══════════════════════════════════════════════════════════════════════════════
-const HeroNewsCarousel = () => {
+// Mapping langue → sources RSS acceptées (permet de filtrer les actus par langue de l'app)
+const SOURCES_BY_LANG: Record<string, string[]> = {
+  fr: ['Aleteia', 'Cathobel', 'cath.ch', 'Vatican News'],
+  en: ['Catholic News Agency'],
+  it: ['Vatican News IT', 'ACI Stampa'],
+  es: ['Aleteia ES'],
+  pt: ['Aleteia PT'],
+};
+
+const HeroNewsCarousel = ({ lang }: { lang: string }) => {
   const [items, setItems]     = useState<CarouselItem[]>([]);
   const [current, setCurrent] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -299,6 +308,7 @@ const HeroNewsCarousel = () => {
 
     const load = async () => {
       const all: CarouselItem[] = [];
+      const sources = SOURCES_BY_LANG[lang] ?? SOURCES_BY_LANG.fr;
 
       // ── 1. Activités à venir ─────────────────────────────────────────────────
       const today = new Date().toISOString().split('T')[0];
@@ -355,9 +365,9 @@ const HeroNewsCarousel = () => {
           .from('rss_articles')
           .select('id,title,excerpt,external_url')
           .eq('is_broken', false)
-          .is('country', null)
+          .in('source', sources)
           .order('published_at', { ascending: false })
-          .limit(3);
+          .limit(5);
         for (const w of (worldRows || [])) {
           all.push({
             key: `world-${w.id}`,
@@ -372,30 +382,8 @@ const HeroNewsCarousel = () => {
         }
       } catch {}
 
-      // ── 5. Actualités locales ────────────────────────────────────────────────
-      const geo = await detectCountryCode();
-      try {
-        const { data: localRows } = await (supabase as any)
-          .from('rss_articles')
-          .select('id,title,excerpt,external_url')
-          .eq('is_broken', false)
-          .eq('country', geo.code)
-          .order('published_at', { ascending: false })
-          .limit(2);
-        for (const l of (localRows || [])) {
-          all.push({
-            key: `local-${l.id}`,
-            type: 'local',
-            badge: `📍 ${geo.name}`,
-            badgeIcon: '📍',
-            title: decodeText(l.title),
-            excerpt: decodeText(l.excerpt).slice(0, 140) || undefined,
-            href: l.external_url,
-            isExternal: true,
-            country: geo.name,
-          });
-        }
-      } catch {}
+      // Note : filtrage par langue de l'application (pas par pays).
+      // Un utilisateur au Cameroun avec l'app en français voit les actus francophones.
 
       // Fallback si vraiment rien
       if (all.length === 0) {
@@ -417,7 +405,7 @@ const HeroNewsCarousel = () => {
     };
 
     void load();
-  }, []);
+  }, [lang]);
 
   // Auto-avancement
   useEffect(() => {
@@ -590,8 +578,74 @@ function parseChapters(chapters: string): number[] {
 // ══════════════════════════════════════════════════════════════════════════════
 // HeroSection principal
 // ══════════════════════════════════════════════════════════════════════════════
+
+// ── Bandeau défilant d'actualités (marquee) ──
+const NewsTicker = ({ lang }: { lang: string }) => {
+  const [headlines, setHeadlines] = useState<{ id: string; title: string; url: string; source: string }[]>([]);
+
+  useEffect(() => {
+    const sources = SOURCES_BY_LANG[lang] ?? SOURCES_BY_LANG.fr;
+    (async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from('rss_articles')
+          .select('id,title,external_url,source')
+          .eq('is_broken', false)
+          .in('source', sources)
+          .order('published_at', { ascending: false })
+          .limit(12);
+        setHeadlines((data || []).map((r: any) => ({
+          id: r.id, title: decodeText(r.title), url: r.external_url, source: r.source,
+        })));
+      } catch {}
+    })();
+  }, [lang]);
+
+  if (headlines.length === 0) return null;
+  // Duplique la liste pour un défilement infini fluide
+  const loop = [...headlines, ...headlines];
+
+  return (
+    <div
+      className="w-full overflow-hidden border-y backdrop-blur-md"
+      style={{ borderColor: lit.colorHex + '33', backgroundColor: 'rgba(10,16,30,0.55)' }}
+      aria-label="Actualités catholiques défilantes"
+    >
+      <div className="flex items-center">
+        <div
+          className="shrink-0 flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-white"
+          style={{ backgroundColor: lit.colorHex }}
+        >
+          <Newspaper className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">À la une</span>
+          <span className="sm:hidden">Live</span>
+        </div>
+        <div className="relative flex-1 overflow-hidden py-2">
+          <div className="flex whitespace-nowrap animate-marquee-x">
+            {loop.map((h, i) => (
+              <a
+                key={`${h.id}-${i}`}
+                href={h.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 text-xs sm:text-sm text-white/85 hover:text-white transition-colors"
+              >
+                <span className="inline-block w-1 h-1 rounded-full" style={{ backgroundColor: lit.colorHex }} />
+                <span className="opacity-60">{h.source}</span>
+                <span>—</span>
+                <span className="font-medium">{h.title}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const HeroSection = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = (i18n.language || 'fr').split('-')[0];
   const { user } = useAuth();
 
   const [currentVerse, setCurrentVerse] = useState(0);
@@ -692,8 +746,13 @@ const HeroSection = () => {
       {/* Bande liturgique (top) */}
       <div className="absolute top-0 left-0 right-0 z-20 h-[3px]" style={{ backgroundColor: lit.colorHex }} />
 
+      {/* Bandeau défilant d'actualités (marquee) — juste sous la navbar */}
+      <div className="absolute top-[64px] sm:top-[72px] left-0 right-0 z-20">
+        <NewsTicker lang={lang} />
+      </div>
+
       {/* Contenu principal */}
-      <div className="relative z-10 w-full max-w-2xl mx-auto px-4 sm:px-6 flex flex-col items-center gap-6 pt-24 pb-12">
+      <div className="relative z-10 w-full max-w-2xl mx-auto px-4 sm:px-6 flex flex-col items-center gap-6 pt-32 sm:pt-36 pb-12">
 
         {/* ── Badge saison liturgique ── */}
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
@@ -711,7 +770,34 @@ const HeroSection = () => {
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          <HeroNewsCarousel />
+          <HeroNewsCarousel lang={lang} />
+        </motion.div>
+
+        {/* ── Petits indicateurs communauté (embellissement) ── */}
+        <motion.div
+          className="w-full max-w-xl grid grid-cols-3 gap-2 sm:gap-3"
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35, duration: 0.5 }}
+        >
+          {[
+            { icon: <BookOpen className="w-3.5 h-3.5" />, label: t('hero.stats.reading', { defaultValue: 'Lecture du jour' }), value: '📖' },
+            { icon: <Sparkles className="w-3.5 h-3.5" />, label: lit.season, value: liturgicalEmoji(lit.color) },
+            { icon: <Heart className="w-3.5 h-3.5" />, label: t('hero.stats.community', { defaultValue: 'Communauté 3V' }), value: '✝️' },
+          ].map((s, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 rounded-xl border backdrop-blur-md px-2.5 py-2"
+              style={{ borderColor: lit.colorHex + '25', backgroundColor: 'rgba(15,22,40,0.5)' }}
+            >
+              <span className="text-base leading-none">{s.value}</span>
+              <div className="min-w-0">
+                <div className="text-[9px] uppercase tracking-wider text-white/40 flex items-center gap-1" style={{ color: lit.colorHex + 'cc' }}>
+                  {s.icon}
+                </div>
+                <div className="text-[10px] sm:text-xs text-white/75 font-medium truncate">{s.label}</div>
+              </div>
+            </div>
+          ))}
         </motion.div>
 
         {/* ══ 2. CARTE SALUTATION (utilisateurs connectés) ══ */}
