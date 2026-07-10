@@ -746,8 +746,13 @@ const HeroSection = () => {
       {/* Bande liturgique (top) */}
       <div className="absolute top-0 left-0 right-0 z-20 h-[3px]" style={{ backgroundColor: lit.colorHex }} />
 
+      {/* Bandeau défilant d'actualités (marquee) — juste sous la navbar */}
+      <div className="absolute top-[64px] sm:top-[72px] left-0 right-0 z-20">
+        <NewsTicker lang={lang} />
+      </div>
+
       {/* Contenu principal */}
-      <div className="relative z-10 w-full max-w-2xl mx-auto px-4 sm:px-6 flex flex-col items-center gap-6 pt-24 pb-12">
+      <div className="relative z-10 w-full max-w-2xl mx-auto px-4 sm:px-6 flex flex-col items-center gap-6 pt-32 sm:pt-36 pb-12">
 
         {/* ── Badge saison liturgique ── */}
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
@@ -765,7 +770,34 @@ const HeroSection = () => {
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          <HeroNewsCarousel />
+          <HeroNewsCarousel lang={lang} />
+        </motion.div>
+
+        {/* ── Petits indicateurs communauté (embellissement) ── */}
+        <motion.div
+          className="w-full max-w-xl grid grid-cols-3 gap-2 sm:gap-3"
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35, duration: 0.5 }}
+        >
+          {[
+            { icon: <BookOpen className="w-3.5 h-3.5" />, label: t('hero.stats.reading', { defaultValue: 'Lecture du jour' }), value: '📖' },
+            { icon: <Sparkles className="w-3.5 h-3.5" />, label: lit.season, value: liturgicalEmoji(lit.color) },
+            { icon: <Heart className="w-3.5 h-3.5" />, label: t('hero.stats.community', { defaultValue: 'Communauté 3V' }), value: '✝️' },
+          ].map((s, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 rounded-xl border backdrop-blur-md px-2.5 py-2"
+              style={{ borderColor: lit.colorHex + '25', backgroundColor: 'rgba(15,22,40,0.5)' }}
+            >
+              <span className="text-base leading-none">{s.value}</span>
+              <div className="min-w-0">
+                <div className="text-[9px] uppercase tracking-wider text-white/40 flex items-center gap-1" style={{ color: lit.colorHex + 'cc' }}>
+                  {s.icon}
+                </div>
+                <div className="text-[10px] sm:text-xs text-white/75 font-medium truncate">{s.label}</div>
+              </div>
+            </div>
+          ))}
         </motion.div>
 
         {/* ══ 2. CARTE SALUTATION (utilisateurs connectés) ══ */}
