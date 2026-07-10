@@ -818,3 +818,14 @@ h1, h2, h3, h4, h5, h6, p, span, a, li, td, th, label, button {
   0% { opacity: 1; transform: translateY(0) scale(1); }
   100% { opacity: 0; transform: translateY(-200px) scale(1.5); }
 }
+
+/* News marquee — horizontal infinite scroll */
+@keyframes marquee-x {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee-x {
+  animation: marquee-x 60s linear infinite;
+  will-change: transform;
+}
+.animate-marquee-x:hover { animation-play-state: paused; }
