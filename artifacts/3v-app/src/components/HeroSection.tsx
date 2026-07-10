@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Users, ArrowRight, BookOpen, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, ArrowRight, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Sparkles, Heart, Newspaper } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import bibleBooksData from '@/data/bible-books.json';
