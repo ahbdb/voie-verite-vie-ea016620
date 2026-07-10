@@ -285,7 +285,16 @@ function decodeText(value?: string | null): string {
 // ══════════════════════════════════════════════════════════════════════════════
 // Carrousel Actualités
 // ══════════════════════════════════════════════════════════════════════════════
-const HeroNewsCarousel = () => {
+// Mapping langue → sources RSS acceptées (permet de filtrer les actus par langue de l'app)
+const SOURCES_BY_LANG: Record<string, string[]> = {
+  fr: ['Aleteia', 'Cathobel', 'cath.ch', 'Vatican News'],
+  en: ['Catholic News Agency'],
+  it: ['Vatican News IT', 'ACI Stampa'],
+  es: ['Aleteia ES'],
+  pt: ['Aleteia PT'],
+};
+
+const HeroNewsCarousel = ({ lang }: { lang: string }) => {
   const [items, setItems]     = useState<CarouselItem[]>([]);
   const [current, setCurrent] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -299,6 +308,7 @@ const HeroNewsCarousel = () => {
 
     const load = async () => {
       const all: CarouselItem[] = [];
+      const sources = SOURCES_BY_LANG[lang] ?? SOURCES_BY_LANG.fr;
 
       // ── 1. Activités à venir ─────────────────────────────────────────────────
       const today = new Date().toISOString().split('T')[0];
@@ -355,9 +365,9 @@ const HeroNewsCarousel = () => {
           .from('rss_articles')
           .select('id,title,excerpt,external_url')
           .eq('is_broken', false)
-          .is('country', null)
+          .in('source', sources)
           .order('published_at', { ascending: false })
-          .limit(3);
+          .limit(5);
         for (const w of (worldRows || [])) {
           all.push({
             key: `world-${w.id}`,
@@ -372,30 +382,8 @@ const HeroNewsCarousel = () => {
         }
       } catch {}
 
-      // ── 5. Actualités locales ────────────────────────────────────────────────
-      const geo = await detectCountryCode();
-      try {
-        const { data: localRows } = await (supabase as any)
-          .from('rss_articles')
-          .select('id,title,excerpt,external_url')
-          .eq('is_broken', false)
-          .eq('country', geo.code)
-          .order('published_at', { ascending: false })
-          .limit(2);
-        for (const l of (localRows || [])) {
-          all.push({
-            key: `local-${l.id}`,
-            type: 'local',
-            badge: `📍 ${geo.name}`,
-            badgeIcon: '📍',
-            title: decodeText(l.title),
-            excerpt: decodeText(l.excerpt).slice(0, 140) || undefined,
-            href: l.external_url,
-            isExternal: true,
-            country: geo.name,
-          });
-        }
-      } catch {}
+      // Note : filtrage par langue de l'application (pas par pays).
+      // Un utilisateur au Cameroun avec l'app en français voit les actus francophones.
 
       // Fallback si vraiment rien
       if (all.length === 0) {
@@ -417,7 +405,7 @@ const HeroNewsCarousel = () => {
     };
 
     void load();
-  }, []);
+  }, [lang]);
 
   // Auto-avancement
   useEffect(() => {
