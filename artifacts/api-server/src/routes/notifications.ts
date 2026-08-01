@@ -91,7 +91,7 @@ router.get("/notifications", requireAuth, async (req, res) => {
 
 router.patch("/notifications/:id/read", requireAuth, async (req, res) => {
   try {
-    await db.update(notifications).set({ is_read: true }).where(eq(notifications.id, req.params.id));
+    await db.update(notifications).set({ is_read: true }).where(eq(notifications.id, String(req.params.id)));
     res.json({ success: true });
   } catch { res.status(500).json({ error: "Failed to mark as read" }); }
 });
@@ -109,7 +109,7 @@ router.delete("/notifications/:id", requireAuth, async (req, res) => {
   const user = (req as any).user;
   try {
     await db.delete(notifications)
-      .where(and(eq(notifications.id, req.params.id), eq(notifications.user_id, user.id)));
+      .where(and(eq(notifications.id, String(req.params.id)), eq(notifications.user_id, user.id)));
     res.json({ success: true });
   } catch { res.status(500).json({ error: "Failed to delete notification" }); }
 });
