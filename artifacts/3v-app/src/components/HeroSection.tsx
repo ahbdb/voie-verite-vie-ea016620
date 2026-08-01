@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Users, ArrowRight, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Sparkles, Heart, Newspaper } from 'lucide-react';
+import { Users, ArrowRight, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Sparkles, Heart, Newspaper, CalendarDays, Globe2, Landmark, Cross } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import bibleBooksData from '@/data/bible-books.json';
@@ -323,8 +323,8 @@ const HeroNewsCarousel = ({ lang }: { lang: string }) => {
           all.push({
             key: `activity-${a.id}`,
             type: 'platform',
-            badge: '📅 Activité à venir',
-            badgeIcon: '📅',
+            badge: 'Activité à venir',
+            badgeIcon: 'calendar',
             title: a.title,
             excerpt: a.description ? stripHtml(a.description).slice(0, 140) : undefined,
             href: '/activities',
@@ -346,8 +346,8 @@ const HeroNewsCarousel = ({ lang }: { lang: string }) => {
           all.push({
             key: `platform-${p.id}`,
             type: 'platform',
-            badge: p.category === 'event' ? '📅 Événement' : p.category === 'announcement' ? '📢 Annonce' : '🏛️ Association',
-            badgeIcon: '🏛️',
+            badge: p.category === 'event' ? 'Événement' : p.category === 'announcement' ? 'Annonce' : 'Association',
+            badgeIcon: p.category === 'event' ? 'calendar' : 'landmark',
             title: p.title,
             excerpt: p.excerpt || undefined,
             href: p.external_url || `/actualites/${p.id}`,
@@ -372,8 +372,8 @@ const HeroNewsCarousel = ({ lang }: { lang: string }) => {
           all.push({
             key: `world-${w.id}`,
             type: 'world',
-            badge: '🌍 Monde catholique',
-            badgeIcon: '🌍',
+            badge: 'Monde catholique',
+            badgeIcon: 'globe',
             title: decodeText(w.title),
             excerpt: decodeText(w.excerpt).slice(0, 140) || undefined,
             href: w.external_url,
@@ -390,8 +390,8 @@ const HeroNewsCarousel = ({ lang }: { lang: string }) => {
         all.push({
           key: 'fallback',
           type: 'platform',
-          badge: '✝️ Voie Vérité Vie',
-          badgeIcon: '✝️',
+          badge: 'Voie Vérité Vie',
+          badgeIcon: 'cross',
           title: 'Bienvenue dans la communauté Voie Vérité Vie',
           excerpt: 'Rejoignez-nous pour vivre la foi ensemble : prière, lecture biblique, appels & lives, témoignages…',
           href: '/about',
@@ -462,24 +462,25 @@ const HeroNewsCarousel = ({ lang }: { lang: string }) => {
             {/* Badge */}
             <div className="flex items-center justify-between mb-3">
               <span
-                className="text-[10px] font-bold px-2.5 py-0.5 rounded-full border"
+                className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border"
                 style={{ color: lit.colorHex, borderColor: lit.colorHex + '60', backgroundColor: lit.colorHex + '18' }}
               >
+                <BadgeIcon name={item.badgeIcon} />
                 {item.badge}
               </span>
-              <span className="text-white/25 text-[10px]">
+              <span className="text-white/45 text-[10px]">
                 {current + 1}/{items.length}
               </span>
             </div>
 
             {/* Titre */}
-            <h2 className="text-white font-cinzel font-bold text-base sm:text-lg leading-snug line-clamp-2 mb-2">
+            <h2 className="text-white font-cinzel font-bold text-lg sm:text-2xl leading-snug line-clamp-2 mb-2">
               {item.title}
             </h2>
 
             {/* Extrait */}
             {item.excerpt && (
-              <p className="text-white/55 text-xs sm:text-sm leading-relaxed line-clamp-2 mb-3">
+              <p className="text-white/75 text-xs sm:text-sm leading-relaxed line-clamp-2 mb-3">
                 {item.excerpt}
               </p>
             )}
