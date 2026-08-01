@@ -843,7 +843,7 @@ const HeroSection = () => {
             <AnimatePresence mode="wait">
               <motion.p
                 key={currentVerse}
-                className="text-white/65 text-xs sm:text-sm font-playfair italic text-center leading-relaxed"
+                className="text-white/85 text-sm sm:text-base font-playfair italic text-center leading-relaxed"
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35 }}
               >
