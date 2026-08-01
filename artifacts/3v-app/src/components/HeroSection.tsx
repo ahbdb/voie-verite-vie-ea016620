@@ -294,6 +294,14 @@ const SOURCES_BY_LANG: Record<string, string[]> = {
   pt: ['Aleteia PT'],
 };
 
+const BadgeIcon = ({ name }: { name: string }) => {
+  const cls = 'w-3 h-3 shrink-0';
+  if (name === 'calendar') return <CalendarDays className={cls} />;
+  if (name === 'globe') return <Globe2 className={cls} />;
+  if (name === 'landmark') return <Landmark className={cls} />;
+  return <Cross className={cls} />;
+};
+
 const HeroNewsCarousel = ({ lang }: { lang: string }) => {
   // Icônes vectorielles (remplacent les emojis, qui ne s'affichent pas sur
   // certains appareils/polices et produisent des carrés vides)
