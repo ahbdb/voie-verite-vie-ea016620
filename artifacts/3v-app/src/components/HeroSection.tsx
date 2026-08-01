@@ -458,7 +458,7 @@ const HeroNewsCarousel = ({ lang }: { lang: string }) => {
       {/* Slide */}
       <div
         className="rounded-2xl border backdrop-blur-md overflow-hidden"
-        style={{ borderColor: lit.colorHex + '35', backgroundColor: 'rgba(15,22,40,0.65)' }}
+        style={{ borderColor: lit.colorHex + '45', backgroundColor: 'rgba(10,16,30,0.82)' }}
       >
         <AnimatePresence mode="wait">
           <motion.div
