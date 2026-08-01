@@ -36,7 +36,7 @@ router.post("/user-roles", requireAdmin, async (req, res) => {
 
 router.delete("/user-roles/:userId", requireAdmin, async (req, res) => {
   try {
-    await db.delete(userRoles).where(eq(userRoles.user_id, req.params.userId));
+    await db.delete(userRoles).where(eq(userRoles.user_id, String(req.params.userId)));
     res.json({ success: true });
   } catch { res.status(500).json({ error: "Failed to delete role" }); }
 });

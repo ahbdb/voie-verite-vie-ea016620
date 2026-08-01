@@ -35,14 +35,14 @@ router.post("/biblical-readings", requireAdmin, async (req, res) => {
 
 router.put("/biblical-readings/:id", requireAdmin, async (req, res) => {
   try {
-    const row = await db.update(biblicalReadings).set(req.body).where(eq(biblicalReadings.id, req.params.id)).returning();
+    const row = await db.update(biblicalReadings).set(req.body).where(eq(biblicalReadings.id, String(req.params.id))).returning();
     res.json(row[0]);
   } catch { res.status(500).json({ error: "Failed to update reading" }); }
 });
 
 router.delete("/biblical-readings/:id", requireAdmin, async (req, res) => {
   try {
-    await db.delete(biblicalReadings).where(eq(biblicalReadings.id, req.params.id));
+    await db.delete(biblicalReadings).where(eq(biblicalReadings.id, String(req.params.id)));
     res.json({ success: true });
   } catch { res.status(500).json({ error: "Failed to delete reading" }); }
 });
@@ -98,14 +98,14 @@ router.post("/faq", requireAdmin, async (req, res) => {
 
 router.put("/faq/:id", requireAdmin, async (req, res) => {
   try {
-    const row = await db.update(faqItems).set(req.body).where(eq(faqItems.id, req.params.id)).returning();
+    const row = await db.update(faqItems).set(req.body).where(eq(faqItems.id, String(req.params.id))).returning();
     res.json(row[0]);
   } catch { res.status(500).json({ error: "Failed to update FAQ item" }); }
 });
 
 router.delete("/faq/:id", requireAdmin, async (req, res) => {
   try {
-    await db.delete(faqItems).where(eq(faqItems.id, req.params.id));
+    await db.delete(faqItems).where(eq(faqItems.id, String(req.params.id)));
     res.json({ success: true });
   } catch { res.status(500).json({ error: "Failed to delete FAQ item" }); }
 });
@@ -134,14 +134,14 @@ router.post("/gallery", requireAdmin, async (req, res) => {
 
 router.put("/gallery/:id", requireAdmin, async (req, res) => {
   try {
-    const row = await db.update(galleryImages).set(req.body).where(eq(galleryImages.id, req.params.id)).returning();
+    const row = await db.update(galleryImages).set(req.body).where(eq(galleryImages.id, String(req.params.id))).returning();
     res.json(row[0]);
   } catch { res.status(500).json({ error: "Failed to update gallery image" }); }
 });
 
 router.delete("/gallery/:id", requireAdmin, async (req, res) => {
   try {
-    await db.delete(galleryImages).where(eq(galleryImages.id, req.params.id));
+    await db.delete(galleryImages).where(eq(galleryImages.id, String(req.params.id)));
     res.json({ success: true });
   } catch { res.status(500).json({ error: "Failed to delete gallery image" }); }
 });
@@ -163,7 +163,7 @@ router.get("/neuvaines/all", requireAdmin, async (req, res) => {
 
 router.get("/neuvaines/:id", async (req, res) => {
   try {
-    const rows = await db.select().from(neuvaines).where(eq(neuvaines.id, req.params.id)).limit(1);
+    const rows = await db.select().from(neuvaines).where(eq(neuvaines.id, String(req.params.id))).limit(1);
     if (!rows.length) { res.status(404).json({ error: "Not found" }); return; }
     res.json(rows[0]);
   } catch { res.status(500).json({ error: "Failed to fetch neuvaine" }); }
@@ -178,14 +178,14 @@ router.post("/neuvaines", requireAdmin, async (req, res) => {
 
 router.put("/neuvaines/:id", requireAdmin, async (req, res) => {
   try {
-    const row = await db.update(neuvaines).set({ ...req.body, updated_at: new Date() }).where(eq(neuvaines.id, req.params.id)).returning();
+    const row = await db.update(neuvaines).set({ ...req.body, updated_at: new Date() }).where(eq(neuvaines.id, String(req.params.id))).returning();
     res.json(row[0]);
   } catch { res.status(500).json({ error: "Failed to update neuvaine" }); }
 });
 
 router.delete("/neuvaines/:id", requireAdmin, async (req, res) => {
   try {
-    await db.delete(neuvaines).where(eq(neuvaines.id, req.params.id));
+    await db.delete(neuvaines).where(eq(neuvaines.id, String(req.params.id)));
     res.json({ success: true });
   } catch { res.status(500).json({ error: "Failed to delete neuvaine" }); }
 });
@@ -193,7 +193,7 @@ router.delete("/neuvaines/:id", requireAdmin, async (req, res) => {
 // --- Page Content ---
 router.get("/page-content/:key", async (req, res) => {
   try {
-    const rows = await db.select().from(pageContent).where(eq(pageContent.page_key, req.params.key)).limit(1);
+    const rows = await db.select().from(pageContent).where(eq(pageContent.page_key, String(req.params.key))).limit(1);
     res.json(rows[0] || null);
   } catch { res.status(500).json({ error: "Failed to fetch page content" }); }
 });
@@ -230,7 +230,7 @@ router.post("/prayer-requests", requireAuth, async (req, res) => {
 
 router.delete("/prayer-requests/:id", requireAuth, async (req, res) => {
   try {
-    await db.delete(prayerRequests).where(eq(prayerRequests.id, req.params.id));
+    await db.delete(prayerRequests).where(eq(prayerRequests.id, String(req.params.id)));
     res.json({ success: true });
   } catch { res.status(500).json({ error: "Failed to delete prayer request" }); }
 });
@@ -239,14 +239,14 @@ router.post("/prayer-requests/:id/pray", requireAuth, async (req, res) => {
   try {
     await db.update(prayerRequests)
       .set({ prayer_count: sql`${prayerRequests.prayer_count} + 1` })
-      .where(eq(prayerRequests.id, req.params.id));
+      .where(eq(prayerRequests.id, String(req.params.id)));
     res.json({ success: true });
   } catch { res.status(500).json({ error: "Failed to increment prayer count" }); }
 });
 
 router.get("/prayer-requests/:id/responses", async (req, res) => {
   try {
-    const rows = await db.select().from(prayerResponses).where(eq(prayerResponses.prayer_request_id, req.params.id)).orderBy(asc(prayerResponses.created_at));
+    const rows = await db.select().from(prayerResponses).where(eq(prayerResponses.prayer_request_id, String(req.params.id))).orderBy(asc(prayerResponses.created_at));
     res.json(rows);
   } catch { res.status(500).json({ error: "Failed to fetch responses" }); }
 });
@@ -254,7 +254,7 @@ router.get("/prayer-requests/:id/responses", async (req, res) => {
 router.post("/prayer-requests/:id/responses", requireAuth, async (req, res) => {
   const user = (req as any).user;
   try {
-    const row = await db.insert(prayerResponses).values({ prayer_request_id: req.params.id, user_id: user.id, content: req.body.content }).returning();
+    const row = await db.insert(prayerResponses).values({ prayer_request_id: String(req.params.id), user_id: user.id, content: req.body.content }).returning();
     res.json(row[0]);
   } catch { res.status(500).json({ error: "Failed to create response" }); }
 });
@@ -283,14 +283,14 @@ router.post("/activity-reports", requireAdmin, async (req, res) => {
 
 router.put("/activity-reports/:id", requireAdmin, async (req, res) => {
   try {
-    const row = await db.update(activityReports).set({ ...req.body, updated_at: new Date() }).where(eq(activityReports.id, req.params.id)).returning();
+    const row = await db.update(activityReports).set({ ...req.body, updated_at: new Date() }).where(eq(activityReports.id, String(req.params.id))).returning();
     res.json(row[0]);
   } catch { res.status(500).json({ error: "Failed to update activity report" }); }
 });
 
 router.delete("/activity-reports/:id", requireAdmin, async (req, res) => {
   try {
-    await db.delete(activityReports).where(eq(activityReports.id, req.params.id));
+    await db.delete(activityReports).where(eq(activityReports.id, String(req.params.id)));
     res.json({ success: true });
   } catch { res.status(500).json({ error: "Failed to delete activity report" }); }
 });

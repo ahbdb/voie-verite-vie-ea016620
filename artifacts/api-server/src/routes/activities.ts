@@ -29,14 +29,14 @@ router.post("/activities", requireAdmin, async (req, res) => {
 
 router.put("/activities/:id", requireAdmin, async (req, res) => {
   try {
-    const row = await db.update(activities).set({ ...req.body, updated_at: new Date() }).where(eq(activities.id, req.params.id)).returning();
+    const row = await db.update(activities).set({ ...req.body, updated_at: new Date() }).where(eq(activities.id, String(req.params.id))).returning();
     res.json(row[0]);
   } catch { res.status(500).json({ error: "Failed to update activity" }); }
 });
 
 router.delete("/activities/:id", requireAdmin, async (req, res) => {
   try {
-    await db.delete(activities).where(eq(activities.id, req.params.id));
+    await db.delete(activities).where(eq(activities.id, String(req.params.id)));
     res.json({ success: true });
   } catch { res.status(500).json({ error: "Failed to delete activity" }); }
 });
