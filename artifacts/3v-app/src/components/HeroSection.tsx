@@ -726,7 +726,7 @@ const HeroSection = () => {
 
   // ── Rendu ────────────────────────────────────────────────────────────────────
   return (
-    <section className="relative min-h-[100vh] flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-[560px] sm:min-h-[620px] max-h-[860px] h-[88svh] flex items-center justify-center overflow-hidden">
 
       {/* Arrière-plan — image quotidienne liée à l'Évangile */}
       <div className="absolute inset-0 z-0 bg-[hsl(220,55%,6%)]">
@@ -768,10 +768,11 @@ const HeroSection = () => {
         {/* ── Badge saison liturgique ── */}
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <span
-            className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border font-medium"
+            className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border font-medium"
             style={{ borderColor: lit.colorHex + '70', color: lit.colorHex, backgroundColor: lit.colorHex + '18' }}
           >
-            {liturgicalEmoji(lit.color)} {lit.season} — {lit.colorLabel}
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: lit.colorHex }} />
+            {lit.season} — {lit.colorLabel}
           </span>
         </motion.div>
 
@@ -791,22 +792,17 @@ const HeroSection = () => {
           transition={{ delay: 0.35, duration: 0.5 }}
         >
           {[
-            { icon: <BookOpen className="w-3.5 h-3.5" />, label: t('hero.stats.reading', { defaultValue: 'Lecture du jour' }), value: '📖' },
-            { icon: <Sparkles className="w-3.5 h-3.5" />, label: lit.season, value: liturgicalEmoji(lit.color) },
-            { icon: <Heart className="w-3.5 h-3.5" />, label: t('hero.stats.community', { defaultValue: 'Communauté 3V' }), value: '✝️' },
+            { icon: <BookOpen className="w-4 h-4" />, label: t('hero.stats.reading', { defaultValue: 'Lecture du jour' }) },
+            { icon: <Sparkles className="w-4 h-4" />, label: lit.season },
+            { icon: <Heart className="w-4 h-4" />, label: t('hero.stats.community', { defaultValue: 'Communauté 3V' }) },
           ].map((s, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 rounded-xl border backdrop-blur-md px-2.5 py-2"
-              style={{ borderColor: lit.colorHex + '25', backgroundColor: 'rgba(15,22,40,0.5)' }}
+              className="flex items-center justify-center gap-2 rounded-xl border backdrop-blur-md px-2.5 py-2.5"
+              style={{ borderColor: lit.colorHex + '30', backgroundColor: 'rgba(12,18,34,0.72)' }}
             >
-              <span className="text-base leading-none">{s.value}</span>
-              <div className="min-w-0">
-                <div className="text-[9px] uppercase tracking-wider text-white/40 flex items-center gap-1" style={{ color: lit.colorHex + 'cc' }}>
-                  {s.icon}
-                </div>
-                <div className="text-[10px] sm:text-xs text-white/75 font-medium truncate">{s.label}</div>
-              </div>
+              <span className="shrink-0" style={{ color: lit.colorHex }}>{s.icon}</span>
+              <span className="text-[11px] sm:text-xs text-white/90 font-medium truncate">{s.label}</span>
             </div>
           ))}
         </motion.div>
