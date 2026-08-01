@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { Users, ArrowRight, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Sparkles, Heart, Newspaper } from 'lucide-react';
+import { Users, ArrowRight, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Sparkles, Heart, Newspaper, CalendarDays, Globe2, Landmark, Cross } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import bibleBooksData from '@/data/bible-books.json';
@@ -294,7 +294,17 @@ const SOURCES_BY_LANG: Record<string, string[]> = {
   pt: ['Aleteia PT'],
 };
 
+const BadgeIcon = ({ name }: { name: string }) => {
+  const cls = 'w-3 h-3 shrink-0';
+  if (name === 'calendar') return <CalendarDays className={cls} />;
+  if (name === 'globe') return <Globe2 className={cls} />;
+  if (name === 'landmark') return <Landmark className={cls} />;
+  return <Cross className={cls} />;
+};
+
 const HeroNewsCarousel = ({ lang }: { lang: string }) => {
+  // Icônes vectorielles (remplacent les emojis, qui ne s'affichent pas sur
+  // certains appareils/polices et produisent des carrés vides)
   const [items, setItems]     = useState<CarouselItem[]>([]);
   const [current, setCurrent] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -323,8 +333,8 @@ const HeroNewsCarousel = ({ lang }: { lang: string }) => {
           all.push({
             key: `activity-${a.id}`,
             type: 'platform',
-            badge: '📅 Activité à venir',
-            badgeIcon: '📅',
+            badge: 'Activité à venir',
+            badgeIcon: 'calendar',
             title: a.title,
             excerpt: a.description ? stripHtml(a.description).slice(0, 140) : undefined,
             href: '/activities',
@@ -346,8 +356,8 @@ const HeroNewsCarousel = ({ lang }: { lang: string }) => {
           all.push({
             key: `platform-${p.id}`,
             type: 'platform',
-            badge: p.category === 'event' ? '📅 Événement' : p.category === 'announcement' ? '📢 Annonce' : '🏛️ Association',
-            badgeIcon: '🏛️',
+            badge: p.category === 'event' ? 'Événement' : p.category === 'announcement' ? 'Annonce' : 'Association',
+            badgeIcon: p.category === 'event' ? 'calendar' : 'landmark',
             title: p.title,
             excerpt: p.excerpt || undefined,
             href: p.external_url || `/actualites/${p.id}`,
@@ -372,8 +382,8 @@ const HeroNewsCarousel = ({ lang }: { lang: string }) => {
           all.push({
             key: `world-${w.id}`,
             type: 'world',
-            badge: '🌍 Monde catholique',
-            badgeIcon: '🌍',
+            badge: 'Monde catholique',
+            badgeIcon: 'globe',
             title: decodeText(w.title),
             excerpt: decodeText(w.excerpt).slice(0, 140) || undefined,
             href: w.external_url,
@@ -390,8 +400,8 @@ const HeroNewsCarousel = ({ lang }: { lang: string }) => {
         all.push({
           key: 'fallback',
           type: 'platform',
-          badge: '✝️ Voie Vérité Vie',
-          badgeIcon: '✝️',
+          badge: 'Voie Vérité Vie',
+          badgeIcon: 'cross',
           title: 'Bienvenue dans la communauté Voie Vérité Vie',
           excerpt: 'Rejoignez-nous pour vivre la foi ensemble : prière, lecture biblique, appels & lives, témoignages…',
           href: '/about',
@@ -448,7 +458,7 @@ const HeroNewsCarousel = ({ lang }: { lang: string }) => {
       {/* Slide */}
       <div
         className="rounded-2xl border backdrop-blur-md overflow-hidden"
-        style={{ borderColor: lit.colorHex + '35', backgroundColor: 'rgba(15,22,40,0.65)' }}
+        style={{ borderColor: lit.colorHex + '45', backgroundColor: 'rgba(10,16,30,0.82)' }}
       >
         <AnimatePresence mode="wait">
           <motion.div
@@ -462,24 +472,25 @@ const HeroNewsCarousel = ({ lang }: { lang: string }) => {
             {/* Badge */}
             <div className="flex items-center justify-between mb-3">
               <span
-                className="text-[10px] font-bold px-2.5 py-0.5 rounded-full border"
+                className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border"
                 style={{ color: lit.colorHex, borderColor: lit.colorHex + '60', backgroundColor: lit.colorHex + '18' }}
               >
+                <BadgeIcon name={item.badgeIcon} />
                 {item.badge}
               </span>
-              <span className="text-white/25 text-[10px]">
+              <span className="text-white/45 text-[10px]">
                 {current + 1}/{items.length}
               </span>
             </div>
 
             {/* Titre */}
-            <h2 className="text-white font-cinzel font-bold text-base sm:text-lg leading-snug line-clamp-2 mb-2">
+            <h2 className="text-white font-cinzel font-bold text-lg sm:text-2xl leading-snug line-clamp-2 mb-2">
               {item.title}
             </h2>
 
             {/* Extrait */}
             {item.excerpt && (
-              <p className="text-white/55 text-xs sm:text-sm leading-relaxed line-clamp-2 mb-3">
+              <p className="text-white/75 text-xs sm:text-sm leading-relaxed line-clamp-2 mb-3">
                 {item.excerpt}
               </p>
             )}
@@ -715,7 +726,7 @@ const HeroSection = () => {
 
   // ── Rendu ────────────────────────────────────────────────────────────────────
   return (
-    <section className="relative min-h-[100vh] flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-[560px] sm:min-h-[620px] max-h-[860px] h-[88svh] flex items-center justify-center overflow-hidden">
 
       {/* Arrière-plan — image quotidienne liée à l'Évangile */}
       <div className="absolute inset-0 z-0 bg-[hsl(220,55%,6%)]">
@@ -757,10 +768,11 @@ const HeroSection = () => {
         {/* ── Badge saison liturgique ── */}
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <span
-            className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border font-medium"
+            className="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border font-medium"
             style={{ borderColor: lit.colorHex + '70', color: lit.colorHex, backgroundColor: lit.colorHex + '18' }}
           >
-            {liturgicalEmoji(lit.color)} {lit.season} — {lit.colorLabel}
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: lit.colorHex }} />
+            {lit.season} — {lit.colorLabel}
           </span>
         </motion.div>
 
@@ -780,22 +792,17 @@ const HeroSection = () => {
           transition={{ delay: 0.35, duration: 0.5 }}
         >
           {[
-            { icon: <BookOpen className="w-3.5 h-3.5" />, label: t('hero.stats.reading', { defaultValue: 'Lecture du jour' }), value: '📖' },
-            { icon: <Sparkles className="w-3.5 h-3.5" />, label: lit.season, value: liturgicalEmoji(lit.color) },
-            { icon: <Heart className="w-3.5 h-3.5" />, label: t('hero.stats.community', { defaultValue: 'Communauté 3V' }), value: '✝️' },
+            { icon: <BookOpen className="w-4 h-4" />, label: t('hero.stats.reading', { defaultValue: 'Lecture du jour' }) },
+            { icon: <Sparkles className="w-4 h-4" />, label: lit.season },
+            { icon: <Heart className="w-4 h-4" />, label: t('hero.stats.community', { defaultValue: 'Communauté 3V' }) },
           ].map((s, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 rounded-xl border backdrop-blur-md px-2.5 py-2"
-              style={{ borderColor: lit.colorHex + '25', backgroundColor: 'rgba(15,22,40,0.5)' }}
+              className="flex items-center justify-center gap-2 rounded-xl border backdrop-blur-md px-2.5 py-2.5"
+              style={{ borderColor: lit.colorHex + '30', backgroundColor: 'rgba(12,18,34,0.72)' }}
             >
-              <span className="text-base leading-none">{s.value}</span>
-              <div className="min-w-0">
-                <div className="text-[9px] uppercase tracking-wider text-white/40 flex items-center gap-1" style={{ color: lit.colorHex + 'cc' }}>
-                  {s.icon}
-                </div>
-                <div className="text-[10px] sm:text-xs text-white/75 font-medium truncate">{s.label}</div>
-              </div>
+              <span className="shrink-0" style={{ color: lit.colorHex }}>{s.icon}</span>
+              <span className="text-[11px] sm:text-xs text-white/90 font-medium truncate">{s.label}</span>
             </div>
           ))}
         </motion.div>
@@ -811,7 +818,7 @@ const HeroSection = () => {
             <p className="text-white font-semibold text-base mb-1 font-playfair">
               {getGreeting()}{firstName ? `, ${firstName}` : ''} 🙏
             </p>
-            <p className="text-white/60 text-sm italic leading-relaxed font-inter">
+            <p className="text-white/80 text-sm italic leading-relaxed font-inter">
               « {prayer} »
             </p>
             {todayReading && (
@@ -836,7 +843,7 @@ const HeroSection = () => {
             <AnimatePresence mode="wait">
               <motion.p
                 key={currentVerse}
-                className="text-white/65 text-xs sm:text-sm font-playfair italic text-center leading-relaxed"
+                className="text-white/85 text-sm sm:text-base font-playfair italic text-center leading-relaxed"
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.35 }}
               >
