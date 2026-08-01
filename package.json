@@ -5,7 +5,8 @@
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "dev": "cd artifacts/3v-app && npx vite --config vite.config.ts --host 0.0.0.0",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "build": "pnpm run typecheck && pnpm -r --if-present run build && pnpm run postbuild:dist",
+    "postbuild:dist": "rm -rf dist && mkdir -p dist && cp -R artifacts/3v-app/dist/public/. dist/",
     "build:dev": "cd artifacts/3v-app && npx vite build --mode development",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
