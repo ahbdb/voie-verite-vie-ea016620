@@ -818,7 +818,7 @@ const HeroSection = () => {
             <p className="text-white font-semibold text-base mb-1 font-playfair">
               {getGreeting()}{firstName ? `, ${firstName}` : ''} 🙏
             </p>
-            <p className="text-white/60 text-sm italic leading-relaxed font-inter">
+            <p className="text-white/80 text-sm italic leading-relaxed font-inter">
               « {prayer} »
             </p>
             {todayReading && (
