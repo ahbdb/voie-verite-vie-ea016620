@@ -295,6 +295,8 @@ const SOURCES_BY_LANG: Record<string, string[]> = {
 };
 
 const HeroNewsCarousel = ({ lang }: { lang: string }) => {
+  // Icônes vectorielles (remplacent les emojis, qui ne s'affichent pas sur
+  // certains appareils/polices et produisent des carrés vides)
   const [items, setItems]     = useState<CarouselItem[]>([]);
   const [current, setCurrent] = useState(0);
   const [loading, setLoading] = useState(true);
