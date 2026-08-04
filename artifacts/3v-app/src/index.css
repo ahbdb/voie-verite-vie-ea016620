@@ -265,6 +265,9 @@ Toutes les couleurs DOIVENT être en HSL.
     font-feature-settings: "rlig" 1, "calt" 1;
     /* Base font-size for text scaling - using --text-scale variable */
     font-size: max(15px, calc(16px * var(--text-scale, 1)));
+    /* Conteneur de défilement non statique : requis pour un calcul correct des
+       offsets de parallaxe (framer-motion useScroll). */
+    position: relative;
   }
 
   /* Ensure containers maintain their size regardless of text scale */

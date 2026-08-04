@@ -63,22 +63,50 @@ const Activities = () => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  useEffect(() => { loadActivities(); }, [user]);
+  useEffect(() => {
+    let cancelled = false;
+    loadActivities(() => cancelled);
+    return () => { cancelled = true; };
+  }, [user]);
 
-  const loadActivities = async () => {
+  // Une seule requête pour les activités + une seule pour TOUTES les inscriptions
+  // (avant : une requête par activité → 30+ appels annulés à chaque rendu).
+  const loadActivities = async (isCancelled: () => boolean = () => false) => {
     setLoading(true);
-    const { data, error } = await supabase.from('activities').select('*').eq('is_published', true).order('date', { ascending: true });
+    const { data, error } = await supabase
+      .from('activities')
+      .select('*')
+      .eq('is_published', true)
+      .order('date', { ascending: true });
+
+    if (isCancelled()) return;
+
     if (data && !error) {
       const visible = user ? data : data.filter(a => (a.category || '').toLowerCase() === 'principal');
       setActivities(visible);
-      const counts: Record<string, number> = {};
-      for (const activity of data) {
-        const { count } = await supabase.from('activity_registrations').select('*', { count: 'exact', head: true }).eq('activity_name', activity.title);
-        counts[activity.id] = count || 0;
+
+      const titles = data.map(a => a.title).filter(Boolean);
+      if (titles.length > 0) {
+        const { data: regs } = await supabase
+          .from('activity_registrations')
+          .select('activity_name')
+          .in('activity_name', titles);
+
+        if (isCancelled()) return;
+
+        const perTitle = new Map<string, number>();
+        for (const r of regs ?? []) {
+          const name = (r as { activity_name: string }).activity_name;
+          perTitle.set(name, (perTitle.get(name) ?? 0) + 1);
+        }
+        const counts: Record<string, number> = {};
+        for (const activity of data) counts[activity.id] = perTitle.get(activity.title) ?? 0;
+        setRegistrationCounts(counts);
+      } else {
+        setRegistrationCounts({});
       }
-      setRegistrationCounts(counts);
     }
-    setLoading(false);
+    if (!isCancelled()) setLoading(false);
   };
 
   const getActivityImage = (activity: Activity) => activity.image_url || defaultImages[activity.category] || activityConference;

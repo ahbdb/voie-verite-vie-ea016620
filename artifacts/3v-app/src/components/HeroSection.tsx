@@ -24,43 +24,46 @@ import { checkFeastToday, loadFeasts } from '@/lib/christian-feasts';
 import heroCathedral from '@/assets/hero-cathedral-interior.jpg';
 
 // ── Images quotidiennes liées à l'Évangile (art catholique domaine public) ──
-// Proxy via wsrv.nl pour contourner le hotlink + servir en WebP optimisé
+// Les URLs passent par Special:FilePath (résolution stable côté Wikimedia) puis
+// par wsrv.nl pour le hotlink + WebP. Toutes vérifiées (HTTP 200).
+const SCENE: Record<string, string> = {
+  baptism:         'https://commons.wikimedia.org/wiki/Special:FilePath/Piero_della_Francesca_-_Baptism_of_Christ_-_WGA17595.jpg?width=1600',
+  temptation:      'https://commons.wikimedia.org/wiki/Special:FilePath/Christ_in_the_Wilderness_-_Ivan_Kramskoy_-_Google_Cultural_Institute.jpg?width=1600',
+  calling:         'https://commons.wikimedia.org/wiki/Special:FilePath/Michelangelo_Caravaggio_040.jpg?width=1600',
+  sermon:          'https://commons.wikimedia.org/wiki/Special:FilePath/Sermon-on-the-mount.jpg?width=1600',
+  healing:         'https://commons.wikimedia.org/wiki/Special:FilePath/Anthony_van_Dyck_-_The_healing_of_the_paralytic.jpg?width=1600',
+  storm:           'https://commons.wikimedia.org/wiki/Special:FilePath/Rembrandt_Christ_in_the_Storm_on_the_Lake_of_Galilee.jpg?width=1600',
+  multiplication:  'https://commons.wikimedia.org/wiki/Special:FilePath/Tadeusz_Kuntze_-_Cudowne_rozmno%C5%BCenie_chleba_i_ryb.jpg?width=1600',
+  walking_water:   'https://commons.wikimedia.org/wiki/Special:FilePath/Bril_Jesus_walking_on_the_Sea_of_Galilee.JPG?width=1600',
+  transfiguration: 'https://commons.wikimedia.org/wiki/Special:FilePath/Transfiguration_Raphael.jpg?width=1600',
+  bartimaeus:      'https://commons.wikimedia.org/wiki/Special:FilePath/Eustache_Le_Sueur_003.jpg?width=1600',
+  good_samaritan:  'https://commons.wikimedia.org/wiki/Special:FilePath/Landscape_with_the_Good_Samaritan_-_Rembrandt.jpg?width=1600',
+  prodigal_son:    'https://commons.wikimedia.org/wiki/Special:FilePath/Rembrandt_-_The_Return_of_the_Prodigal_Son.jpg?width=1600',
+  entry_jerusalem: 'https://commons.wikimedia.org/wiki/Special:FilePath/Meister_der_Palastkapelle_in_Palermo_002.jpg?width=1600',
+  washing_feet:    'https://commons.wikimedia.org/wiki/Special:FilePath/El_Lavatorio_%28Tintoretto%29.jpg?width=1600',
+  last_supper:     'https://commons.wikimedia.org/wiki/Special:FilePath/Leonardo_da_Vinci_%281452-1519%29_-_The_Last_Supper_%281495-1498%29.jpg?width=1600',
+  gethsemane:      'https://commons.wikimedia.org/wiki/Special:FilePath/Andrea_Mantegna_022.jpg?width=1600',
+  crucifixion:     'https://commons.wikimedia.org/wiki/Special:FilePath/Cristo_crucificado.jpg?width=1600',
+  resurrection:    'https://commons.wikimedia.org/wiki/Special:FilePath/Carl_Heinrich_Bloch_-_The_Resurrection.jpg?width=1600',
+  emmaus:          'https://commons.wikimedia.org/wiki/Special:FilePath/Caravaggio_-_Cena_in_Emmaus.jpg?width=1600',
+  pentecost:       'https://commons.wikimedia.org/wiki/Special:FilePath/Jean_II_Restout_-_Pentecost_-_WGA19318.jpg?width=1600',
+  annunciation:    'https://commons.wikimedia.org/wiki/Special:FilePath/Fra_Angelico_-_The_Annunciation_-_WGA00555.jpg?width=1600',
+  nativity:        'https://commons.wikimedia.org/wiki/Special:FilePath/Correggio_034.jpg?width=1600',
+  magi:            'https://commons.wikimedia.org/wiki/Special:FilePath/Sandro_Botticelli_076.jpg?width=1600',
+  wedding_cana:    'https://commons.wikimedia.org/wiki/Special:FilePath/Paolo_Veronese_008.jpg?width=1600',
+  good_shepherd:   'https://commons.wikimedia.org/wiki/Special:FilePath/Joakim_Skovgaard_-_The_Good_Shepherd_-_NG.M.00466_-_National_Museum_of_Art%2C_Architecture_and_Design.jpg?width=1600',
+  lazarus:         'https://commons.wikimedia.org/wiki/Special:FilePath/Benjamin_Robert_Haydon_%281786-1846%29_-_The_Raising_of_Lazarus_-_N00786_-_National_Gallery.jpg?width=1600',
+  samaritan_woman: 'https://commons.wikimedia.org/wiki/Special:FilePath/Bernardo_Strozzi_-_Christ_and_the_Samaritan_Woman_-_WGA21931.jpg?width=1600',
+};
+
 const GOSPEL_IMAGES_BY_SEASON: Record<string, string[]> = {
-  'Avent': [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Tissot_Annunciation.jpg/1280px-Tissot_Annunciation.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/James_Tissot_-_The_Visitation.jpg/960px-James_Tissot_-_The_Visitation.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/CARAVAGGIO_-_Natividad_%28Museo_de_Bellas_Artes_de_Palermo%2C_1609%29.jpg/1280px-CARAVAGGIO_-_Natividad_%28Museo_de_Bellas_Artes_de_Palermo%2C_1609%29.jpg',
-  ],
-  'Noël': [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/The_nativity_Gerard_van_Honthorst_1622.jpg/1280px-The_nativity_Gerard_van_Honthorst_1622.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Adoration_of_the_Magi_-_Bartolom%C3%A9_Esteban_Murillo.jpg/1280px-Adoration_of_the_Magi_-_Bartolom%C3%A9_Esteban_Murillo.jpg',
-  ],
-  'Carême': [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/ChristInTheWilderness-IvanKramskoy1872.jpg/1280px-ChristInTheWilderness-IvanKramskoy1872.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Cristo_crucificado.jpg/800px-Cristo_crucificado.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Carl_Heinrich_Bloch_-_The_Sermon_on_the_Mount.jpg/1280px-Carl_Heinrich_Bloch_-_The_Sermon_on_the_Mount.jpg',
-  ],
-  'Semaine Sainte': [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Tissot_The_Washing_of_the_Feet.jpg/1280px-Tissot_The_Washing_of_the_Feet.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Tissot_Jesus_Wept.jpg/960px-Tissot_Jesus_Wept.jpg',
-  ],
-  'Pâques': [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Carl_Bloch_-_The_Resurrection.jpg/1280px-Carl_Bloch_-_The_Resurrection.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Road_to_Emmaus_appearance.jpg/1280px-Road_to_Emmaus_appearance.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Doubting_thomas_guercino.jpg/1280px-Doubting_thomas_guercino.jpg',
-  ],
-  'Pentecôte': [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/The_Descent_of_the_Holy_Spirit.jpg/960px-The_Descent_of_the_Holy_Spirit.jpg',
-  ],
-  default: [
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Carl_Heinrich_Bloch_-_The_Sermon_on_the_Mount.jpg/1280px-Carl_Heinrich_Bloch_-_The_Sermon_on_the_Mount.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Tissot_The_Feeding_of_the_Five_Thousand.jpg/1280px-Tissot_The_Feeding_of_the_Five_Thousand.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Baptism-of-Christ-Verrocchio-Leonardo.jpg/1280px-Baptism-of-Christ-Verrocchio-Leonardo.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Tissot_The_Calling_of_Saint_Matthew.jpg/1280px-Tissot_The_Calling_of_Saint_Matthew.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Tissot_Jesus_Wept.jpg/960px-Tissot_Jesus_Wept.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Sermon_on_the_Mount.jpg/1280px-Sermon_on_the_Mount.jpg',
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Tissot_Jesus_Begins_to_Preach.jpg/1280px-Tissot_Jesus_Begins_to_Preach.jpg',
-  ],
+  'Avent': [SCENE.annunciation, SCENE.nativity, SCENE.temptation],
+  'Noël': [SCENE.nativity, SCENE.magi],
+  'Carême': [SCENE.temptation, SCENE.crucifixion, SCENE.sermon],
+  'Semaine Sainte': [SCENE.washing_feet, SCENE.gethsemane, SCENE.crucifixion],
+  'Pâques': [SCENE.resurrection, SCENE.emmaus, SCENE.good_shepherd],
+  'Pentecôte': [SCENE.pentecost],
+  default: [SCENE.sermon, SCENE.multiplication, SCENE.baptism, SCENE.calling, SCENE.good_samaritan, SCENE.wedding_cana, SCENE.transfiguration],
 };
 
 function seasonalImage(season: string): string {
@@ -68,37 +71,6 @@ function seasonalImage(season: string): string {
   const dayIndex = Math.floor(Date.now() / 86_400_000) % pool.length;
   return pool[dayIndex];
 }
-
-// ── Scènes évangéliques spécifiques — art catholique domaine public ───────────
-const SCENE: Record<string, string> = {
-  baptism:           'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Baptism-of-Christ-Verrocchio-Leonardo.jpg/1280px-Baptism-of-Christ-Verrocchio-Leonardo.jpg',
-  temptation:        'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/ChristInTheWilderness-IvanKramskoy1872.jpg/1280px-ChristInTheWilderness-IvanKramskoy1872.jpg',
-  calling:           'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Tissot_The_Calling_of_Saint_Matthew.jpg/1280px-Tissot_The_Calling_of_Saint_Matthew.jpg',
-  sermon:            'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Carl_Heinrich_Bloch_-_The_Sermon_on_the_Mount.jpg/1280px-Carl_Heinrich_Bloch_-_The_Sermon_on_the_Mount.jpg',
-  healing:           'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Tissot_The_Healing_of_the_Paralytic.jpg/1280px-Tissot_The_Healing_of_the_Paralytic.jpg',
-  storm:             'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Rembrandt_Christ_in_the_Storm_on_the_Lake_of_Galilee.jpg/1280px-Rembrandt_Christ_in_the_Storm_on_the_Lake_of_Galilee.jpg',
-  multiplication:    'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Tissot_The_Feeding_of_the_Five_Thousand.jpg/1280px-Tissot_The_Feeding_of_the_Five_Thousand.jpg',
-  walking_water:     'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Tissot_Jesus_Walking_on_the_Water.jpg/1280px-Tissot_Jesus_Walking_on_the_Water.jpg',
-  transfiguration:   'https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Transfiguration_Raphael.jpg/1280px-Transfiguration_Raphael.jpg',
-  bartimaeus:        'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Brooklyn_Museum_-_The_Blind_Bartimaeus_-_James_Tissot_-_overall.jpg/960px-Brooklyn_Museum_-_The_Blind_Bartimaeus_-_James_Tissot_-_overall.jpg',
-  good_samaritan:    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Good_Samaritan_Rembrandt.jpg/1280px-Good_Samaritan_Rembrandt.jpg',
-  prodigal_son:      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Rembrandt_-_The_Return_of_the_Prodigal_Son.jpg/1024px-Rembrandt_-_The_Return_of_the_Prodigal_Son.jpg',
-  entry_jerusalem:   'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Tissot_The_Entry_into_Jerusalem.jpg/1280px-Tissot_The_Entry_into_Jerusalem.jpg',
-  washing_feet:      'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Tissot_The_Washing_of_the_Feet.jpg/1280px-Tissot_The_Washing_of_the_Feet.jpg',
-  last_supper:       'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/%22The_Last_Supper%22_-_Leonardo_Da_Vinci_-_High_Resolution_32x16.jpg/1280px-%22The_Last_Supper%22_-_Leonardo_Da_Vinci_-_High_Resolution_32x16.jpg',
-  gethsemane:        'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Bloch-Gethsemane.jpg/1280px-Bloch-Gethsemane.jpg',
-  crucifixion:       'https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Cristo_crucificado.jpg/800px-Cristo_crucificado.jpg',
-  resurrection:      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Carl_Bloch_-_The_Resurrection.jpg/1280px-Carl_Bloch_-_The_Resurrection.jpg',
-  emmaus:            'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Road_to_Emmaus_appearance.jpg/1280px-Road_to_Emmaus_appearance.jpg',
-  pentecost:         'https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/The_Descent_of_the_Holy_Spirit.jpg/960px-The_Descent_of_the_Holy_Spirit.jpg',
-  annunciation:      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Tissot_Annunciation.jpg/960px-Tissot_Annunciation.jpg',
-  nativity:          'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/The_nativity_Gerard_van_Honthorst_1622.jpg/1280px-The_nativity_Gerard_van_Honthorst_1622.jpg',
-  magi:              'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Adoration_of_the_Magi_-_Bartolom%C3%A9_Esteban_Murillo.jpg/1280px-Adoration_of_the_Magi_-_Bartolom%C3%A9_Esteban_Murillo.jpg',
-  wedding_cana:      'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Paolo_Veronese_-_Wedding_at_Cana.jpg/1280px-Paolo_Veronese_-_Wedding_at_Cana.jpg',
-  good_shepherd:     'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Carl_Bloch_-_The_Good_Shepherd.jpg/1280px-Carl_Bloch_-_The_Good_Shepherd.jpg',
-  lazarus:           'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Rembrandt_The_Raising_of_Lazarus.jpg/1024px-Rembrandt_The_Raising_of_Lazarus.jpg',
-  samaritan_woman:   'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Tissot_Jesus_and_the_Samaritan_Woman.jpg/1280px-Tissot_Jesus_and_the_Samaritan_Woman.jpg',
-};
 
 /** Renvoie l'image spécifique à la péricope évangélique, ou une image saisonnière en fallback */
 function getGospelImageFromReading(books: string, chapters: string, season: string): string {
