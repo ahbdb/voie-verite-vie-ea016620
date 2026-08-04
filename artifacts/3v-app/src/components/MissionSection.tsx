@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import missionVoie from '@/assets/mission-voie.jpg';
@@ -8,7 +8,11 @@ import missionVie from '@/assets/mission-vie.jpg';
 const MissionSection = () => {
   const { t } = useTranslation();
   const sectionRef = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ['start end', 'end start'] });
+  // On ne mesure le scroll qu'après le montage : sinon framer-motion mesure un
+  // élément non encore attaché et émet un avertissement de position statique.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const { scrollYProgress } = useScroll({ target: mounted ? sectionRef : undefined, offset: ['start end', 'end start'] });
   const bgY = useTransform(scrollYProgress, [0, 1], ['0%', '15%']);
 
   const missions = [

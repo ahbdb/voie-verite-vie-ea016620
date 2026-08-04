@@ -9,7 +9,7 @@ import activityConference from '@/assets/activity-conference.jpg';
 import activityCreative from '@/assets/activity-creative.jpg';
 import activityMeditation from '@/assets/activity-meditation.jpg';
 import ctaMary from '@/assets/cta-mary.jpg';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const ActivitiesSection = () => {
   const { t } = useTranslation();
@@ -96,8 +96,11 @@ const ActivitiesSection = () => {
 const CTASection = () => {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
-  
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
+  // Mesure du scroll différée après le montage (évite l'avertissement framer-motion).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const { scrollYProgress } = useScroll({ target: mounted ? ref : undefined, offset: ['start end', 'end start'] });
   const scale = useTransform(scrollYProgress, [0, 0.5], [1.1, 1]);
   const opacity = useTransform(scrollYProgress, [0, 0.3, 0.7, 1], [0, 1, 1, 0.8]);
 

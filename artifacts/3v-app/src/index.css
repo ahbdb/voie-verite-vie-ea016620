@@ -260,6 +260,12 @@ Toutes les couleurs DOIVENT être en HSL.
     @apply border-border;
   }
 
+  /* Conteneur de défilement racine non statique : requis par framer-motion pour
+     mesurer correctement les offsets de parallaxe (useScroll). */
+  html {
+    position: relative;
+  }
+
   body {
     @apply bg-background text-foreground font-inter;
     font-feature-settings: "rlig" 1, "calt" 1;
