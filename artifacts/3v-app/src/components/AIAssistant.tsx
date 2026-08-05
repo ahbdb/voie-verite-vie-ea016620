@@ -135,7 +135,7 @@ export const AIAssistant = () => {
               <LogoIcon className="w-6 h-6 md:w-8 md:h-8 object-contain" />
             </div>
             <div>
-              <h2 className="font-semibold text-primary text-sm md:text-base">Assistant Spirituel 3V</h2>
+              <h2 className="font-semibold text-primary text-sm md:text-base">Assistant Numérique 3V</h2>
               <p className="text-xs md:text-sm text-muted-foreground">Guidé par la foi catholique</p>
             </div>
           </div>
@@ -158,7 +158,7 @@ export const AIAssistant = () => {
                   {user ? `Bienvenue, ${user.email?.split('@')[0]} !` : 'Bienvenue !'}
                 </h3>
                 <p className="text-muted-foreground text-xs md:text-sm max-w-md mx-auto px-4">
-                  Je suis votre assistant spirituel. Posez-moi vos questions sur la Bible, 
+                  Je suis votre Assistant Numérique. Posez-moi vos questions sur la Bible, 
                   la théologie ou la vie chrétienne.
                 </p>
                 {!user && (

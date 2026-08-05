@@ -7,7 +7,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   Send, User, Mic, MicOff, Paperclip, Trash2, MessageSquare,
   Plus, ArrowLeft, Volume2, VolumeX, X, Copy, Sparkles, PanelLeft,
-  Image as ImageIcon, Film,
+  Image as ImageIcon, BookOpen, HandHeart, Cross, Feather, Circle, HelpCircle,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -94,31 +94,26 @@ function MessageContent({ content, role }: { content: string; role: 'user' | 'as
 }
 
 // ── Quick prompts ──────────────────────────────────────────────────────────────
-const QUICK_PROMPTS = [
-  { icon: '📖', text: 'Explique la lecture biblique du jour simplement.' },
-  { icon: '🙏', text: 'Propose une prière courte pour commencer la journée.' },
-  { icon: '✝️', text: 'Méditation en 5 points sur Jean 14:6.' },
-  { icon: '🕊️', text: 'Aide-moi à préparer une lectio divina ce soir.' },
-  { icon: '📿', text: 'Comment prier le chapelet ? Guide-moi étape par étape.' },
-  { icon: '❓', text: 'Quelle est la signification de la Pentecôte ?' },
-];
+const QUICK_PROMPT_KEYS = ['qp1', 'qp2', 'qp3', 'qp4', 'qp5', 'qp6'] as const;
+const QUICK_PROMPT_ICONS = [BookOpen, HandHeart, Cross, Feather, Circle, HelpCircle];
 
 // ── Sidebar ────────────────────────────────────────────────────────────────────
 function Sidebar({
-  conversations, currentId, onSelect, onDelete, onNew,
+  conversations, currentId, onSelect, onDelete, onNew, t,
 }: {
   conversations: Conversation[];
   currentId: string | null;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onNew: () => void;
+  t: (k: string, o?: Record<string, unknown>) => string;
 }) {
   return (
     <div className="flex flex-col h-full bg-[#0f0f13]">
       <div className="p-4 border-b border-white/[0.07] flex items-center justify-between">
         <div className="flex items-center gap-2">
           <img src={logo3v} alt="3V" className="w-7 h-7 object-contain" />
-          <span className="text-sm font-bold text-white/80">Conversations</span>
+          <span className="text-sm font-bold text-white/80">{t('aiChat.conversations')}</span>
         </div>
         <button onClick={onNew}
           className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/[0.06] hover:bg-white/10 text-white/50 hover:text-white transition-colors">
@@ -127,7 +122,7 @@ function Sidebar({
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
         {conversations.length === 0 && (
-          <p className="text-[11px] text-white/30 text-center py-6">Aucune conversation</p>
+          <p className="text-[11px] text-white/30 text-center py-6">{t('aiChat.noConversations')}</p>
         )}
         {conversations.map(c => (
           <div key={c.id}
@@ -135,7 +130,7 @@ function Sidebar({
               currentId === c.id ? 'bg-white/[0.09] text-white' : 'hover:bg-white/[0.05] text-white/55')}
             onClick={() => onSelect(c.id)}>
             <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
-            <span className="text-xs truncate flex-1">{c.title || 'Nouvelle conversation'}</span>
+            <span className="text-xs truncate flex-1">{c.title || t('aiChat.newConversation')}</span>
             <button className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
               onClick={e => { e.stopPropagation(); onDelete(c.id); }}>
               <Trash2 className="w-3 h-3 text-white/30 hover:text-red-400 transition-colors" />
@@ -218,7 +213,7 @@ const AIChat = () => {
   const createConversation = async () => {
     if (!user) return null;
     const { data } = await supabase.from('ai_conversations')
-      .insert({ user_id: user.id, title: 'Nouvelle conversation' })
+      .insert({ user_id: user.id, title: t('aiChat.newConversation') })
       .select().single();
     if (!data) return null;
     await loadConversations();
@@ -262,28 +257,16 @@ const AIChat = () => {
       const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` };
       const body = JSON.stringify({ messages: historyWithContext });
 
-      // Essayer la Netlify Edge Function (Gemini 2.0 Flash amélioré)
-      // Si elle n'est pas déployée ou retourne 404/500 → basculer automatiquement sur Supabase
-      let res: Response;
-      try {
-        res = await fetch('/api/ai-chat', { method: 'POST', headers, body, signal: ctrl.signal });
-        if (res.status === 404 || res.status === 502 || res.status === 503) {
-          throw new Error(`Edge function returned ${res.status}`);
-        }
-      } catch (fetchErr) {
-        if (fetchErr instanceof DOMException && fetchErr.name === 'AbortError') throw fetchErr;
-        // Fallback : fonction Supabase Gemini originale
-        res = await fetch(SUPABASE_AI_URL, { method: 'POST', headers, body, signal: ctrl.signal });
-      }
+      const res = await fetch(SUPABASE_AI_URL, { method: 'POST', headers, body, signal: ctrl.signal });
 
       if (!res.ok || !res.body) {
-        let errMsg = 'Erreur de connexion à l\'assistant.';
+        let errMsg = t('aiChat.connectionError');
         try {
           const errBody = await res.json();
           errMsg = errBody.error ?? errMsg;
         } catch {}
-        if (res.status === 401) errMsg = 'Session expirée. Reconnecte-toi.';
-        toast({ title: 'Assistant indisponible', description: errMsg, variant: 'destructive' });
+        if (res.status === 401) errMsg = t('aiChat.sessionExpired');
+        toast({ title: t('aiChat.unavailable'), description: errMsg, variant: 'destructive' });
         return;
       }
 
@@ -327,7 +310,7 @@ const AIChat = () => {
       setIsThinking(false);
       if (reply) await saveMessage(convId, 'assistant', reply);
     } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') { toast({ title: 'Réponse interrompue' }); return; }
+      if (e instanceof DOMException && e.name === 'AbortError') { toast({ title: t('aiChat.interrupted') }); return; }
       toast({ title: t('common.error'), variant: 'destructive' });
     } finally {
       abortRef.current = null;
@@ -371,18 +354,18 @@ const AIChat = () => {
           if (text.length > 15000) break;
         }
         setUploadedFile({ name: file.name, content: text.trim().slice(0, 15000), type: file.type });
-        toast({ title: `✅ PDF chargé — ${file.name}` });
+        toast({ title: `${t('aiChat.fileLoaded')} — ${file.name}` });
       } else if (ext === 'docx') {
         const ab = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer: ab });
         setUploadedFile({ name: file.name, content: (result?.value || '').slice(0, 15000), type: 'application/docx' });
-        toast({ title: `✅ Document chargé — ${file.name}` });
+        toast({ title: `${t('aiChat.fileLoaded')} — ${file.name}` });
       } else {
         const text = await file.text();
         setUploadedFile({ name: file.name, content: text.slice(0, 15000), type: file.type || 'text/plain' });
-        toast({ title: `✅ Fichier chargé — ${file.name}` });
+        toast({ title: `${t('aiChat.fileLoaded')} — ${file.name}` });
       }
-    } catch { toast({ title: '❌ Erreur de lecture du fichier', variant: 'destructive' }); }
+    } catch { toast({ title: t('aiChat.readError'), variant: 'destructive' }); }
   };
 
   const handleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -396,7 +379,7 @@ const AIChat = () => {
       type: file.type,
       previewUrl,
     });
-    toast({ title: `✅ Image jointe — ${file.name}` });
+    toast({ title: `${t('aiChat.imageAttached')} — ${file.name}` });
   };
 
   const copyMsg = async (content: string, idx: number) => {
@@ -425,6 +408,7 @@ const AIChat = () => {
       onSelect={id => void loadMessages(id)}
       onDelete={id => void deleteConversation(id)}
       onNew={newChat}
+      t={t}
     />
   );
 
@@ -447,15 +431,15 @@ const AIChat = () => {
               <img src={logo3v} alt="3V" className="w-full h-full object-contain" />
             </div>
             <div className="leading-tight">
-              <p className="text-[13px] font-bold text-white">Assistant 3V</p>
-              <p className="text-[10px] text-white/35">Voie · Vérité · Vie</p>
+              <p className="text-[13px] font-bold text-white">{t('aiChat.headerTitle')}</p>
+              <p className="text-[10px] text-white/35">{t('aiChat.headerSubtitle')}</p>
             </div>
           </div>
         </div>
         <button onClick={newChat}
           className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/10 text-white/55 hover:text-white transition-colors border border-white/[0.07]">
           <Plus className="w-3 h-3" />
-          Nouveau
+          {t('aiChat.newChat')}
         </button>
       </header>
 
@@ -488,21 +472,27 @@ const AIChat = () => {
                   </div>
                   <div>
                     <h2 className="text-lg font-bold text-white mb-1">
-                      {user ? `Bonjour, ${user.name || user.email?.split('@')[0]} 👋` : 'Bienvenue'}
+                      {user
+                        ? `${t('aiChat.greeting', { name: user.name || user.email?.split('@')[0] })} 👋`
+                        : t('aiChat.welcomeGuest')}
                     </h2>
                     <p className="text-sm text-white/40 max-w-xs mx-auto">
-                      Je suis l'assistant spirituel de Voie-Vérité-Vie. Posez-moi vos questions bibliques, théologiques ou de vie chrétienne.
+                      {t('aiChat.intro')}
                     </p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-xl mx-auto pt-1">
-                    {QUICK_PROMPTS.map(p => (
-                      <button key={p.text}
-                        onClick={() => { setInput(p.text); void handleSend(p.text); }}
-                        className="flex items-start gap-2.5 text-left px-4 py-3 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] transition-colors group">
-                        <span className="text-lg leading-none mt-0.5">{p.icon}</span>
-                        <p className="text-[12px] text-white/60 group-hover:text-white/80 transition-colors leading-relaxed">{p.text}</p>
-                      </button>
-                    ))}
+                    {QUICK_PROMPT_KEYS.map((key, idx) => {
+                      const Icon = QUICK_PROMPT_ICONS[idx];
+                      const text = t(`aiChat.${key}`);
+                      return (
+                        <button key={key}
+                          onClick={() => { setInput(text); void handleSend(text); }}
+                          className="flex items-start gap-2.5 text-left px-4 py-3 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] transition-colors group">
+                          <Icon className="w-4 h-4 text-primary/70 flex-shrink-0 mt-0.5" />
+                          <p className="text-[12px] text-white/60 group-hover:text-white/80 transition-colors leading-relaxed">{text}</p>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -524,12 +514,14 @@ const AIChat = () => {
                       <button onClick={() => void copyMsg(m.content, i)}
                         className="text-[10px] text-white/25 hover:text-white/60 flex items-center gap-1 transition-colors">
                         <Copy className="w-2.5 h-2.5" />
-                        {copiedIdx === i ? 'Copié ✓' : 'Copier'}
+                        {copiedIdx === i ? t('aiChat.copied') : t('aiChat.copy')}
                       </button>
                       {m.role === 'assistant' && isSupported() && (
                         <button onClick={() => isSpeaking ? stopSpeaking() : speak(m.content)}
                           className="text-[10px] text-white/25 hover:text-white/60 flex items-center gap-1 transition-colors">
-                          {isSpeaking ? <><VolumeX className="w-2.5 h-2.5" /> Arrêter</> : <><Volume2 className="w-2.5 h-2.5" /> Écouter</>}
+                          {isSpeaking
+                            ? <><VolumeX className="w-2.5 h-2.5" /> {t('aiChat.stopListen')}</>
+                            : <><Volume2 className="w-2.5 h-2.5" /> {t('aiChat.listen')}</>}
                         </button>
                       )}
                     </div>
@@ -556,7 +548,7 @@ const AIChat = () => {
                     {isThinking ? (
                       <div className="flex items-center gap-2 text-[11px] text-white/40">
                         <Sparkles className="w-3 h-3 text-primary/60 animate-pulse" />
-                        <span className="italic">En train de réfléchir…</span>
+                        <span className="italic">{t('aiChat.thinking')}</span>
                         <span className="flex gap-1">
                           {[0, 0.2, 0.4].map((d, i) => (
                             <span key={i} className="w-1 h-1 bg-primary/40 rounded-full animate-bounce inline-block"
@@ -606,18 +598,18 @@ const AIChat = () => {
                 {/* Attachment buttons */}
                 <div className="flex gap-0.5 pb-0.5">
                   <button onClick={() => fileInputRef.current?.click()}
-                    title="Joindre un document (PDF, DOCX, TXT)"
+                    title={t('aiChat.attachDoc')}
                     className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/[0.07] transition-colors">
                     <Paperclip className="w-4 h-4" />
                   </button>
                   <button onClick={() => imageInputRef.current?.click()}
-                    title="Joindre une image"
+                    title={t('aiChat.attachImage')}
                     className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/[0.07] transition-colors">
                     <ImageIcon className="w-4 h-4" />
                   </button>
                   {isSupported() && (
                     <button onClick={isListening ? stopListening : startListening}
-                      title={isListening ? 'Arrêter la dictée' : 'Dictée vocale'}
+                      title={isListening ? t('aiChat.stopDictation') : t('aiChat.dictation')}
                       className={cn('w-7 h-7 flex items-center justify-center rounded-lg transition-colors',
                         isListening ? 'text-red-400 bg-red-400/10' : 'text-white/30 hover:text-white/70 hover:bg-white/[0.07]')}>
                       {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -633,7 +625,7 @@ const AIChat = () => {
                   onKeyDown={e => {
                     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend(); }
                   }}
-                  placeholder="Posez votre question…"
+                  placeholder={t('aiChat.placeholder')}
                   disabled={isLoading || isListening}
                   rows={1}
                   className="flex-1 bg-transparent text-[13px] text-white placeholder-white/25 resize-none outline-none py-0.5 leading-relaxed"
@@ -656,7 +648,7 @@ const AIChat = () => {
               </div>
 
               <p className="text-[10px] text-white/20 text-center">
-                Entrée pour envoyer · Shift+Entrée pour saut de ligne · L'assistant de Voie-Vérité-Vie
+                {t('aiChat.inputHint')}
               </p>
             </div>
           </div>
