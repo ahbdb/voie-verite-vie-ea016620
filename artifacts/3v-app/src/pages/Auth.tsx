@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,6 +13,7 @@ import logo3V from '@/assets/logo-3v.png';
 type Gender = 'homme' | 'femme';
 
 const Auth = () => {
+  const { t } = useTranslation();
   const { user, loading, signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
@@ -41,15 +43,15 @@ const Auth = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      toast.error('Veuillez remplir tous les champs');
+      toast.error(t('auth.fillAllFields'));
       return;
     }
     setIsLoading(true);
     const { error } = await signIn(email, password);
     if (error) {
-      toast.error(error.message || 'Erreur de connexion');
+      toast.error(error.message || t('auth.loginError'));
     } else {
-      toast.success('Connecté avec succès !');
+      toast.success(t('auth.signInSuccess'));
       navigate('/');
     }
     setIsLoading(false);
@@ -59,11 +61,11 @@ const Auth = () => {
   const handleSignupStep1 = (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName.trim() || !signupEmail.trim() || !signupPassword.trim()) {
-      toast.error('Prénom, email et mot de passe sont obligatoires');
+      toast.error(t('auth.requiredSignupFields'));
       return;
     }
     if (signupPassword.length < 6) {
-      toast.error('Le mot de passe doit contenir au moins 6 caractères');
+      toast.error(t('auth.passwordTooShort'));
       return;
     }
     setSignupStep(2);
@@ -72,15 +74,15 @@ const Auth = () => {
   /* ── Inscription finale ─────────────────────────────────────────────── */
   const handleSignUp = async () => {
     if (!gender) {
-      toast.error('Veuillez indiquer si vous êtes un frère ou une sœur');
+      toast.error(t('auth.genderRequired'));
       return;
     }
     setIsLoading(true);
     const { error } = await signUp(signupEmail, signupPassword, firstName.trim(), lastName.trim(), gender);
     if (error) {
-      toast.error(error.message || "Erreur lors de l'inscription");
+      toast.error(error.message || t('auth.signUpError'));
     } else {
-      toast.success('Inscription réussie ! Bienvenue 🙏');
+      toast.success(`${t('auth.signupSuccess')} 🙏`);
       navigate('/');
     }
     setIsLoading(false);
@@ -101,7 +103,7 @@ const Auth = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-          <p>Chargement…</p>
+          <p>{t('auth.loadingLabel')}</p>
         </div>
       </div>
     );
@@ -119,26 +121,26 @@ const Auth = () => {
               <img src={logo3V} alt="3V Logo" className="w-20 h-20 object-contain" />
             </div>
             <CardTitle className="text-2xl font-playfair">3V — Voie, Vérité, Vie</CardTitle>
-            <CardDescription>Connectez-vous à votre parcours biblique</CardDescription>
+            <CardDescription>{t('auth.loginSubtitle')}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <form onSubmit={handleSignIn} className="space-y-3">
               <Input
                 type="email"
-                placeholder="Email"
+                placeholder={t('auth.email')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
               />
               <Input
                 type="password"
-                placeholder="Mot de passe"
+                placeholder={t('auth.password')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
               />
               <Button className="w-full" size="lg" type="submit" disabled={isLoading}>
-                {isLoading ? 'Connexion…' : 'Se connecter'}
+                {isLoading ? t('auth.signingIn') : t('auth.signInBtn')}
               </Button>
             </form>
 
@@ -147,7 +149,7 @@ const Auth = () => {
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-background text-muted-foreground">ou</span>
+                <span className="px-2 bg-background text-muted-foreground">{t('auth.or')}</span>
               </div>
             </div>
 
@@ -157,11 +159,11 @@ const Auth = () => {
               onClick={() => { setMode('signup'); resetSignup(); setEmail(''); setPassword(''); }}
               disabled={isLoading}
             >
-              Créer un compte
+              {t('auth.createAccount')}
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">
-              Association catholique Voie, Vérité, Vie — Cameroun
+              {t('auth.footer')}
             </p>
           </CardContent>
         </Card>
@@ -183,7 +185,7 @@ const Auth = () => {
         {/* En-tête */}
         <div className="text-center mb-6">
           <img src={logo3V} alt="3V" className="w-14 h-14 mx-auto mb-3 object-contain" />
-          <h1 className="text-xl font-cinzel font-bold text-white">Créer un compte</h1>
+          <h1 className="text-xl font-cinzel font-bold text-white">{t('auth.createAccount')}</h1>
 
           {/* Indicateur d'étapes */}
           <div className="flex justify-center gap-2 mt-3">
@@ -217,16 +219,16 @@ const Auth = () => {
                 className="space-y-4"
               >
                 <p className="text-cathedral-gold font-semibold text-xs uppercase tracking-widest mb-3">
-                  Étape 1 — Identité
+                  {t('auth.step1')}
                 </p>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-white/60 text-xs mb-1 block">
-                      Prénom <span className="text-red-400">*</span>
+                      {t('auth.firstName')} <span className="text-red-400">*</span>
                     </label>
                     <Input
-                      placeholder="Jean"
+                      placeholder={t('auth.firstNamePlaceholder')}
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       disabled={isLoading}
@@ -234,9 +236,9 @@ const Auth = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-white/60 text-xs mb-1 block">Nom</label>
+                    <label className="text-white/60 text-xs mb-1 block">{t('auth.lastName')}</label>
                     <Input
-                      placeholder="Dupont"
+                      placeholder={t('auth.lastNamePlaceholder')}
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       disabled={isLoading}
@@ -247,11 +249,11 @@ const Auth = () => {
 
                 <div>
                   <label className="text-white/60 text-xs mb-1 block">
-                    Email <span className="text-red-400">*</span>
+                    {t('auth.email')} <span className="text-red-400">*</span>
                   </label>
                   <Input
                     type="email"
-                    placeholder="jean@exemple.com"
+                    placeholder={t('auth.emailPlaceholder')}
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
                     disabled={isLoading}
@@ -261,11 +263,11 @@ const Auth = () => {
 
                 <div>
                   <label className="text-white/60 text-xs mb-1 block">
-                    Mot de passe <span className="text-red-400">*</span>
+                    {t('auth.password')} <span className="text-red-400">*</span>
                   </label>
                   <Input
                     type="password"
-                    placeholder="6 caractères minimum"
+                    placeholder={t('auth.passwordPlaceholder')}
                     value={signupPassword}
                     onChange={(e) => setSignupPassword(e.target.value)}
                     disabled={isLoading}
@@ -278,7 +280,7 @@ const Auth = () => {
                   disabled={isLoading}
                   className="w-full bg-cathedral-gold hover:bg-cathedral-gold/90 text-secondary font-cinzel font-bold py-5 rounded-full"
                 >
-                  Suivant →
+                  {t('auth.next')}
                 </Button>
 
                 <button
@@ -286,7 +288,7 @@ const Auth = () => {
                   onClick={() => { setMode('login'); resetSignup(); }}
                   className="w-full text-white/40 hover:text-white/70 text-sm text-center mt-1 transition-colors"
                 >
-                  ← Retour à la connexion
+                  {t('auth.backToLogin')}
                 </button>
               </motion.form>
             )}
@@ -310,7 +312,7 @@ const Auth = () => {
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <p className="text-cathedral-gold font-semibold text-xs uppercase tracking-widest">
-                    Étape 2 — Vous êtes… <span className="text-red-400">*</span>
+                    {t('auth.step2')} <span className="text-red-400">*</span>
                   </p>
                 </div>
 
@@ -330,7 +332,7 @@ const Auth = () => {
                     >
                       <span className="text-4xl">{g === 'homme' ? '👨' : '👩'}</span>
                       <span className="text-white font-cinzel font-semibold text-lg">
-                        {g === 'homme' ? 'Frère' : 'Sœur'}
+                        {g === 'homme' ? t('auth.brother') : t('auth.sister')}
                       </span>
                     </button>
                   ))}
@@ -341,12 +343,12 @@ const Auth = () => {
                   disabled={!gender || isLoading}
                   className="w-full bg-cathedral-gold hover:bg-cathedral-gold/90 text-secondary font-cinzel font-bold py-5 rounded-full disabled:opacity-40"
                 >
-                  {isLoading ? 'Inscription…' : "S'inscrire 🙏"}
+                  {isLoading ? t('auth.signingUp') : `${t('auth.signUpBtn')} 🙏`}
                 </Button>
 
                 {!gender && (
                   <p className="text-white/40 text-xs text-center">
-                    Veuillez d'abord choisir Frère ou Sœur.
+                    {t('auth.chooseGenderFirst')}
                   </p>
                 )}
               </motion.div>
