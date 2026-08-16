@@ -15,11 +15,14 @@ i18n
       it: { translation: it },
     },
     fallbackLng: 'fr',
+    supportedLngs: ['fr', 'en', 'it'],
+    nonExplicitSupportedLngs: true,
+    load: 'languageOnly',
     interpolation: {
       escapeValue: false,
     },
     detection: {
-      order: ['localStorage', 'navigator'],
+      order: ['localStorage'],
       caches: ['localStorage'],
       lookupLocalStorage: '3v_language',
     },
