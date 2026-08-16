@@ -247,6 +247,7 @@ const App = () => {
                       <Route path="/admin/daily-prayer" element={<AdminPriereQuotidienne />} />
                       <Route path="/admin/news" element={<AdminNews />} />
                       <Route path="/profile" element={<Profile />} />
+                      <Route path="/actualites" element={<Actualites />} />
                       <Route path="/actualites/:id" element={<Actualites />} />
                       <Route path="/documents-3v" element={<Documents3V />} />
                       <Route path="*" element={<NotFound />} />
