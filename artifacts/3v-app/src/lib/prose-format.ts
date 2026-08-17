@@ -153,20 +153,18 @@ export const formatLitany = (raw?: string | null): LitanyLine[] => {
     cursor = match.index + match[0].length;
     if (!call) continue;
 
-    // Versicle / response markers
-    const versicle = call.match(/^([VR])\.\s*(.*)$/);
-    if (versicle) {
-      lines.push({ kind: 'versicle', marker: versicle[1], text: versicle[2].trim() });
-      lines.push({ kind: 'versicle', marker: 'R', text: match[0].trim() });
+    // Versicle / response markers ("V. … R. …")
+    if (/^[VR]\.\s/.test(call)) {
+      pushVersicles(lines, `${call} ${match[0]}`);
       continue;
     }
 
-    // Anything before the very first invocation is a caption/title.
-    if (lines.length === 0 && /neuvaine|Litanies?/i.test(call) && call.length > 60) {
-      const titleEnd = call.search(/(Seigneur|Christ|Dieu|Notre-Dame|Saint|Sainte|Vierge|Jésus)/);
-      if (titleEnd > 0) {
-        lines.push({ kind: 'caption', text: call.slice(0, titleEnd).trim() });
-        lines.push({ kind: 'invocation', call: call.slice(titleEnd).trim(), response: match[0].trim() });
+    // Everything before the very first liturgical invocation is a title/caption.
+    if (lines.length === 0 && call.length > 40) {
+      const opener = call.match(/(Seigneur|Christ|Kyrie|Dieu|Notre-Dame|Saint|Sainte|Vierge|Jésus)[^,]*,?$/);
+      if (opener && opener.index !== undefined && opener.index > 20) {
+        lines.push({ kind: 'caption', text: call.slice(0, opener.index).trim() });
+        lines.push({ kind: 'invocation', call: call.slice(opener.index).trim(), response: match[0].trim() });
         continue;
       }
     }
@@ -176,8 +174,7 @@ export const formatLitany = (raw?: string | null): LitanyLine[] => {
 
   const tail = body.slice(cursor).trim();
   if (tail) {
-    const v = tail.match(/^([VR])\.\s*(.*)$/);
-    if (v) lines.push({ kind: 'versicle', marker: v[1], text: v[2].trim() });
+    if (/(^|\s)[VR]\.\s/.test(tail)) pushVersicles(lines, tail);
     else lines.push({ kind: 'prayer', text: tail });
   }
 
@@ -188,3 +185,13 @@ export const formatLitany = (raw?: string | null): LitanyLine[] => {
 
   return lines;
 };
+
+/** Split a "V. … R. …" run into individual versicle lines. */
+function pushVersicles(lines: LitanyLine[], text: string) {
+  const parts = text.split(/(?=(?:^|\s)[VR]\.\s)/).map((s) => s.trim()).filter(Boolean);
+  for (const part of parts) {
+    const m = part.match(/^([VR])\.\s*(.*)$/);
+    if (m) lines.push({ kind: 'versicle', marker: m[1], text: m[2].trim() });
+    else lines.push({ kind: 'prayer', text: part });
+  }
+}
