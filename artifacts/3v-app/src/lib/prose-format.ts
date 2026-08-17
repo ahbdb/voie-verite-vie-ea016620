@@ -161,8 +161,10 @@ export const formatLitany = (raw?: string | null): LitanyLine[] => {
 
     // Everything before the very first liturgical invocation is a title/caption.
     if (lines.length === 0 && call.length > 40) {
-      const opener = call.match(/(Seigneur|Christ|Kyrie|Dieu|Notre-Dame|Saint|Sainte|Vierge|Jésus)[^,]*,?$/);
-      if (opener && opener.index !== undefined && opener.index > 20) {
+      // The litany proper starts on the last "Seigneur/Christ/Kyrie" of the line;
+      // whatever precedes it is the document title.
+      const opener = /(Seigneur|Christ|Kyrie)[^,]{0,20},?$/.exec(call);
+      if (opener && opener.index !== undefined && opener.index > 10) {
         lines.push({ kind: 'caption', text: call.slice(0, opener.index).trim() });
         lines.push({ kind: 'invocation', call: call.slice(opener.index).trim(), response: match[0].trim() });
         continue;
