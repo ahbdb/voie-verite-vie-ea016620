@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Helmet } from 'react-helmet-async';
+import { NeuvaineProse, NeuvaineLitany } from '@/components/NeuvaineProse';
 
 interface DayContent {
   day: number;
@@ -191,7 +192,7 @@ const NeuvaineDayView = () => {
                   <Cross className="h-8 w-8 text-primary mx-auto mb-3" />
                   <h2 className="text-xl font-cinzel font-bold">{t('neuvaines.introduction')}</h2>
                 </div>
-                <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{localized.introduction}</p>
+                <NeuvaineProse text={localized.introduction} />
 
                 {localized.common_prayers?.opening && (
                   <div className="space-y-4 pt-6 border-t border-border">
@@ -348,7 +349,7 @@ const NeuvaineDayView = () => {
                     <h3 className="text-sm font-cinzel font-bold text-primary uppercase tracking-wider mb-3">
                       {t('neuvaines.consecration', { saint: localized.saint_name })}
                     </h3>
-                    <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{localized.conclusion.consecration}</p>
+                    <NeuvaineProse text={localized.conclusion.consecration} />
                   </div>
                 )}
 
@@ -357,7 +358,7 @@ const NeuvaineDayView = () => {
                     <h3 className="text-sm font-cinzel font-bold text-primary uppercase tracking-wider mb-3">
                       {t('neuvaines.litany', { saint: localized.saint_name })}
                     </h3>
-                    <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{localized.conclusion.litany}</p>
+                    <NeuvaineLitany text={localized.conclusion.litany} />
                   </div>
                 )}
               </div>
