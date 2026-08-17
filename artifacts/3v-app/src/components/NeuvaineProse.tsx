@@ -23,7 +23,7 @@ export const NeuvaineProse = ({ text, className = '' }: { text?: string | null; 
             <ol key={i} className="space-y-1.5">
               {block.items.map((item, j) => (
                 <li key={j} className="flex gap-3 text-sm text-muted-foreground leading-relaxed">
-                  <span className="shrink-0 w-5 text-right font-semibold text-cathedral-gold tabular-nums">
+                  <span className="shrink-0 w-7 text-right font-semibold text-cathedral-gold tabular-nums whitespace-nowrap">
                     {j + 1}.
                   </span>
                   <span>{item}</span>
@@ -36,7 +36,9 @@ export const NeuvaineProse = ({ text, className = '' }: { text?: string | null; 
           <p
             key={i}
             className={`text-[0.95rem] leading-[1.85] text-muted-foreground ${
-              i === 0 ? 'first-letter:float-left first-letter:mr-2 first-letter:mt-1 first-letter:font-cinzel first-letter:text-4xl first-letter:leading-none first-letter:text-cathedral-gold' : ''
+              i === 0 && block.text.length > 220
+                ? 'first-letter:float-left first-letter:mr-2 first-letter:mt-1 first-letter:font-cinzel first-letter:text-4xl first-letter:leading-none first-letter:text-cathedral-gold'
+                : ''
             }`}
           >
             {block.text}
