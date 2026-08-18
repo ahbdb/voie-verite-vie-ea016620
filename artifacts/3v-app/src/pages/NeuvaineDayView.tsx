@@ -4,10 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   ChevronLeft, ChevronRight, BookOpen, Download, Heart,
-  HandMetal, Cross, ArrowLeft
+  Cross, ArrowLeft
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Helmet } from 'react-helmet-async';
