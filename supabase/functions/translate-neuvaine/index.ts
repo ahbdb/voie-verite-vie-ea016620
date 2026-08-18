@@ -16,7 +16,9 @@ const CORS = {
 
 const LANG_NAME: Record<string, string> = { en: 'English', it: 'Italiano' };
 
-async function translateChunk(payload: unknown, lang: string): Promise<any> {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function translateChunk(payload: unknown, lang: string, attempt = 0): Promise<any> {
   const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -41,6 +43,14 @@ async function translateChunk(payload: unknown, lang: string): Promise<any> {
       ],
     }),
   });
+  if (res.status === 429 || res.status >= 500) {
+    const detail = await res.text().catch(() => '');
+    if (attempt >= 5) throw new Error(`gateway ${res.status}: ${detail.slice(0, 200)}`);
+    const retryAfter = Number(res.headers.get('Retry-After') ?? 0);
+    const wait = retryAfter > 0 ? retryAfter * 1000 : Math.min(30000, 2000 * 2 ** attempt) + Math.random() * 500;
+    await sleep(wait);
+    return translateChunk(payload, lang, attempt + 1);
+  }
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
     throw new Error(`gateway ${res.status}: ${detail.slice(0, 300)}`);
@@ -80,12 +90,12 @@ Deno.serve(async (req) => {
       };
       const days: any[] = Array.isArray(n.days) ? (n.days as any[]) : [];
 
-      const [metaOut, prayersOut, conclusionOut, ...dayOut] = await Promise.all([
-        translateChunk(meta, lang),
-        n.common_prayers ? translateChunk(n.common_prayers, lang) : Promise.resolve(null),
-        n.conclusion ? translateChunk(n.conclusion, lang) : Promise.resolve(null),
-        ...days.map((d) => translateChunk(d, lang)),
-      ]);
+      // Séquentiel : le gateway limite fortement les rafales parallèles (429).
+      const metaOut = await translateChunk(meta, lang);
+      const prayersOut = n.common_prayers ? await translateChunk(n.common_prayers, lang) : null;
+      const conclusionOut = n.conclusion ? await translateChunk(n.conclusion, lang) : null;
+      const dayOut: any[] = [];
+      for (const d of days) dayOut.push(await translateChunk(d, lang));
 
       translations[lang] = {
         ...metaOut,
