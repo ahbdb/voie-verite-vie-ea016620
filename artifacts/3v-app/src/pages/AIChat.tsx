@@ -144,7 +144,7 @@ function Sidebar({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 const AIChat = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -255,7 +255,7 @@ const AIChat = () => {
 
       const SUPABASE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL ?? 'https://kaddsojhnkyfavaulrfc.supabase.co'}/functions/v1/ai-chat`;
       const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` };
-      const body = JSON.stringify({ messages: historyWithContext });
+      const body = JSON.stringify({ messages: historyWithContext, lang: i18n.language?.substring(0, 2) || 'fr' });
 
       const res = await fetch(SUPABASE_AI_URL, { method: 'POST', headers, body, signal: ctrl.signal });
 
