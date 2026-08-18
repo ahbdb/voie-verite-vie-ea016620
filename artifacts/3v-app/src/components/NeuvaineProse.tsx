@@ -1,7 +1,7 @@
 import { formatProse, formatLitany } from '@/lib/prose-format';
 
 /** Structured, readable rendering of a neuvaine prose text. */
-export const NeuvaineProse = ({ text, className = '' }: { text?: string | null; className?: string }) => {
+export const NeuvaineProse = ({ text, className = '', dropCap = false }: { text?: string | null; className?: string; dropCap?: boolean }) => {
   const blocks = formatProse(text);
   if (blocks.length === 0) return null;
 
@@ -36,7 +36,7 @@ export const NeuvaineProse = ({ text, className = '' }: { text?: string | null; 
           <p
             key={i}
             className={`text-[0.95rem] leading-[1.85] text-muted-foreground ${
-              i === 0 && block.text.length > 220
+              dropCap && i === 0 && block.text.length > 220
                 ? 'first-letter:float-left first-letter:mr-2 first-letter:mt-1 first-letter:font-cinzel first-letter:text-4xl first-letter:leading-none first-letter:text-cathedral-gold'
                 : ''
             }`}

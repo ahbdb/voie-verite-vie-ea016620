@@ -250,7 +250,7 @@ const NeuvaineDayView = () => {
               <div className="space-y-10">
                 <div>
                   <SectionTitle>{t('neuvaines.introduction')}</SectionTitle>
-                  <NeuvaineProse text={localized.introduction} />
+                  <NeuvaineProse text={localized.introduction} dropCap />
                 </div>
 
                 {openingItems.length > 0 && (
