@@ -41,6 +41,18 @@ const SYSTEM_PROMPT = `Tu es l'Assistant Numérique 3V (Voie-Vérité-Vie), un a
 - Pas d'avis médical, juridique ou financier ; pas de politique partisane
 - Tu ne critiques pas les autres religions ; tu ne modifies pas les textes bibliques officiels`;
 
+const LANGUAGES: Record<string, string> = {
+  fr: 'français',
+  en: 'English',
+  it: 'italiano',
+};
+
+/** Force la langue de réponse sur celle de l'interface utilisateur. */
+function languageDirective(lang?: string): string {
+  const name = LANGUAGES[(lang ?? 'fr').substring(0, 2)] ?? LANGUAGES.fr;
+  return `\n\n## Langue de réponse (impératif)\nL'interface de l'utilisateur est en ${name}. Réponds EXCLUSIVEMENT en ${name}, y compris les titres, les citations bibliques (nom des livres) et les prières, sauf si l'utilisateur écrit dans une autre langue — dans ce cas, réponds dans la langue de son message.`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS });
@@ -64,7 +76,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { messages } = await req.json() as { messages: { role: string; content: string }[] };
+    const { messages, lang } = await req.json() as { messages: { role: string; content: string }[]; lang?: string };
     if (!Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: 'Bad Request' }), {
         status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
@@ -88,7 +100,7 @@ Deno.serve(async (req) => {
         model: 'google/gemini-3.6-flash',
         stream: true,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: SYSTEM_PROMPT + languageDirective(lang) },
           ...messages.map((m) => ({
             role: m.role === 'user' ? 'user' : 'assistant',
             content: String(m.content ?? ''),

@@ -715,7 +715,9 @@
     "qp3": "A 5-point meditation on John 14:6.",
     "qp4": "Help me prepare a lectio divina tonight.",
     "qp5": "How do I pray the rosary? Guide me step by step.",
-    "qp6": "What is the meaning of Pentecost?"
+    "qp6": "What is the meaning of Pentecost?",
+    "creditsExhausted": "The app's AI credits are exhausted. The administrator must top them up to reactivate the Digital Assistant.",
+    "rateLimited": "Too many requests in a short time. Please wait a moment before trying again."
   },
   "registration": {
     "registerActivity": "Register for activity",

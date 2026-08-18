@@ -4,10 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   ChevronLeft, ChevronRight, BookOpen, Download, Heart,
-  HandMetal, Cross, ArrowLeft
+  Cross, ArrowLeft
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Helmet } from 'react-helmet-async';
@@ -127,209 +126,232 @@ const NeuvaineDayView = () => {
   const goNext = () => { if (currentDay < totalPages - 1) { setCurrentDay(currentDay + 1); setActiveTab('meditation'); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
   const goPrev = () => { if (currentDay > 0) { setCurrentDay(currentDay - 1); setActiveTab('meditation'); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
 
+  const isIntro = currentDay === 0;
+  const isEnd = currentDay === totalPages - 1;
+  const progress = Math.round((currentDay / (totalPages - 1)) * 100);
+
+  const openingItems: { key: string; label: string; text: string; italic?: boolean }[] = [
+    { key: 'sc', label: t('neuvaines.signOfCross'), text: localized.common_prayers?.opening?.signe_de_croix, italic: true },
+    { key: 'es', label: t('neuvaines.holySpirit'), text: localized.common_prayers?.opening?.priere_esprit_saint },
+    { key: 'np', label: t('neuvaines.ourFather'), text: localized.common_prayers?.opening?.notre_pere },
+  ].filter((x) => !!x.text) as any;
+
+  const closingItems: { key: string; label: string; text: string }[] = [
+    { key: 'jm', label: t('neuvaines.hailMary'), text: localized.common_prayers?.closing?.je_vous_salue_marie },
+    { key: 'jj', label: t('neuvaines.hailJoseph'), text: localized.common_prayers?.closing?.je_vous_salue_joseph },
+    { key: 'gp', label: t('neuvaines.gloryBe'), text: localized.common_prayers?.closing?.gloire_au_pere },
+  ].filter((x) => !!x.text) as any;
+
+  /** Titre de section liturgique, filet doré. */
+  const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+    <div className="flex items-center gap-3 mb-4">
+      <span className="h-px w-6 bg-cathedral-gold/50" />
+      <h3 className="text-[0.7rem] font-cinzel font-bold uppercase tracking-[0.22em] text-cathedral-gold whitespace-nowrap">
+        {children}
+      </h3>
+      <span className="h-px flex-1 bg-cathedral-gold/20" />
+    </div>
+  );
+
+  const PrayerList = ({ items }: { items: { key: string; label: string; text: string; italic?: boolean }[] }) => (
+    <div className="space-y-5">
+      {items.map((it) => (
+        <div key={it.key} className="border-l border-cathedral-gold/30 pl-4">
+          <h4 className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-foreground/70 mb-1.5">
+            {it.label}
+          </h4>
+          <p className={`text-[0.95rem] leading-[1.85] whitespace-pre-line text-muted-foreground ${it.italic ? 'italic' : ''}`}>
+            {it.text}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
         <title>{localized.title} — Voie Vérité Vie</title>
+        <meta name="description" content={(localized.description ?? '').slice(0, 155)} />
       </Helmet>
       <Navigation />
 
-      <main className="pt-20 pb-8">
-        <div className="container mx-auto px-4 max-w-3xl">
-          {/* Top bar */}
-          <div className="flex items-center justify-between mb-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/neuvaines')} className="gap-1 -ml-2">
-              <ArrowLeft className="h-4 w-4" /> {t('common.novenas')}
-            </Button>
-            {localized.pdf_url && (
-              <a href={localized.pdf_url} download target="_blank" rel="noopener noreferrer">
-                <Button variant="ghost" size="sm" className="gap-1"><Download className="h-4 w-4" /> PDF</Button>
-              </a>
-            )}
+      <main className="pt-20 pb-16">
+        {/* En-tête liturgique */}
+        <header className="border-b border-border/60 bg-gradient-to-b from-primary/[0.06] to-transparent">
+          <div className="container mx-auto px-4 max-w-3xl py-6 md:py-8">
+            <div className="flex items-center justify-between mb-4">
+              <Button variant="ghost" size="sm" onClick={() => navigate('/neuvaines')} className="gap-1 -ml-2 text-muted-foreground">
+                <ArrowLeft className="h-4 w-4" /> {t('common.novenas')}
+              </Button>
+              {localized.pdf_url && (
+                <a href={localized.pdf_url} download target="_blank" rel="noopener noreferrer">
+                  <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground">
+                    <Download className="h-4 w-4" /> PDF
+                  </Button>
+                </a>
+              )}
+            </div>
+
+            <div className="text-center">
+              {localized.saint_name && (
+                <p className="text-[0.68rem] uppercase tracking-[0.28em] text-cathedral-gold mb-2">
+                  {localized.saint_name}
+                </p>
+              )}
+              <h1 className="text-2xl md:text-[2.1rem] leading-tight font-cinzel font-bold text-foreground">
+                {localized.title}
+              </h1>
+              <div className="flex items-center justify-center gap-2 mt-3">
+                <span className="h-px w-10 bg-cathedral-gold/40" />
+                <Cross className="h-3.5 w-3.5 text-cathedral-gold" />
+                <span className="h-px w-10 bg-cathedral-gold/40" />
+              </div>
+            </div>
           </div>
+        </header>
 
-          {/* Title */}
-          <h1 className="text-2xl md:text-3xl font-cinzel font-bold text-center text-foreground mb-4">
-            {localized.title}
-          </h1>
-
-          {/* Day selector – flat pills */}
-          <div className="flex flex-wrap justify-center gap-1.5 mb-8">
-            <button
-              onClick={() => { setCurrentDay(0); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${currentDay === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
-            >
-              {t('neuvaines.intro')}
-            </button>
-            {days.map((_: any, i: number) => (
+        {/* Barre de jours collante */}
+        <div className="sticky top-16 z-20 border-b border-border/60 bg-background/85 backdrop-blur-md">
+          <div className="container mx-auto px-4 max-w-3xl">
+            <div className="flex items-center gap-1.5 py-2.5 overflow-x-auto scrollbar-none">
               <button
-                key={i}
-                onClick={() => { setCurrentDay(i + 1); setActiveTab('meditation'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                className={`w-9 h-9 rounded-full text-xs font-bold transition-all ${currentDay === i + 1 ? 'bg-primary text-primary-foreground scale-110' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                onClick={() => { setCurrentDay(0); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                className={`shrink-0 px-3 h-8 rounded-full text-[0.7rem] font-medium uppercase tracking-wider transition-colors ${isIntro ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
               >
-                {i + 1}
+                {t('neuvaines.intro')}
               </button>
-            ))}
-            <button
-              onClick={() => { setCurrentDay(totalPages - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${currentDay === totalPages - 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
-            >
-              {t('neuvaines.end')}
-            </button>
+              {days.map((_: any, i: number) => (
+                <button
+                  key={i}
+                  onClick={() => { setCurrentDay(i + 1); setActiveTab('meditation'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className={`shrink-0 w-8 h-8 rounded-full text-xs font-semibold tabular-nums transition-colors ${currentDay === i + 1 ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                onClick={() => { setCurrentDay(totalPages - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                className={`shrink-0 px-3 h-8 rounded-full text-[0.7rem] font-medium uppercase tracking-wider transition-colors ${isEnd ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+              >
+                {t('neuvaines.end')}
+              </button>
+            </div>
+            <div className="h-[2px] bg-border/50">
+              <div className="h-full bg-cathedral-gold transition-all duration-500" style={{ width: `${progress}%` }} />
+            </div>
           </div>
+        </div>
 
-          {/* Content – flat, no Card wrapper */}
-          <motion.div
-            key={`${currentDay}-${lang}`}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3 }}
-          >
+        <div className="container mx-auto px-4 max-w-3xl pt-8">
+          <motion.div key={`${currentDay}-${lang}`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
             {/* INTRODUCTION */}
-            {currentDay === 0 && (
-              <div className="space-y-6">
-                <div className="text-center">
-                  <Cross className="h-8 w-8 text-primary mx-auto mb-3" />
-                  <h2 className="text-xl font-cinzel font-bold">{t('neuvaines.introduction')}</h2>
+            {isIntro && (
+              <div className="space-y-10">
+                <div>
+                  <SectionTitle>{t('neuvaines.introduction')}</SectionTitle>
+                  <NeuvaineProse text={localized.introduction} dropCap />
                 </div>
-                <NeuvaineProse text={localized.introduction} />
 
-                {localized.common_prayers?.opening && (
-                  <div className="space-y-4 pt-6 border-t border-border">
-                    <h3 className="text-sm font-cinzel font-bold text-primary uppercase tracking-wider">{t('neuvaines.openingPrayers')}</h3>
-                    {localized.common_prayers.opening.signe_de_croix && (
-                      <div>
-                        <h4 className="font-semibold text-sm mb-1">✝ {t('neuvaines.signOfCross')}</h4>
-                        <p className="text-sm italic text-muted-foreground">{localized.common_prayers.opening.signe_de_croix}</p>
-                      </div>
-                    )}
-                    {localized.common_prayers.opening.priere_esprit_saint && (
-                      <div>
-                        <h4 className="font-semibold text-sm mb-1">🕊️ {t('neuvaines.holySpirit')}</h4>
-                        <p className="text-sm whitespace-pre-line text-muted-foreground">{localized.common_prayers.opening.priere_esprit_saint}</p>
-                      </div>
-                    )}
-                    {localized.common_prayers.opening.notre_pere && (
-                      <div>
-                        <h4 className="font-semibold text-sm mb-1">🙏 {t('neuvaines.ourFather')}</h4>
-                        <p className="text-sm whitespace-pre-line text-muted-foreground">{localized.common_prayers.opening.notre_pere}</p>
-                      </div>
-                    )}
-                  </div>
+                {openingItems.length > 0 && (
+                  <section>
+                    <SectionTitle>{t('neuvaines.openingPrayers')}</SectionTitle>
+                    <PrayerList items={openingItems} />
+                  </section>
                 )}
 
-                {localized.common_prayers?.closing && (
-                  <div className="space-y-4 pt-6 border-t border-border">
-                    <h3 className="text-sm font-cinzel font-bold text-primary uppercase tracking-wider">{t('neuvaines.closingPrayers')}</h3>
-                    {localized.common_prayers.closing.je_vous_salue_marie && (
-                      <div>
-                        <h4 className="font-semibold text-sm mb-1">🌹 {t('neuvaines.hailMary')}</h4>
-                        <p className="text-sm whitespace-pre-line text-muted-foreground">{localized.common_prayers.closing.je_vous_salue_marie}</p>
-                      </div>
-                    )}
-                    {localized.common_prayers.closing.je_vous_salue_joseph && (
-                      <div>
-                        <h4 className="font-semibold text-sm mb-1">⚜️ {t('neuvaines.hailJoseph')}</h4>
-                        <p className="text-sm whitespace-pre-line text-muted-foreground">{localized.common_prayers.closing.je_vous_salue_joseph}</p>
-                      </div>
-                    )}
-                    {localized.common_prayers.closing.gloire_au_pere && (
-                      <div>
-                        <h4 className="font-semibold text-sm mb-1">✨ {t('neuvaines.gloryBe')}</h4>
-                        <p className="text-sm whitespace-pre-line text-muted-foreground">{localized.common_prayers.closing.gloire_au_pere}</p>
-                      </div>
-                    )}
-                  </div>
+                {closingItems.length > 0 && (
+                  <section>
+                    <SectionTitle>{t('neuvaines.closingPrayers')}</SectionTitle>
+                    <PrayerList items={closingItems} />
+                  </section>
                 )}
               </div>
             )}
 
-            {/* DAY CONTENT */}
+            {/* JOUR */}
             {day && (
-              <div className="space-y-6">
+              <div className="space-y-9">
                 <div className="text-center">
-                  <Badge className="bg-primary text-primary-foreground mb-3">{t('neuvaines.day')} {day.day}</Badge>
-                  <h2 className="text-xl md:text-2xl font-cinzel font-bold">{day.title}</h2>
-                  <p className="text-muted-foreground text-sm mt-1 italic">{day.subtitle}</p>
+                  <p className="text-[0.68rem] uppercase tracking-[0.28em] text-cathedral-gold mb-2">
+                    {t('neuvaines.day')} {day.day} / {days.length}
+                  </p>
+                  <h2 className="text-xl md:text-2xl font-cinzel font-bold text-foreground">{day.title}</h2>
+                  {day.subtitle && <p className="text-sm text-muted-foreground italic mt-1.5">{day.subtitle}</p>}
                 </div>
 
-                {/* Opening prayers – collapsible, flat */}
-                {localized.common_prayers?.opening && (
-                  <details className="group">
-                    <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-2 py-2">
-                      ☩ {t('neuvaines.opening')}
-                      <span className="text-muted-foreground font-normal normal-case text-[10px]">({t('common.clickToExpand', { defaultValue: 'cliquer pour ouvrir' })})</span>
+                {/* Écriture */}
+                {day.scripture && (
+                  <blockquote className="relative rounded-lg border border-cathedral-gold/25 bg-cathedral-gold/[0.05] px-5 py-4">
+                    <BookOpen className="h-4 w-4 text-cathedral-gold mb-2" />
+                    <p className="text-[0.98rem] leading-[1.9] italic text-foreground/85 whitespace-pre-line">{day.scripture}</p>
+                  </blockquote>
+                )}
+
+                {openingItems.length > 0 && (
+                  <details className="group border-y border-border/60 py-3">
+                    <summary className="cursor-pointer list-none flex items-center justify-between text-[0.7rem] font-cinzel font-bold uppercase tracking-[0.2em] text-cathedral-gold">
+                      {t('neuvaines.opening')}
+                      <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
                     </summary>
-                    <div className="pl-4 border-l-2 border-primary/20 space-y-3 pb-4">
-                      {localized.common_prayers.opening.signe_de_croix && <p className="text-sm italic text-muted-foreground">{localized.common_prayers.opening.signe_de_croix}</p>}
-                      {localized.common_prayers.opening.priere_esprit_saint && <p className="text-sm whitespace-pre-line text-muted-foreground">{localized.common_prayers.opening.priere_esprit_saint}</p>}
-                      {localized.common_prayers.opening.notre_pere && <p className="text-sm whitespace-pre-line text-muted-foreground">{localized.common_prayers.opening.notre_pere}</p>}
-                    </div>
+                    <div className="pt-4"><PrayerList items={openingItems} /></div>
                   </details>
                 )}
 
-                {/* Scripture – gold accent */}
-                <blockquote className="border-l-2 border-cathedral-gold/40 pl-4 py-2">
-                  <div className="flex items-start gap-2">
-                    <BookOpen className="h-4 w-4 text-cathedral-gold mt-0.5 shrink-0" />
-                    <p className="text-sm italic font-medium text-foreground/80">{day.scripture}</p>
+                {/* Onglets */}
+                <div>
+                  <div className="flex gap-6 border-b border-border/60 mb-6">
+                    {(['meditation', 'intercessions'] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`pb-2.5 -mb-px text-[0.72rem] font-semibold uppercase tracking-[0.16em] border-b-2 transition-colors ${
+                          activeTab === tab
+                            ? 'border-cathedral-gold text-foreground'
+                            : 'border-transparent text-muted-foreground hover:text-foreground/80'
+                        }`}
+                      >
+                        {t(`neuvaines.${tab}`)}
+                      </button>
+                    ))}
                   </div>
-                </blockquote>
 
-                {/* Tabs – flat pills, not boxed */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setActiveTab('meditation')}
-                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${activeTab === 'meditation' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
-                  >
-                    {t('neuvaines.meditation')}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('intercessions')}
-                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${activeTab === 'intercessions' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
-                  >
-                    {t('neuvaines.intercessions')}
-                  </button>
+                  {activeTab === 'meditation' && <NeuvaineProse text={day.meditation} />}
+
+                  {activeTab === 'intercessions' && (
+                    <div className="space-y-6">
+                      {day.intercessions?.map((int: any, i: number) => (
+                        <div key={i} className="flex gap-4">
+                          <span className="shrink-0 mt-0.5 w-6 h-6 rounded-full border border-cathedral-gold/40 text-[0.65rem] font-semibold text-cathedral-gold flex items-center justify-center tabular-nums">
+                            {i + 1}
+                          </span>
+                          <div>
+                            <h4 className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-foreground/75 mb-1.5">{int.title}</h4>
+                            <p className="text-[0.95rem] leading-[1.85] text-muted-foreground whitespace-pre-line">{int.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="rounded-lg border border-border/70 bg-muted/30 px-5 py-4 text-center">
+                        <Heart className="h-4 w-4 text-primary mx-auto mb-2" />
+                        <p className="text-sm font-semibold text-foreground">{t('neuvaines.personalIntention')}</p>
+                        <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{t('neuvaines.personalIntentionDesc')}</p>
+                        <p className="text-xs text-muted-foreground italic mt-2">
+                          {t('neuvaines.silenceDesc', { saint: localized.saint_name })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {activeTab === 'meditation' && (
-                  <p className="text-sm leading-relaxed whitespace-pre-line text-foreground/90">{day.meditation}</p>
-                )}
-
-                {activeTab === 'intercessions' && (
-                  <div className="space-y-4">
-                    {day.intercessions?.map((int: any, i: number) => (
-                      <div key={i} className="border-l-2 border-primary/20 pl-4">
-                        <h4 className="font-semibold text-sm mb-1">
-                          <Heart className="h-3.5 w-3.5 inline mr-1 text-primary" />
-                          {int.title}
-                        </h4>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{int.text}</p>
-                      </div>
-                    ))}
-                    <div className="text-center pt-4">
-                      <HandMetal className="h-5 w-5 text-primary mx-auto mb-2" />
-                      <p className="text-sm font-medium">{t('neuvaines.personalIntention')}</p>
-                      <p className="text-xs text-muted-foreground italic mt-1">{t('neuvaines.personalIntentionDesc')}</p>
-                      <p className="text-xs text-muted-foreground mt-2 italic">
-                        {t('neuvaines.silenceDesc', { saint: localized.saint_name })}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Closing prayers – collapsible */}
-                {localized.common_prayers?.closing && (
-                  <details className="group">
-                    <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-primary flex items-center gap-2 py-2">
-                      ☩ {t('neuvaines.closing')}
-                      <span className="text-muted-foreground font-normal normal-case text-[10px]">({t('common.clickToExpand', { defaultValue: 'cliquer pour ouvrir' })})</span>
+                {closingItems.length > 0 && (
+                  <details className="group border-y border-border/60 py-3">
+                    <summary className="cursor-pointer list-none flex items-center justify-between text-[0.7rem] font-cinzel font-bold uppercase tracking-[0.2em] text-cathedral-gold">
+                      {t('neuvaines.closing')}
+                      <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
                     </summary>
-                    <div className="pl-4 border-l-2 border-primary/20 space-y-3 pb-4">
-                      {localized.common_prayers.closing.je_vous_salue_marie && <p className="text-sm whitespace-pre-line text-muted-foreground">{localized.common_prayers.closing.je_vous_salue_marie}</p>}
-                      {localized.common_prayers.closing.je_vous_salue_joseph && <p className="text-sm whitespace-pre-line text-muted-foreground">{localized.common_prayers.closing.je_vous_salue_joseph}</p>}
-                      {localized.common_prayers.closing.gloire_au_pere && <p className="text-sm whitespace-pre-line text-muted-foreground">{localized.common_prayers.closing.gloire_au_pere}</p>}
-                      <p className="text-xs text-muted-foreground italic">🎵 {t('neuvaines.closingSong')}</p>
+                    <div className="pt-4 space-y-4">
+                      <PrayerList items={closingItems} />
+                      <p className="text-xs text-muted-foreground italic">{t('neuvaines.closingSong')}</p>
                     </div>
                   </details>
                 )}
@@ -337,44 +359,42 @@ const NeuvaineDayView = () => {
             )}
 
             {/* CONCLUSION */}
-            {currentDay === totalPages - 1 && (
-              <div className="space-y-6">
-                <div className="text-center">
-                  <Cross className="h-8 w-8 text-primary mx-auto mb-3" />
-                  <h2 className="text-xl font-cinzel font-bold">{t('neuvaines.conclusion')}</h2>
-                </div>
-
+            {isEnd && (
+              <div className="space-y-10">
                 {localized.conclusion?.consecration && (
-                  <div>
-                    <h3 className="text-sm font-cinzel font-bold text-primary uppercase tracking-wider mb-3">
-                      {t('neuvaines.consecration', { saint: localized.saint_name })}
-                    </h3>
+                  <section>
+                    <SectionTitle>{t('neuvaines.consecration', { saint: localized.saint_name })}</SectionTitle>
                     <NeuvaineProse text={localized.conclusion.consecration} />
-                  </div>
+                  </section>
                 )}
 
                 {localized.conclusion?.litany && (
-                  <div className="pt-6 border-t border-border">
-                    <h3 className="text-sm font-cinzel font-bold text-primary uppercase tracking-wider mb-3">
-                      {t('neuvaines.litany', { saint: localized.saint_name })}
-                    </h3>
+                  <section>
+                    <SectionTitle>{t('neuvaines.litany', { saint: localized.saint_name })}</SectionTitle>
                     <NeuvaineLitany text={localized.conclusion.litany} />
+                  </section>
+                )}
+
+                {!localized.conclusion?.consecration && !localized.conclusion?.litany && (
+                  <div className="text-center py-10">
+                    <Cross className="h-6 w-6 text-cathedral-gold mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">{t('neuvaines.conclusion')}</p>
                   </div>
                 )}
               </div>
             )}
           </motion.div>
 
-          {/* Navigation – flat */}
-          <div className="flex items-center justify-between mt-8 pt-4 border-t border-border">
-            <Button variant="ghost" onClick={goPrev} disabled={currentDay === 0} className="gap-1">
+          {/* Navigation bas de page */}
+          <div className="flex items-center justify-between mt-12 pt-5 border-t border-border/60">
+            <Button variant="ghost" size="sm" onClick={goPrev} disabled={isIntro} className="gap-1 text-muted-foreground">
               <ChevronLeft className="h-4 w-4" />
               <span className="hidden sm:inline">{t('neuvaines.previous')}</span>
             </Button>
-            <span className="text-sm text-muted-foreground">
-              {currentDay === 0 ? t('neuvaines.introduction') : currentDay === totalPages - 1 ? t('neuvaines.conclusion') : `${t('neuvaines.day')} ${currentDay} / ${days.length}`}
+            <span className="text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
+              {isIntro ? t('neuvaines.introduction') : isEnd ? t('neuvaines.conclusion') : `${t('neuvaines.day')} ${currentDay} / ${days.length}`}
             </span>
-            <Button variant="ghost" onClick={goNext} disabled={currentDay === totalPages - 1} className="gap-1">
+            <Button variant="ghost" size="sm" onClick={goNext} disabled={isEnd} className="gap-1 text-muted-foreground">
               <span className="hidden sm:inline">{t('neuvaines.next')}</span>
               <ChevronRight className="h-4 w-4" />
             </Button>
