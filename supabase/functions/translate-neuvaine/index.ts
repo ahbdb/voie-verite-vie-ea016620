@@ -68,50 +68,61 @@ Deno.serve(async (req) => {
 
   try {
     if (!LOVABLE_API_KEY) return json({ error: 'AI not configured' }, 500);
-    const { id, langs = ['en', 'it'], force = false } = await req.json();
-    if (!id) return json({ error: 'id required' }, 400);
+    // Une invocation = une seule partie traduite (limite de 150 s par requête).
+    // part : 'meta' | 'prayers' | 'conclusion' | 'day:<index 1-based>'
+    const { id, lang, part = 'meta', force = false } = await req.json();
+    if (!id || !LANG_NAME[lang]) return json({ error: 'id and lang (en|it) required' }, 400);
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data: n, error } = await admin.from('neuvaines').select('*').eq('id', id).single();
     if (error || !n) return json({ error: 'neuvaine not found' }, 404);
 
     const translations: Record<string, any> = (n.translations as any) ?? {};
-    const done: string[] = [];
+    const tr: Record<string, any> = translations[lang] ?? {};
+    const days: any[] = Array.isArray(n.days) ? (n.days as any[]) : [];
 
-    for (const lang of langs as string[]) {
-      if (!LANG_NAME[lang]) continue;
-      if (translations[lang] && !force) { done.push(`${lang} (cached)`); continue; }
-
-      const meta = {
-        title: n.title ?? '',
-        saint_name: n.saint_name ?? '',
-        description: n.description ?? '',
-        introduction: n.introduction ?? '',
-      };
-      const days: any[] = Array.isArray(n.days) ? (n.days as any[]) : [];
-
-      // Séquentiel : le gateway limite fortement les rafales parallèles (429).
-      const metaOut = await translateChunk(meta, lang);
-      const prayersOut = n.common_prayers ? await translateChunk(n.common_prayers, lang) : null;
-      const conclusionOut = n.conclusion ? await translateChunk(n.conclusion, lang) : null;
-      const dayOut: any[] = [];
-      for (const d of days) dayOut.push(await translateChunk(d, lang));
-
-      translations[lang] = {
-        ...metaOut,
-        common_prayers: prayersOut ?? n.common_prayers,
-        conclusion: conclusionOut ?? n.conclusion,
-        days: dayOut.map((d: any, i: number) => ({ ...d, day: days[i]?.day ?? i + 1 })),
-        pdf_url: n.pdf_url,
-        _translated_at: new Date().toISOString(),
-      };
-      done.push(lang);
+    if (part === 'meta') {
+      if (!tr.title || force) {
+        const out = await translateChunk(
+          {
+            title: n.title ?? '',
+            saint_name: n.saint_name ?? '',
+            description: n.description ?? '',
+            introduction: n.introduction ?? '',
+          },
+          lang,
+        );
+        Object.assign(tr, out, { pdf_url: n.pdf_url });
+      }
+    } else if (part === 'prayers') {
+      if ((!tr.common_prayers || force) && n.common_prayers) {
+        tr.common_prayers = await translateChunk(n.common_prayers, lang);
+      }
+    } else if (part === 'conclusion') {
+      if ((!tr.conclusion || force) && n.conclusion) {
+        tr.conclusion = await translateChunk(n.conclusion, lang);
+      }
+    } else if (String(part).startsWith('day:')) {
+      const idx = Number(String(part).slice(4));
+      const src = days[idx - 1];
+      if (!src) return json({ error: `day ${idx} not found` }, 400);
+      const existing: any[] = Array.isArray(tr.days) ? tr.days : [];
+      if (!existing[idx - 1] || force) {
+        const out = await translateChunk(src, lang);
+        existing[idx - 1] = { ...out, day: src.day ?? idx };
+        tr.days = existing;
+      }
+    } else {
+      return json({ error: 'invalid part' }, 400);
     }
+
+    tr._translated_at = new Date().toISOString();
+    translations[lang] = tr;
 
     const { error: upErr } = await admin.from('neuvaines').update({ translations }).eq('id', id);
     if (upErr) return json({ error: upErr.message }, 500);
 
-    return json({ ok: true, id, title: n.title, langs: done });
+    return json({ ok: true, id, lang, part, totalDays: days.length });
   } catch (err) {
     console.error('translate-neuvaine error', err);
     return json({ error: String(err) }, 500);
