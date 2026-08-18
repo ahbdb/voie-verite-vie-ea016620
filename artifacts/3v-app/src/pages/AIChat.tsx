@@ -266,6 +266,8 @@ const AIChat = () => {
           errMsg = errBody.error ?? errMsg;
         } catch {}
         if (res.status === 401) errMsg = t('aiChat.sessionExpired');
+        if (res.status === 402) errMsg = t('aiChat.creditsExhausted');
+        if (res.status === 429) errMsg = t('aiChat.rateLimited');
         toast({ title: t('aiChat.unavailable'), description: errMsg, variant: 'destructive' });
         return;
       }

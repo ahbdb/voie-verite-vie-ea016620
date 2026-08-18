@@ -715,7 +715,9 @@
     "qp3": "Méditation en 5 points sur Jean 14:6.",
     "qp4": "Aide-moi à préparer une lectio divina ce soir.",
     "qp5": "Comment prier le chapelet ? Guide-moi étape par étape.",
-    "qp6": "Quelle est la signification de la Pentecôte ?"
+    "qp6": "Quelle est la signification de la Pentecôte ?",
+    "creditsExhausted": "Les crédits IA de l'application sont épuisés. L'administrateur doit les recharger pour réactiver l'Assistant Numérique.",
+    "rateLimited": "Trop de requêtes en peu de temps. Patientez quelques instants avant de réessayer."
   },
   "registration": {
     "registerActivity": "S'inscrire à l'activité",
