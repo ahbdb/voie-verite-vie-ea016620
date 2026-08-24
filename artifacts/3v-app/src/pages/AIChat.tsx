@@ -7,7 +7,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   Send, User, Mic, MicOff, Paperclip, Trash2, MessageSquare,
   Plus, ArrowLeft, Volume2, VolumeX, X, Copy, Sparkles, PanelLeft,
-  Image as ImageIcon, BookOpen, HandHeart, Cross, Feather, Circle, HelpCircle,
+  Image as ImageIcon, BookOpen, HandHeart, Cross, Feather, Circle, HelpCircle, AlertCircle,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -154,6 +154,7 @@ const AIChat = () => {
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [isThinking, setIsThinking] = useState(false);
+  const [serviceError, setServiceError] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -236,10 +237,10 @@ const AIChat = () => {
     await loadConversations();
   };
 
-  const streamChat = async (userMessage: Message, convId: string) => {
+  const streamChat = async (userMessage: Message, convId: string): Promise<boolean> => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) return false;
       const ctrl = new AbortController();
       abortRef.current = ctrl;
 
@@ -259,17 +260,29 @@ const AIChat = () => {
 
       const res = await fetch(SUPABASE_AI_URL, { method: 'POST', headers, body, signal: ctrl.signal });
 
-      if (!res.ok || !res.body) {
+      const contentType = res.headers.get('content-type') ?? '';
+      if (contentType.includes('application/json')) {
         let errMsg = t('aiChat.connectionError');
+        let gatewayStatus = res.status;
         try {
-          const errBody = await res.json();
+          const errBody = await res.json() as { error?: string; gateway_status?: number };
+          gatewayStatus = errBody.gateway_status ?? gatewayStatus;
           errMsg = errBody.error ?? errMsg;
         } catch {}
-        if (res.status === 401) errMsg = t('aiChat.sessionExpired');
-        if (res.status === 402) errMsg = t('aiChat.creditsExhausted');
-        if (res.status === 429) errMsg = t('aiChat.rateLimited');
+        if (gatewayStatus === 401) errMsg = t('aiChat.sessionExpired');
+        if (gatewayStatus === 402) errMsg = t('aiChat.creditsExhausted');
+        if (gatewayStatus === 403) errMsg = t('aiChat.policyBlocked');
+        if (gatewayStatus === 429) errMsg = t('aiChat.rateLimited');
+        setServiceError(errMsg);
         toast({ title: t('aiChat.unavailable'), description: errMsg, variant: 'destructive' });
-        return;
+        return false;
+      }
+
+      if (!res.ok || !res.body) {
+        const errMsg = res.status === 429 ? t('aiChat.rateLimited') : t('aiChat.connectionError');
+        setServiceError(errMsg);
+        toast({ title: t('aiChat.unavailable'), description: errMsg, variant: 'destructive' });
+        return false;
       }
 
       const reader = res.body.getReader();
@@ -311,9 +324,17 @@ const AIChat = () => {
       }
       setIsThinking(false);
       if (reply) await saveMessage(convId, 'assistant', reply);
+      setServiceError(null);
+      return Boolean(reply);
     } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') { toast({ title: t('aiChat.interrupted') }); return; }
-      toast({ title: t('common.error'), variant: 'destructive' });
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        toast({ title: t('aiChat.interrupted') });
+        return false;
+      }
+      const errMsg = t('aiChat.connectionError');
+      setServiceError(errMsg);
+      toast({ title: t('common.error'), description: errMsg, variant: 'destructive' });
+      return false;
     } finally {
       abortRef.current = null;
     }
@@ -334,7 +355,8 @@ const AIChat = () => {
     setUploadedFile(null);
     setIsLoading(true);
     await saveMessage(convId, 'user', fullContent);
-    await streamChat(msg, convId);
+    const succeeded = await streamChat(msg, convId);
+    if (!succeeded) setInput(text);
     await loadConversations();
     setIsLoading(false);
   };
@@ -578,6 +600,21 @@ const AIChat = () => {
             <div className="max-w-2xl mx-auto space-y-2">
 
               {/* File/image preview */}
+              {serviceError && (
+                <div role="alert" className="flex items-start gap-2.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-destructive">
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <p className="flex-1 text-xs leading-relaxed">{serviceError}</p>
+                  <button
+                    type="button"
+                    onClick={() => setServiceError(null)}
+                    title={t('common.close')}
+                    className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md hover:bg-destructive/10"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+
               {uploadedFile && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-white/[0.05] border border-white/[0.08] rounded-xl text-[11px]">
                   {uploadedFile.previewUrl
