@@ -717,6 +717,7 @@
     "qp5": "Come si prega il rosario? Guidami passo per passo.",
     "qp6": "Qual è il significato della Pentecoste?",
     "creditsExhausted": "I crediti IA dell'applicazione sono esauriti. L'amministratore deve ricaricarli per riattivare l'Assistente Digitale.",
+    "policyBlocked": "L'Assistente Digitale è disattivato dalla politica dello spazio. Un amministratore deve riattivarlo.",
     "rateLimited": "Troppe richieste in poco tempo. Attendi qualche istante prima di riprovare."
   },
   "registration": {

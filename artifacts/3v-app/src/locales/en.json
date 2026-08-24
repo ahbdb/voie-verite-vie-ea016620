@@ -717,6 +717,7 @@
     "qp5": "How do I pray the rosary? Guide me step by step.",
     "qp6": "What is the meaning of Pentecost?",
     "creditsExhausted": "The app's AI credits are exhausted. The administrator must top them up to reactivate the Digital Assistant.",
+    "policyBlocked": "The Digital Assistant is disabled by workspace policy. An administrator must reactivate it.",
     "rateLimited": "Too many requests in a short time. Please wait a moment before trying again."
   },
   "registration": {

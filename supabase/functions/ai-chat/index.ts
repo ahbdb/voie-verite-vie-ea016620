@@ -111,15 +111,33 @@ Deno.serve(async (req) => {
 
     if (!aiRes.ok || !aiRes.body) {
       const detail = await aiRes.text().catch(() => '');
-      const status = aiRes.status === 429 || aiRes.status === 402 ? aiRes.status : 500;
+      const status = [400, 401, 402, 403, 429].includes(aiRes.status) ? aiRes.status : 500;
       console.error('ai-chat gateway error', aiRes.status, detail);
-      return new Response(JSON.stringify({
-        error: status === 429
-          ? 'Trop de requêtes, réessaie dans un instant.'
-          : status === 402
-          ? 'Crédits IA épuisés.'
-          : 'Assistant momentanément indisponible.',
-      }), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      const error = status === 429
+        ? 'Trop de requêtes, réessaie dans un instant.'
+        : status === 402
+        ? 'Crédits IA épuisés.'
+        : status === 403
+        ? 'Assistant bloqué par la politique de l’espace.'
+        : 'Assistant momentanément indisponible.';
+
+      // Une réponse HTTP 402 de fonction est transformée en erreur d'exécution par
+      // certains clients et peut déclencher leur écran d'erreur global. Le statut
+      // amont reste explicite dans l'enveloppe afin que l'interface applique le
+      // circuit breaker sans masquer la cause réelle.
+      if (status === 402 || status === 403) {
+        return new Response(JSON.stringify({
+          error,
+          gateway_status: status,
+          retryable: false,
+          requires: status === 402 ? 'top_up' : 'admin_action',
+        }), { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } });
+      }
+
+      return new Response(JSON.stringify({ error }), {
+        status,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
     }
 
     // Le gateway renvoie déjà du SSE OpenAI-compatible : passthrough direct.
