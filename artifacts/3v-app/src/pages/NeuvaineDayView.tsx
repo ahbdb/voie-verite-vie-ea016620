@@ -76,7 +76,10 @@ const NeuvaineDayView = () => {
         description: tr.description || neuvaine.description,
         introduction: tr.introduction || neuvaine.introduction,
         common_prayers: tr.common_prayers || neuvaine.common_prayers,
-        days: Array.isArray(tr.days) ? tr.days : neuvaine.days,
+        // Traduction partielle possible : on retombe sur le FR jour par jour
+        days: Array.isArray(tr.days)
+          ? neuvaine.days.map((d, i) => tr.days[i] ?? d)
+          : neuvaine.days,
         conclusion: tr.conclusion || neuvaine.conclusion,
         pdf_url: tr.pdf_url || neuvaine.pdf_url,
       };
