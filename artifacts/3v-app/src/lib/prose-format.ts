@@ -73,10 +73,10 @@ export const formatProse = (raw?: string | null): ProseBlock[] => {
   if (!raw) return [];
   const blocks: ProseBlock[] = [];
 
-  const segments = raw
-    .split(/\n{2,}/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  // Les sauts de ligne du PDF coupent parfois une même énumération en deux
+  // blocs : on travaille donc sur le texte entier, normalisé.
+  const segments = [raw.replace(/\s+/g, ' ').trim()].filter(Boolean);
+
 
   for (const segment of segments) {
     // 1. isolate numbered steps
