@@ -6,6 +6,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY') ?? '';
+// Clé Gemini fournie par l'administrateur : prioritaire sur le gateway Lovable.
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
@@ -83,21 +85,32 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!LOVABLE_API_KEY) {
+    if (!GEMINI_API_KEY && !LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: 'AI not configured' }), {
         status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
 
-    const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Gemini expose un endpoint compatible OpenAI : le SSE reste identique côté client.
+    const useGemini = Boolean(GEMINI_API_KEY);
+    const endpoint = useGemini
+      ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+      : 'https://ai.gateway.lovable.dev/v1/chat/completions';
+
+    const aiRes = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Lovable-API-Key': LOVABLE_API_KEY,
-        'X-Lovable-AIG-SDK': 'fetch',
-      },
+      headers: useGemini
+        ? {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${GEMINI_API_KEY}`,
+          }
+        : {
+            'Content-Type': 'application/json',
+            'Lovable-API-Key': LOVABLE_API_KEY,
+            'X-Lovable-AIG-SDK': 'fetch',
+          },
       body: JSON.stringify({
-        model: 'google/gemini-3.6-flash',
+        model: useGemini ? 'gemini-2.5-flash' : 'google/gemini-3.6-flash',
         stream: true,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT + languageDirective(lang) },
