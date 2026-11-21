@@ -47,7 +47,9 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    // Lovable serves the workspace-level dist directory, including when it
+    // invokes Vite directly instead of going through the package scripts.
+    outDir: path.resolve(import.meta.dirname, "../../dist"),
     emptyOutDir: true,
   },
   server: {
